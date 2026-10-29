@@ -95,10 +95,6 @@ export class BenchRunner {
     }
   }
 
-  get wantsXr(): boolean {
-    return this.xrWanted === true;
-  }
-
   /** Advance the phase for a frame at time tMs; returns what perf must do now. */
   tick(tMs: number, ready: boolean, presenting: boolean): BenchSignal | null {
     this.lastT = tMs;

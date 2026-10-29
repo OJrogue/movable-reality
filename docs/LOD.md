@@ -137,10 +137,9 @@ splats on desktop and 8M on other mobile). The nearest meshes' root chunks come 
 (line 12866). Two file layouts work:
 
 - a single `.rad`: header and chunks are fetched with `Range: bytes=...`. The Vite dev
-  server in `web/vite.config.ts` ignores Range and answers 200 with the whole file. On the
-  demo (one chunk per mesh) Spark still drew a full 20,000-splat cut that way (headless
-  check), but each request then downloads the whole file, so use chunked files or a host
-  that honours Range (most static hosts do) for real scenes.
+  server in `web/vite.config.ts` answers Range with 206 since 29 Oct (before that it sent
+  the whole file, which breaks files of more than one chunk). A host for the demo must
+  honour Range too (most static hosts do).
 - `build-lod --rad-chunked`: a small `x-lod.rad` header plus `x-lod-0.radc`, `-1.radc`,
   ... each fetched as a whole file. This works on any static host. Checked headless on a
   copy of the demo: all four meshes streamed and drew a 20,000-splat cut.
