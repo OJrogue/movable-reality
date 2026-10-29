@@ -142,11 +142,16 @@ def test_failure_without_output_raises(tmp_path):
         build_scene_lod(path, silent, log=lambda _: None)
 
 
-@pytest.mark.skipif(find_build_lod() is None, reason="Spark build-lod not built on this machine")
+REAL_BUILD_LOD = find_build_lod()
+
+
+@pytest.mark.skipif(REAL_BUILD_LOD is None, reason="run scripts/build_lod.py --setup first")
 def test_real_build_lod_on_synthetic_ply(tmp_path):
+    assert REAL_BUILD_LOD is not None
     path = make_scene(tmp_path / "scene", {"chair#1": 2000})
-    results = build_scene_lod(path, find_build_lod(), log=lambda _: None)
+    results = build_scene_lod(path, REAL_BUILD_LOD, log=lambda _: None)
     chair = next(r for r in results if r.ply.endswith("chair_1.ply"))
     header = read_rad_header(tmp_path / "scene" / chair.rad)
     assert header.lod_tree and header.stats["input_splat_count"] == 2000
-    assert header.count >= 2000  # leaves plus interior nodes, minus pruned ones
+    # Leaves plus interior nodes; build-lod prunes a few, but a tree is larger than its input.
+    assert header.count > 2000

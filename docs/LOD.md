@@ -53,10 +53,11 @@ Every frame `SparkRenderer.driveLod` (line 12654):
 - collects the visible `SplatMesh`es that have `lodSplats` (or are paged) and do not have
   `enableLod === false`;
 - sets `maxSplats = (lodSplatCount ?? platform default) * lodSplatScale`. The platform
-  default (`defaultSplatTarget`, line 12651) is 500K on Oculus browsers, 750K on Vision
-  Pro, 1M on Android, 1.5M on iOS and 2.5M otherwise. The Steam Frame and Pico browsers
-  are not "Oculus", so they get the Android 1M (or the desktop 2.5M if the UA string has
-  no "Android"): **the renderer lane should set `lodSplatCount` per device explicitly**;
+  default (`defaultSplatTarget`, line 12651) is 500K when the user agent has "Oculus"
+  and WebXR exists, 750K on Vision Pro, 1M on Android, 1.5M on iOS and 2.5M otherwise.
+  Only the Meta Quest Browser matches the first rule; the Chromium XR build on the Steam
+  Frame and Pico Browser fall to 1M or 2.5M depending on their user-agent strings (not
+  checked on the devices). **The renderer lane should set `lodSplatCount` per device**;
 - sets `pixelScaleLimit` from the projection matrix, render height and `lodRenderScale`;
 - calls the worker's `traverseLodTrees` once with one instance per mesh (line 12815).
 
@@ -182,11 +183,14 @@ Measured times:
 | demo object, 4,000 splats, SH 0 | quality | 0.03 s | 103 KB, 7,486 nodes |
 | demo background, 24,000 splats | quality | 0.15 s | 165 KB, 46,964 nodes |
 | synthetic 1M splats, SH 3 (236 MB PLY) | quality | 27.6 s | 68 MB, 1.46M nodes |
-| synthetic 1M splats, SH 3 | quick | 8.8 s | 74 MB |
+| synthetic 1M splats, SH 3 | quick | 8.8 s | 74 MB, 1.59M nodes |
 
-A real room of 3-5M splats split into ~20 objects should take a few minutes with
-`--quality` on a laptop, so it belongs in the pipeline after the split (stage 5) and after
-object completion (stage 6), not on the headset.
+Wall time includes reading the PLY and writing the file; the tree build itself
+(`lod_duration` in the `.RAD` comment) was 22.0 s and 3.6 s.
+
+Extrapolating linearly (not measured), a room of 3-5M splats split into ~20 objects should
+take 1.5-3 min with `--quality` on 2 cores, less on a laptop. It belongs in the pipeline
+after the split (stage 5) and after object completion (stage 6), not on the headset.
 
 ### Using it
 
@@ -226,7 +230,7 @@ build survive. On Modal the same script runs on a CPU container once the image h
 
 - Device numbers: none yet. The headless check uses SwiftShader at 1-2 frames per second
   after load, so it says nothing about frame time.
-- The platform budget default does not recognise the Steam Frame or Pico 4 as XR devices.
+- The platform budget default only recognises the Quest browser as an XR device.
 - Priority strength: 2.0 is a guess; tune on the headset with the budget controller.
 - `lodCleanupTimeoutMs` vs remove/restore (see above).
 - `completed_ply` (stage 6): build its `.RAD` too when M4 lands; the manifest has no
