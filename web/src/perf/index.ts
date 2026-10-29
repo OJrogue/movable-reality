@@ -238,6 +238,7 @@ export function installPerf(ctx: ViewerContext): PerfHandle {
       xr_supported_frame_rates: session?.supportedFrameRates
         ? Array.from(session.supportedFrameRates)
         : null,
+      xr_fixed_foveation: session ? (ctx.renderer.xr.getFoveation() ?? null) : null,
     };
   };
 
@@ -321,7 +322,11 @@ export function installPerf(ctx: ViewerContext): PerfHandle {
     if (a === "mode") setMode(mode === "lod" ? "naive" : "lod");
     else if (a === "hud") hud.toggle();
     else if (a === "budget") toggleBudget();
-    else if (a === "save") void save();
+    else if (a === "save") {
+      // A partial bench log would look like a finished run; the bench saves on its own.
+      if (bench) say("bench saves its log at the end of the run");
+      else void save();
+    }
   };
 
   // ---- per-frame work

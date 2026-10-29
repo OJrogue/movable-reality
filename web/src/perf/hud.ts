@@ -143,9 +143,11 @@ export class Hud {
     const { w, h } = PANEL_PX;
     g.clearRect(0, 0, w, h);
     g.fillStyle = "rgba(0, 0, 0, 0.72)";
-    g.beginPath();
-    g.roundRect(0, 0, w, h, 18);
-    g.fill();
+    if (typeof g.roundRect === "function") {
+      g.beginPath();
+      g.roundRect(0, 0, w, h, 18);
+      g.fill();
+    } else g.fillRect(0, 0, w, h); // older headset browsers
     g.font = "600 30px ui-monospace, Menlo, Consolas, monospace";
     g.textBaseline = "top";
     lines.slice(0, 8).forEach((line, i) => {

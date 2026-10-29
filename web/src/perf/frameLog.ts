@@ -25,6 +25,8 @@ export interface DisplayInfo {
   xr_framebuffer_scale: number | null;
   xr_frame_rate: number | null;
   xr_supported_frame_rates: number[] | null;
+  /** Fixed foveation of the XR layer, 0 (off) to 1 (three.js default), if exposed. */
+  xr_fixed_foveation: number | null;
 }
 
 export interface LodSettings {
