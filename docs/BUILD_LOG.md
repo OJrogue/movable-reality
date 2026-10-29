@@ -262,3 +262,7 @@ This log is the record of what was built during the hackathon (26 Oct to 4 Nov 2
   object PLY deleted shows the 404 in the status line while the HUD and budget controller
   run. Not run on a headset.
 - Added `.claude/launch.json` (dev server for Claude Code's browser preview).
+- Decisions with OJ, recorded as D15 to D17 in `docs/HANDOFF.md`: evaluation metrics
+  with no Meta equivalent (LPIPS) are allowed; the build order follows the headset days
+  (`docs/PLAN.md`, "Build order"); C2 builds a full reconstruction rerun first and the
+  fast fine-tune path second. The Muse Code notes in README and AGENTS.md are shorter.

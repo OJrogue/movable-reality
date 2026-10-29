@@ -1,8 +1,8 @@
 # Plan
 
 All times Prague. Hard deadline Thu 5 Nov 03:00. Own deadline: submit Wed 4 Nov 20:00.
-Updated 29 Oct: nothing is cut; build lanes run in parallel; the freeze below is a
-suggestion, not a rule. This file is the plan agents follow.
+Updated 29 Oct: nothing is cut. The freeze is a suggestion, not a rule. This file is the
+plan agents follow.
 
 ## Frontier claim
 
@@ -13,23 +13,59 @@ Meta's own on-device splat path renders one splat at a time and advises staying 
 150k splats; Hyperscape relies on cloud rendering. This renders a multi-million-splat,
 object-separated room locally.
 
-## Lanes and milestones
+## Build order (29 Oct, replaces the day-by-day lane table)
 
-| Day | Core (M) | Coverage (C) | Renderer (R) | Ship |
-|---|---|---|---|---|
-| Thu 29 | M1: one real room reconstructed end to end on Modal; smoke tests | | R0: Spark viewer in WebXR on the Frame and the Pico 4; FPS logged at 50k, 150k, 300k, 600k splats; main device chosen | |
-| Fri 30 | M2: per-object ids from SAM 3.1 (`lift_ids`), per-object PLYs, floor alignment | C1: gap map from view counts, angle spread and residual uncertainty, visible in the viewer | R1: one `.RAD` tree per object, joint LOD cut, priority for the targeted object | |
-| Sat 31 | M3: agent tools, server + WebSocket, verifier | C2: next-best-view prompt; 10 s top-up registered with MapAnything; fine-tune | R2: floor and ceiling baked to opaque planes, depth-tested with splats | |
-| Sun 1 | M4: insert path and SAM 3D Objects completion | C3: Muse Image repairs distilled back and tagged; compared with no repair on the test walk | R3: budget controller holds 13.9 ms on the walk path | |
-| Mon 2 | M5: voice; all three scenes run end to end | | R4: 10 min logs for every ablation step on both devices, plus coverage metrics | Freeze 20:00 (suggested) |
-| Tue 3 | | | | Record video; draft submission by 20:00 (last troubleshooting day) |
-| Wed 4 | | | | Final cut, README; submit by 20:00; X post |
+Milestone names stay as before: core M1-M5, coverage C1-C3, renderer R0-R4, lod L1-L3,
+bake B1-B3 (tasks in `docs/HANDOFF.md` section 5). The order follows two facts. Every
+lane after M1 needs a real reconstructed room, and the headset is only available on some
+days. So the chain capture, M1, M2, M3 comes first, and headset work goes on the days
+that have a headset. Nothing is cut. If time runs out, the items at the end of the list
+go first.
 
-The `lod` and `bake` work feed R1 and R2. Before real scenes exist, every lane develops
-against the synthetic `demo` scene and synthetic splat sets.
+1. **Thu 29, evening (low usage limits).** Setup on the Mac (Rust, adb, Modal token,
+   `.env`), smoke tests, and filming the rooms plus their test walks. If there is time,
+   start M1 on room01, because the first Modal image build takes long.
+2. **Fri 30 (headset).** R0 on both headsets: the device baseline and the choice of main
+   device. M1 on room01 in parallel, with the image fixes the first run needs. Set the
+   per-device starting budgets from the R0 logs. By the evening `?scene=room01` should
+   show a metric room.
+3. **Sat 31 (OJ away, no headset).** Sessions run on their own, all on room01, with
+   nothing that needs the headset or OJ.
+   - M2: inventory, SAM 3.1, `lift_ids` with labels and the support rule, floor
+     alignment.
+   - M3: agent tools, server and WebSocket, verifier.
+   - C1 on room01.
+   - L1 and L2 in the lod lane, B1 in the bake lane.
+   - Each session opens a PR. OJ merges on Sunday.
+4. **Sun 1 (headset).**
+   - R1 to R3 on room01 (per-object trees, baked planes, controller on the walk path).
+   - C2, first version: full rerun of M1 on the original plus top-up frames (see below).
+   - M4: insert and completion.
+5. **Mon 2 (headset).** M5 voice, all scenes end to end, C3 Muse Image repair and tags,
+   R4 benchmark logs. Suggested freeze 20:00.
+6. **Tue 3 to Wed 4.** Video, README and submission (dates under Ship below). Only fixes,
+   unless an item from step 4 or 5 is still open.
 
-If a lane slips a day, move the freeze to Tue 3 Nov 12:00 at the latest and record that
-afternoon. Nothing is dropped; `docs/ARCHITECTURE.md` lists a fallback for each part.
+### C2 recapture: quality first, then speed
+
+1. **Full rerun (build first).** Add the top-up frames to the original frames and run
+   `reconstruct.py` from scratch: MapAnything on all frames, then gsplat from the start.
+   A joint solve gives the best poses and the cleanest splats, and it reuses M1 with
+   little new code. Cost: one full reconstruction per top-up (minutes, measured in M1).
+   Objects (M2) and coverage (C1) are then recomputed.
+2. **Fast path (second, for the "minutes, not hours" claim).** MapAnything registers only
+   the top-up against the existing cameras, then gsplat fine-tunes the trained scene for a
+   few thousand steps. Build it only after the full rerun works. Compare the two on the
+   test walk (benchmark 7). The demo uses the fast path only if its PSNR and LPIPS come
+   within about 0.5 dB of the full rerun.
+
+### Ship
+
+- Tue 3: record the video, draft submission by 20:00 (last troubleshooting day).
+- Wed 4: final cut, README, submit by 20:00, X post.
+
+Before real scenes exist, every lane develops against the synthetic `demo`, `cov_synth`,
+`bakedemo` and `bench_*` scenes. `docs/ARCHITECTURE.md` lists a fallback for each part.
 
 ## Capture
 

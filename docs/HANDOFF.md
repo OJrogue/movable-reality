@@ -37,12 +37,15 @@ Chromium (about 1 FPS, so no performance meaning).
 | D12 | Items resting on furniture belong to that furniture (support rule in `lift_ids`, task C-M2). | OJ agreed |
 | D13 | Main demo room: living room or bedroom. Second: a different layout (L-shaped or with a doorway). Optional third: kitchen, for the "does it fit" insert. No bathroom (mirrors, glass, fixed fixtures). | OJ agreed |
 | D14 | Steam Frame: OJ already has a Chromium XR build with WebXR on it; no install needed. | OJ |
+| D15 | Evaluation metrics with no Meta equivalent (LPIPS in gsplat's trainer and in the benchmarks) may use their usual networks. Only product runtime models must be Meta models. | OJ, 29 Oct |
+| D16 | Build order: capture, M1, M2 and M3 first; headset work on headset days (PLAN, "Build order"). | OJ asked for the best order, 29 Oct |
+| D17 | C2 first does a full reconstruction rerun on all frames (best quality); the fast fine-tune path comes second and replaces it in the demo only if it comes close. | OJ, 29 Oct |
 
 Still open, OJ decides: **feature freeze date** (suggested Mon 2 Nov 20:00, the latest that
 leaves Tue for the video), **borrowing a Quest 2** for one Meta-headset clip, **hosting** of
 the demo (needs chunked `.RAD` or HTTP Range support, see `docs/LOD.md`).
 
-## 3. Tonight
+## 3. Next steps (tonight and Fri 30)
 
 ### 3.1 Setup on the Mac (once)
 1. Tools: git, Python 3.12 with uv, Node 22 or later, ffmpeg, Rust/cargo (for
@@ -67,7 +70,7 @@ the demo (needs chunked `.RAD` or HTTP Range support, see `docs/LOD.md`).
   used for training; it measures off-path quality (benchmark 7 in `docs/PLAN.md`).
 - Raw files go to `data/raw/` (gitignored), e.g. `room01.mp4`, `room01_test.mp4`.
 
-### 3.3 R0 device baseline (`docs/DEVICES.md` section 8)
+### 3.3 R0 device baseline, Fri 30 with the headset (`docs/DEVICES.md` section 8)
 `uv run python scripts/bench_make_splats.py`, then `cd web && npm run dev`.
 Pico 4: `adb reverse tcp:5173 tcp:5173`, open `http://localhost:5173/r0` in Pico Browser.
 Steam Frame: `MR_HTTPS=1 npm run dev`, open `https://<pc-ip>:5173/r0` in Chromium XR
@@ -82,17 +85,11 @@ popping when objects move.
 Modal image build to need fixes on the first run (never run so far). Then try
 `build_lod.py room01` and the viewer on the headset.
 
-## 4. Schedule (unchanged from `docs/PLAN.md`, shifted by the late start of capture)
+## 4. Schedule
 
-| Day | Core | Coverage | Renderer, lod, bake | Ship |
-|---|---|---|---|---|
-| Thu 29 | Setup, filming, M1 | Finish PR | R0 on both headsets | |
-| Fri 30 | M2 (lift_ids, labels, support rule, floor alignment) | Run on room01; C2 groundwork | L1, B1; LOD and bake on room01 | |
-| Sat 31 | M3 (agent tools, server, verifier) | C2 recapture loop | Tune from R0 data | |
-| Sun 1 | M4 (insert, SAM 3D Objects, completed swap) | C3 Muse Image repair + tag | R3 on device | |
-| Mon 2 | M5 (voice, all scenes) | Coverage metrics | R4 benchmarks | Freeze (OJ decides) |
-| Tue 3 | | | | Video; draft submission by 20:00 |
-| Wed 4 | | | | Final cut, README; submit by 20:00 |
+See `docs/PLAN.md`, "Build order". In short: Fri 30 and Sun 1 to Wed 4 have the headset.
+Sat 31 OJ is away, so that day's sessions run M2, M3, C1, L1, L2 and B1 on room01 without
+the headset.
 
 ## 5. Tasks by lane
 
