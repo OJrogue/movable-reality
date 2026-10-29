@@ -156,6 +156,10 @@ splats; default 500K-750K in WebXR), `lodSplatScale`, `lodRenderScale` (minimum 
 size in pixels, 1 to 5) and `lodTraverseMode`. The npm package ships no `build-lod`
 binary, so the precomputed `.RAD` path needs Spark's repo tooling; until then, build at
 load time with `lod: true`. Fork the traversal (MIT) only if these controls fall short.
+Status 29 Oct (lane lod): `scripts/build_lod.py` builds Spark's `build-lod` with cargo and
+writes one `.RAD` per object; the viewer falls back to `lod: true` when a tree is missing.
+Moves trigger no rebuild, but Spark does not re-traverse on a one-frame move or a
+`lodScale` change, so `web/src/lod/` requests a traversal. Details: `docs/LOD.md`.
 
 ### 12. Plane baking (lane: bake)
 Fit planes to the Gaussians labelled floor and ceiling (RANSAC on centres, inside the
