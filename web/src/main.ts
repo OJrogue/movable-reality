@@ -9,6 +9,7 @@
 import * as THREE from "three";
 import { SparkControls, SparkRenderer, SparkXr, SplatMesh } from "@sparkjsdev/spark";
 import { createViewerContext } from "./context";
+import { installCoverage } from "./coverage";
 import { installLod } from "./lod";
 import { installPlanes } from "./planes";
 import { matrixFromRows, OPENCV_TO_Y_UP, SceneView, type SceneManifest } from "./scene";
@@ -62,7 +63,7 @@ const status = (msg: string) => {
 // ---- Lane installs (one call per lane, in this order) ----
 installPlanes(ctx); // lane bake
 installLod(ctx); // lane lod
-// installCoverage(ctx);  // lane coverage
+installCoverage(ctx); // lane coverage: gap overlay (?gaps=1, key G, XR squeeze)
 installPerf(ctx); // lane renderer: HUD, frame log, budget controller, bench mode
 // ----------------------------------------------------------
 
