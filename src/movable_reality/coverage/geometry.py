@@ -2,7 +2,7 @@
 range of directions; for every voxel, whether some view saw it as free space.
 
 Per view (vectorised numpy, chunked over Gaussians):
-1. Project every Gaussian centre into a coarse copy of the camera (long side ~160 px).
+1. Project every Gaussian centre into a coarse copy of the camera (long side 256 px).
 2. Build a coarse depth map from opaque Gaussians (a random subset when there are many):
    each writes its depth into the pixels its footprint covers (radius ~1.5 sigma of its
    largest scale, at most 3 px), keeping the minimum.
@@ -31,7 +31,7 @@ from .cameras import Camera
 
 @dataclass(frozen=True)
 class DepthParams:
-    long_side: int = 160  # coarse depth map resolution (pixels, long side)
+    long_side: int = 256  # coarse depth map resolution (pixels, long side)
     near: float = 0.05  # metres
     far: float = 12.0  # Gaussians further than this do not count as seen
     occluder_min_opacity: float = 0.5  # only these write into the depth map
@@ -40,7 +40,7 @@ class DepthParams:
     max_footprint_px: int = 3
     rel_tol: float = 0.02  # visibility tolerance: share of depth
     px_tol: float = 1.5  # + this many coarse pixel footprints
-    slope_k: float = 1.0  # + this many times the local depth change per pixel
+    slope_k: float = 2.0  # + this many times the local depth change per pixel
     slope_cap: float = 0.1  # local slope is capped at this share of depth per pixel
     carve_rel_tol: float = 0.01  # free-space carving tolerance: share of depth
     carve_px_tol: float = 1.0  # + this many coarse pixel footprints
@@ -161,8 +161,10 @@ def carve_voxels(cam: Camera, depth: np.ndarray, centres: np.ndarray, p: DepthPa
     out = np.zeros(len(centres), dtype=bool)
     idx = np.nonzero(ok)[0]
     d = depth[v[idx] * cam.width + u[idx]]
+    fin = np.isfinite(d)
+    idx, d = idx[fin], d[fin]
     tol = p.carve_rel_tol * d + p.carve_px_tol * d / float(cam.K[0, 0]) + p.carve_abs_tol
-    out[idx] = np.isfinite(d) & (z[idx] < d - tol)
+    out[idx] = z[idx] < d - tol
     return out
 
 
