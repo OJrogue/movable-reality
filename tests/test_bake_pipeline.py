@@ -166,3 +166,9 @@ def test_missing_labels_is_nothing_to_bake(tmp_path):
     assert r.status == "nothing to bake"
     assert all(p.status.startswith("skipped") for p in r.planes)
     assert (tmp_path / "scene.json").read_text() == before
+
+
+def test_scene_without_ids_fails_clearly(tmp_path):
+    Scene(scene_id="demo").save(tmp_path / "scene.json")
+    with pytest.raises(FileNotFoundError, match="gaussian_ids.npy"):
+        bake_scene(tmp_path, OPTS, log=lambda _: None)

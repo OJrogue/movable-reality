@@ -61,7 +61,11 @@ def main() -> int:
         max_tilt_deg=args.max_tilt,
         image_format=args.format,
     )
-    report = bake_scene(out, opts, force=args.force)
+    try:
+        report = bake_scene(out, opts, force=args.force)
+    except (FileNotFoundError, ValueError) as exc:
+        print(f"{args.scene}: {exc}", file=sys.stderr)
+        return 1
     if report.status == "skipped":
         print(f"{args.scene}: planes already baked (pass --force to bake again)")
         return 0

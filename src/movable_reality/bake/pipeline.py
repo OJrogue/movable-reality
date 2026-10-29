@@ -139,6 +139,12 @@ def bake_scene(
         return BakeReport(status="skipped", background_ply=scene.background_ply)
 
     source_bg = scene.plane_bake.source_background_ply if scene.plane_bake else scene.background_ply
+    for rel in (IDS_PATH, IDS_PLY, source_bg):
+        if not (scene_dir / rel).is_file():
+            raise FileNotFoundError(
+                f"{scene_dir / rel} missing: the bake needs the trained scene, per-Gaussian ids"
+                " and the background split (stage 5, lift_ids)"
+            )
     ids = np.load(scene_dir / IDS_PATH)
     full = gaussians.read_ply(scene_dir / IDS_PLY)
     verts = gaussians.vertices(full)
