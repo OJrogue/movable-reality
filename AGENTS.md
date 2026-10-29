@@ -153,6 +153,10 @@ cd web && npm test                             # viewer unit tests (vitest), pur
 uv run python scripts/build_lod.py --setup     # lod: build Spark's build-lod once (git + Rust/cargo, ~2 min)
 uv run python scripts/build_lod.py demo        # lod: one .RAD per object -> lod/, sets lod fields (--force, --method quick)
 # viewer LOD: ?mode=naive (LOD off), ?lodPriority=2, ?lodRamp=300, ?lodPaged=1, ?lodSplatCount=<n>; see docs/LOD.md
+uv run python scripts/bake_planes.py --scene bakedemo --synthetic   # bake: synthetic room, then bake floor + ceiling
+uv run python scripts/bake_planes.py --scene room01   # bake: planes/<label>.glb + reduced background (--force, --labels floor, --revert)
+uv run modal run modal_jobs/bake.py --scene room01    # bake: same stage, gsplat ortho rasterizer on an L4 (not yet run)
+# bake depth check (dev server): http://localhost:5173/src/planes/depthcheck.html?case=behind|front|both|crossing
 ```
 
 Lanes add their own commands here in their PR.

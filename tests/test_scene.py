@@ -3,7 +3,7 @@ import math
 
 import pytest
 
-from movable_reality.scene import BakedPlane, Coverage, Gap, Scene, SceneObject
+from movable_reality.scene import BakedPlane, Coverage, Gap, PlaneBake, Scene, SceneObject
 
 
 def make_scene() -> Scene:
@@ -92,13 +92,47 @@ def test_lane_sections_roundtrip(tmp_path):
     assert loaded.coverage is not None and loaded.coverage.gaps[0].status == "open"
 
 
+def test_plane_bake_section_roundtrip(tmp_path):
+    s = make_scene()
+    s.planes.append(
+        BakedPlane(
+            id="floor",
+            label="floor",
+            mesh="planes/floor.glb",
+            removed_splats=120,
+            normal=(0.0, 1.0, 0.0),
+            offset=0.0,
+            corners=[(0.0, 0.0, 0.0), (4.0, 0.0, 0.0), (4.0, 0.0, -5.0), (0.0, 0.0, -5.0)],
+            texel_m=0.005,
+            texture_px=(800, 1000),
+            fit_rms_m=0.003,
+            filled_fraction=0.05,
+        )
+    )
+    s.plane_bake = PlaneBake(
+        source_background_ply="objects/background.ply",
+        background_ply="objects/background_baked.ply",
+        removed_splats=120,
+    )
+    s.background_ply = s.plane_bake.background_ply
+    path = tmp_path / "scene.json"
+    s.save(path)
+    loaded = Scene.load(path)
+    assert loaded == s
+    assert loaded.plane_bake is not None and loaded.plane_bake.ids == "ids/gaussian_ids.npy"
+    # The minimal plane written before these fields existed still loads.
+    old = BakedPlane.model_validate({"id": "f", "label": "floor", "mesh": "planes/f.glb"})
+    assert old.corners == [] and old.normal is None and old.filled_fraction == 0.0
+
+
 def test_manifest_without_lane_sections_still_loads(tmp_path):
     path = tmp_path / "scene.json"
     data = make_scene().model_dump()
-    for key in ("background_lod", "planes", "coverage"):
+    for key in ("background_lod", "planes", "plane_bake", "coverage"):
         data.pop(key)
     for obj in data["objects"]:
         obj.pop("lod")
     path.write_text(json.dumps(data), encoding="utf-8")
     loaded = Scene.load(path)
     assert loaded.planes == [] and loaded.coverage is None and loaded.background_lod is None
+    assert loaded.plane_bake is None
