@@ -182,29 +182,34 @@ export function installPerf(ctx: ViewerContext): PerfHandle {
   const xrScale = ctx.xrFramebufferScale;
   const wantHz = Number(p.get("hz"));
   let estimateFrom: number | null = null;
+  // Target sources, strongest first: ?target= ("url"), XRSession.frameRate ("xr"), the
+  // display rate estimated from steady frames ("estimate"), 13.9 ms ("default"; after a
+  // failed estimate "default-checked", and estimation keeps trying every 2 s).
   const setTarget = (ms: number, source: string, hz: number | null) => {
     target.hz = hz;
     if (target.source === "url") return;
     target.ms = ms;
     target.source = source;
     controller.setTarget(ms);
+    recorder?.event(lastTime ?? 0, "target", { ms, source, hz });
   };
+  const resetTarget = () => setTarget(DEFAULT_TARGET_MS, "default", null);
   ctx.renderer.xr.addEventListener("sessionstart", () => {
     const session = ctx.renderer.xr.getSession();
     if (!session) return;
+    resetTarget();
     const supported = session.supportedFrameRates;
     if (wantHz > 0 && supported && Array.from(supported).includes(wantHz)) {
       session.updateTargetFrameRate(wantHz).catch(() => undefined);
     }
     if (session.frameRate) setTarget(targetForHz(session.frameRate), "xr", session.frameRate);
-    else estimateFrom = null;
     session.addEventListener("frameratechange", () => {
       if (session.frameRate) setTarget(targetForHz(session.frameRate), "xr", session.frameRate);
     });
     resetWindows("xr-enter");
   });
   ctx.renderer.xr.addEventListener("sessionend", () => {
-    if (target.source === "xr") setTarget(DEFAULT_TARGET_MS, "default", null);
+    resetTarget();
     resetWindows("xr-exit");
   });
 
@@ -372,13 +377,16 @@ export function installPerf(ctx: ViewerContext): PerfHandle {
       window2s.push(dt);
       // Display rate from steady frames once the scene is up (desktop, or XR without
       // XRSession.frameRate). An overloaded start gives no estimate; the default stays.
-      if (target.source === "default") {
+      if (target.source === "default" || target.source === "default-checked") {
         estimateFrom ??= time;
         if (time - estimateFrom >= ESTIMATE_AFTER_MS) {
           // p10: overload only lengthens intervals, so the short ones show the display.
           const hz = estimateHz(percentile(window2s.snapshot(), 10));
           if (hz) setTarget(targetForHz(hz), "estimate", hz);
-          else target.source = "default-checked";
+          else {
+            target.source = "default-checked";
+            estimateFrom = time;
+          }
         }
       }
       if (budgetActive() && target.source !== "default") {
