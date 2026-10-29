@@ -2,8 +2,11 @@
 //   ?scene=<id>            load <base>/<id>/scene.json (falls back to <id>/splat/scene.ply)
 //   ?ply=<url>             quick look at a single PLY (OpenCV frame assumed)
 //   ?base=<url>            where scene folders live (default /scenes)
+// Owned by the renderer lane. Other lanes plug in through ViewerContext: export an
+// install...(ctx) function from your folder and add one call in the "Lane installs" block.
 import * as THREE from "three";
 import { SparkControls, SparkRenderer, SparkXr, SplatMesh } from "@sparkjsdev/spark";
+import { createViewerContext } from "./context";
 import { matrixFromRows, OPENCV_TO_Y_UP, SceneView, type SceneManifest } from "./scene";
 
 const params = new URLSearchParams(location.search);
@@ -20,7 +23,8 @@ document.body.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x111111);
-scene.add(new SparkRenderer({ renderer }));
+const spark = new SparkRenderer({ renderer });
+scene.add(spark);
 
 const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 200);
 camera.position.set(0, 1.6, 0); // standing eye height; world floor is y = 0
@@ -31,14 +35,24 @@ scene.add(rig);
 const controls = new SparkControls({ canvas: renderer.domElement });
 new SparkXr({ renderer, mode: "vr", referenceSpaceType: "local-floor" });
 
+const ctx = createViewerContext({ renderer, scene, spark, camera, rig, params });
+
+// ---- Lane installs (one call per lane, in this order) ----
+// installPlanes(ctx);    // lane bake
+// installLod(ctx);       // lane lod
+// installCoverage(ctx);  // lane coverage
+// installPerf(ctx);      // lane renderer: HUD, frame log, budget controller, bench mode
+// ----------------------------------------------------------
+
 window.addEventListener("resize", () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
-renderer.setAnimationLoop(() => {
+renderer.setAnimationLoop((time: number, frame?: XRFrame) => {
   controls.update(rig);
+  ctx.runFrame(time, frame);
   renderer.render(scene, camera);
 });
 
@@ -69,12 +83,15 @@ async function start(): Promise<void> {
   if (!sceneId) return void status("add ?scene=<id> or ?ply=<url> to the URL");
 
   const sceneBase = `${base}/${sceneId}`;
+  ctx.sceneBase = sceneBase;
   const first = await fetchManifest(`${sceneBase}/scene.json`);
   if (!first) return addSinglePly(`${sceneBase}/splat/scene.ply`);
 
   const view = new SceneView(sceneBase);
+  view.meshOptions = ctx.meshOptions;
   scene.add(view.root);
   view.apply(first.manifest);
+  ctx.runManifest(first.manifest, view);
   let last = first.text;
   status(`${sceneId}: ${first.manifest.objects.length} objects`);
 
@@ -84,6 +101,7 @@ async function start(): Promise<void> {
     if (next && next.text !== last) {
       last = next.text;
       view.apply(next.manifest);
+      ctx.runManifest(next.manifest, view);
       const visible = next.manifest.objects.filter((o) => o.visible).length;
       status(`${sceneId}: ${visible}/${next.manifest.objects.length} objects visible`);
     }

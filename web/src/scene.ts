@@ -1,6 +1,6 @@
 // Mirror of src/movable_reality/scene.py. Change both together.
 import * as THREE from "three";
-import { SplatMesh } from "@sparkjsdev/spark";
+import { SplatMesh, type SplatMeshOptions } from "@sparkjsdev/spark";
 
 export type Vec3 = [number, number, number];
 
@@ -82,7 +82,7 @@ function center(o: SceneObject): Vec3 {
   return [0, 1, 2].map((i) => (o.bbox_min[i] + o.bbox_max[i]) / 2) as Vec3;
 }
 
-interface ObjectNode {
+export interface ObjectNode {
   pivot: THREE.Group; // world position of the bbox centre, carries the edit
   mesh: SplatMesh;
 }
@@ -98,15 +98,32 @@ export class SceneView {
   private readonly nodes = new Map<string, ObjectNode>();
   private background?: SplatMesh;
 
+  /**
+   * Hook for lanes that need to change how splat meshes are created (lod: LOD trees,
+   * lodScale). Called once per mesh; objectId is null for the background. Return extra
+   * SplatMesh options; the url is filled in unless the hook sets it.
+   */
+  meshOptions?: (ply: string, objectId: string | null, m: SceneManifest) => Partial<SplatMeshOptions>;
+
   constructor(private readonly baseUrl: string) {}
+
+  /** The background splat mesh, once loaded. */
+  backgroundMesh(): SplatMesh | undefined {
+    return this.background;
+  }
+
+  /** The splat mesh and pivot of one object, once created. */
+  objectNode(id: string): Readonly<ObjectNode> | undefined {
+    return this.nodes.get(id);
+  }
 
   apply(m: SceneManifest): void {
     const worldFromRecon = matrixFromRows(m.world_from_recon);
     if (!this.background) {
-      this.background = this.addRecon(this.root, m.background_ply, worldFromRecon);
+      this.background = this.addRecon(this.root, m.background_ply, worldFromRecon, null, m);
     }
     for (const obj of m.objects) {
-      const node = this.nodes.get(obj.id) ?? this.create(obj, worldFromRecon);
+      const node = this.nodes.get(obj.id) ?? this.create(obj, worldFromRecon, m);
       const c = center(obj);
       const t = obj.transform;
       node.pivot.position.set(c[0] + t.translation[0], c[1] + t.translation[1], c[2] + t.translation[2]);
@@ -117,26 +134,33 @@ export class SceneView {
     }
   }
 
-  private create(obj: SceneObject, worldFromRecon: THREE.Matrix4): ObjectNode {
+  private create(obj: SceneObject, worldFromRecon: THREE.Matrix4, m: SceneManifest): ObjectNode {
     const pivot = new THREE.Group();
     pivot.name = obj.id;
     const offset = new THREE.Group();
     const c = center(obj);
     offset.position.set(-c[0], -c[1], -c[2]);
     pivot.add(offset);
-    const mesh = this.addRecon(offset, obj.ply, worldFromRecon);
+    const mesh = this.addRecon(offset, obj.ply, worldFromRecon, obj.id, m);
     this.root.add(pivot);
     const node = { pivot, mesh };
     this.nodes.set(obj.id, node);
     return node;
   }
 
-  private addRecon(parent: THREE.Object3D, ply: string, worldFromRecon: THREE.Matrix4): SplatMesh {
+  private addRecon(
+    parent: THREE.Object3D,
+    ply: string,
+    worldFromRecon: THREE.Matrix4,
+    objectId: string | null,
+    m: SceneManifest,
+  ): SplatMesh {
     const recon = new THREE.Group();
     recon.matrixAutoUpdate = false;
     recon.matrix.copy(worldFromRecon);
     recon.matrixWorldNeedsUpdate = true;
-    const mesh = new SplatMesh({ url: `${this.baseUrl}/${ply}` });
+    const extra = this.meshOptions?.(ply, objectId, m) ?? {};
+    const mesh = new SplatMesh({ url: `${this.baseUrl}/${ply}`, ...extra });
     recon.add(mesh);
     parent.add(recon);
     return mesh;
