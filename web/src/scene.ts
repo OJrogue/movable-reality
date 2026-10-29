@@ -52,6 +52,14 @@ export interface PlaneBake {
 // ---- lane: coverage (owned by the coverage lane, see AGENTS.md)
 export type GapStatus = "open" | "recapture_requested" | "recaptured" | "generated" | "accepted";
 
+/** Where to stand and point the phone for a top-up video of one gap (world frame). */
+export interface NextBestView {
+  eye: Vec3; // phone position, metres; the user stands at (eye[0], 0, eye[2])
+  target: Vec3; // point to aim the phone at
+  visible: number; // low-coverage gap points this view would see
+  gain: number; // share of the gap's low-coverage points it would see, 0..1
+}
+
 export interface Gap {
   id: string;
   label: string | null;
@@ -60,12 +68,14 @@ export interface Gap {
   radius: number;
   score: number; // 0 = well covered, 1 = never observed
   status: GapStatus;
+  next_best_views?: NextBestView[]; // best first; missing in older manifests
 }
 
 export interface Coverage {
   gap_map: string | null;
   gaps: Gap[];
   generated_splats: number;
+  gap_share?: number | null; // share of VR-visible non-empty voxels (surfaces, unobserved space) in gaps
 }
 
 // Optional sections may be missing in older manifests; fall back to the plain PLY path.

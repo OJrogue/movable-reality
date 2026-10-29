@@ -177,3 +177,59 @@ This log is the record of what was built during the hackathon (26 Oct to 4 Nov 2
 - Wrote `docs/HANDOFF.md` for the local continuation: state, decisions D1-D14, tonight's
   runbook (setup, filming, R0, M1), tasks per lane, how to run lanes locally.
 - Next: filming and R0 tonight on the PC and both headsets; coverage PR; core lane M2.
+
+## 2026-10-29 (lane: coverage)
+
+- Coverage scoring (C1) in `src/movable_reality/coverage/`, run by
+  `scripts/score_coverage.py`. Per Gaussian it counts the training views that see it
+  (projection plus a coarse depth test) and the angle spread between them. A 10 cm voxel
+  grid carries the scores, and exposure rays from walkable standing positions decide which
+  voxels a VR user can see. Poorly covered visible voxels inside the room box cluster into
+  gaps (wide ones split), each with a label from the nearest object and up to three
+  next-best views from walkable positions. Results go to `coverage/{gaussians,gaps}.npz`,
+  `coverage/report.json` and the `coverage` section of `scene.json` (new fields
+  `Gap.next_best_views`, `Coverage.gap_share` in `scene.py` and `scene.ts`).
+- Synthetic capture with ground truth (`scripts/coverage_synthetic.py`, scene `cov_synth`):
+  a 208k-Gaussian room, 150 views on a perimeter walk, and hidden regions behind the sofa,
+  under the desk and coffee table, on top of the bookshelf and on the ceiling. The
+  synthetic splats take their opacity and noise from the exact view count, and never-seen
+  splats get opacity 0.3 to 0.6, under the 0.5 occluder threshold. That makes the depth
+  test easier than on a real gsplat result.
+- Results on `cov_synth` (`coverage/eval.json`, `coverage/report.json`), 1-voxel tolerance.
+  - Against the exact geometric score (views and angle spread): precision 0.949, recall
+    0.986.
+  - Against the exact view counts alone: precision 0.826, recall 0.982.
+  - 2,371 of 8,394 gap voxels (28%) hold no VR-visible true sample and are not scored.
+  - Region recall is 1.0 behind the sofa, under the coffee table, on the bookshelf and on
+    the ceiling, and 0.856 under the desk.
+  - 23 gaps. `gap_share` 0.47, the share of VR-visible non-empty voxels (surfaces and
+    unobserved space) inside gaps.
+  - Stage timings in `report.json` add up to 3.5 s on this Mac.
+- Fix after review: the voxel grid rounds up past the room bounds, so its last layer lay
+  behind the walls and above the ceiling and became gap candidates. Candidates now need a
+  centre within half a voxel of the room box. Before the fix there were 37 gaps and
+  precision 0.907 against the score truth, and under-desk recall was 0.956 (part of it from
+  voxels behind the wall).
+- U-3DGS-style uncertainty job (`modal_jobs/coverage.py`): frozen scene, per-Gaussian SH
+  uncertainty fitted to the L1 + DSSIM residual with gsplat. The numpy reference and CPU
+  tests cover the maths. Not yet run on Modal.
+- Viewer gap overlay (`web/src/coverage/`, `installCoverage` in `main.ts`): rim-glow spheres
+  per open gap, orange once a recapture is requested, floor ring and arrow for the best next
+  view. `?gaps=1`, key G, XR squeeze. Checked once in the desktop app's browser pane on
+  `cov_synth`: spheres render, G toggles them, no console errors (screenshots not kept).
+  Not yet seen on a headset.
+- Repair groundwork (C3, `coverage/repair.py`, `scripts/coverage_repair.py`): renders a gap
+  view with the gap painted magenta, picks the three nearest real frames as references and
+  sends one Muse Image edit per gap, cached under `data/cache/muse_image/`. Next-best views
+  stand so close that a 0.75 m gap filled the whole frame, so the repair camera now backs
+  off horizontally at eye height, inside the room bounds and 0.3 m short of the first
+  opaque splats, until the gap spans half the vertical half FOV. The first version backed
+  off in 3D and put three of five ceiling-gap cameras at y = 0.15 m, one inside the sofa.
+  Gaps without a next-best view are skipped. Dry run on `cov_synth`: three gap views, all
+  eyes at 1.6 m. No live Muse Image call yet (no `.env` on this machine). The CPU preview
+  draws splats as squares, so sparse regions show holes. A gsplat render is the better
+  input.
+- Tested: pytest 121 passed, 1 skipped (lod lane); vitest 82; `npm run build`; ruff clean.
+  Reviewer agent verdict before the fixes: ready after fixes.
+- Next: one live `--call` once `MODEL_API_KEY` is set, then score room01 after M1. C2
+  (recapture loop) and C3 distillation of repaired views back into generated splats.

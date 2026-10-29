@@ -118,6 +118,15 @@ class PlaneBake(BaseModel):
 GapStatus = Literal["open", "recapture_requested", "recaptured", "generated", "accepted"]
 
 
+class NextBestView(BaseModel):
+    """Where to stand and point the phone for a top-up video of one gap (world frame)."""
+
+    eye: Vec3  # phone position, metres; the user stands at (eye[0], 0, eye[2])
+    target: Vec3  # point to aim the phone at
+    visible: int = 0  # low-coverage gap points this view would see
+    gain: float = 0.0  # share of the gap's low-coverage points it would see, 0..1
+
+
 class Gap(BaseModel):
     """A region the capture did not observe well enough."""
 
@@ -128,12 +137,15 @@ class Gap(BaseModel):
     radius: float  # metres
     score: float  # 0 = well covered, 1 = never observed
     status: GapStatus = "open"
+    next_best_views: list[NextBestView] = Field(default_factory=list)  # best first
 
 
 class Coverage(BaseModel):
     gap_map: str | None = None  # per-Gaussian or voxel scores, relative path
     gaps: list[Gap] = Field(default_factory=list)
     generated_splats: int = 0  # splats with PLY property generated = 1, whole scene
+    # Share of the VR-visible non-empty voxels (surfaces and unobserved space) inside gaps.
+    gap_share: float | None = None
 
 
 # ---------------------------------------------------------------- manifest
