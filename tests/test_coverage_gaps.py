@@ -20,7 +20,13 @@ from movable_reality.coverage.gaps import (
     voxel_states,
 )
 from movable_reality.coverage.pipeline import ScoreParams, score_scene, write_outputs
-from movable_reality.coverage.synthetic import SynthConfig, make_capture, write_scene
+from movable_reality.coverage.synthetic import (
+    ROOM_HI,
+    ROOM_LO,
+    SynthConfig,
+    make_capture,
+    write_scene,
+)
 from movable_reality.coverage.voxels import VoxelGrid, label_components
 from movable_reality.scene import Gap, Scene, SceneObject
 
@@ -207,6 +213,11 @@ def test_score_scene_finds_the_hidden_regions(synth_scene):
     assert any(g.near_object == "sofa#1" for g in cov.gaps)
     assert all(0 <= g.score <= 1 and g.radius > 0 for g in cov.gaps)
     assert any(g.next_best_views for g in cov.gaps)
+    # Every gap centre lies in the room box (world frame), none behind a wall or above
+    # the ceiling.
+    for g in cov.gaps:
+        assert np.all(np.asarray(g.center) >= ROOM_LO - 0.05), g.id
+        assert np.all(np.asarray(g.center) <= ROOM_HI + 0.05), g.id
     ev = evaluate_scene(synth_scene)
     assert ev["score"]["recall"] > 0.8
     assert ev["score"]["precision"] > 0.7

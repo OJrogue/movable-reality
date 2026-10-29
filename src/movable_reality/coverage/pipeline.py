@@ -143,6 +143,11 @@ def score_scene(folder: Path, params: ScoreParams | None = None) -> ScoreResult:
     score = voxel_gap_score(state, vcov)
     poor = voxel_poor_share(grid, gvox, gauss_cov, weight, p.gaps.cov_threshold)
     cand = candidates(state, poor, p.gaps)
+    # The grid rounds up past `hi`, so its last layers lie behind the walls and above the
+    # ceiling. Keep candidates whose centre is within half a voxel of the room box.
+    vc = grid.centres()
+    half = 0.5 * grid.size
+    cand &= np.all((vc >= lo - half) & (vc <= hi + half), axis=1)
     stand = walkable(grid, state, p.walk)
     eyes = eyes_at(
         coarse_subset(stand, p.walk.spacing, p.walk.exposure_spacing), p.walk.exposure_heights
