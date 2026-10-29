@@ -7,6 +7,7 @@
 import * as THREE from "three";
 import { SparkControls, SparkRenderer, SparkXr, SplatMesh } from "@sparkjsdev/spark";
 import { createViewerContext } from "./context";
+import { installLod } from "./lod";
 import { matrixFromRows, OPENCV_TO_Y_UP, SceneView, type SceneManifest } from "./scene";
 
 const params = new URLSearchParams(location.search);
@@ -39,7 +40,7 @@ const ctx = createViewerContext({ renderer, scene, spark, camera, rig, params })
 
 // ---- Lane installs (one call per lane, in this order) ----
 // installPlanes(ctx);    // lane bake
-// installLod(ctx);       // lane lod
+installLod(ctx); // lane lod
 // installCoverage(ctx);  // lane coverage
 // installPerf(ctx);      // lane renderer: HUD, frame log, budget controller, bench mode
 // ----------------------------------------------------------
