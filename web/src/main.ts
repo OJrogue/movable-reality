@@ -127,14 +127,17 @@ async function start(): Promise<void> {
 
   const view = new SceneView(sceneBase);
   view.meshOptions = ctx.meshOptions;
+  view.onLoadError = (ply, err) => status(`failed to load ${ply}: ${String(err)}`);
   scene.add(view.root);
   view.apply(first.manifest);
   ctx.runManifest(first.manifest, view);
   let last = first.text;
   status(`${sceneId}: ${first.manifest.objects.length} objects`);
 
-  // Live updates from the agent. Replace with the server WebSocket at M3.
-  setInterval(async () => {
+  // Live updates from the agent. Replace with the server WebSocket at M3. The next poll
+  // starts 1 s after the last one settles, so a slow response is never applied after a
+  // newer one.
+  const poll = async () => {
     const next = await fetchManifest(`${sceneBase}/scene.json`).catch(() => null);
     if (next && next.text !== last) {
       last = next.text;
@@ -143,7 +146,9 @@ async function start(): Promise<void> {
       const visible = next.manifest.objects.filter((o) => o.visible).length;
       status(`${sceneId}: ${visible}/${next.manifest.objects.length} objects visible`);
     }
-  }, 1000);
+    setTimeout(poll, 1000);
+  };
+  setTimeout(poll, 1000);
 }
 
 start().catch((err) => status(`error: ${String(err)}`));

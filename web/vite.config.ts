@@ -39,6 +39,26 @@ function serveLocalScenes(): Plugin {
           if (file.startsWith(dir + sep) && existsSync(file) && statSync(file).isFile()) {
             res.setHeader("Content-Type", TYPES[extname(file)] ?? "application/octet-stream");
             res.setHeader("Cache-Control", "no-store");
+            res.setHeader("Accept-Ranges", "bytes");
+            // Spark's paged .rad loader reads header and chunks with Range requests.
+            const size = statSync(file).size;
+            const range = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range ?? "");
+            if (range && (range[1] || range[2])) {
+              const start = range[1] ? Number(range[1]) : Math.max(0, size - Number(range[2]));
+              const end = range[1] && range[2] ? Math.min(Number(range[2]), size - 1) : size - 1;
+              if (start > end || start >= size) {
+                res.statusCode = 416;
+                res.setHeader("Content-Range", `bytes */${size}`);
+                res.end();
+                return;
+              }
+              res.statusCode = 206;
+              res.setHeader("Content-Range", `bytes ${start}-${end}/${size}`);
+              res.setHeader("Content-Length", String(end - start + 1));
+              createReadStream(file, { start, end }).pipe(res);
+              return;
+            }
+            res.setHeader("Content-Length", String(size));
             createReadStream(file).pipe(res);
             return;
           }
@@ -54,7 +74,7 @@ function serveLocalScenes(): Plugin {
   };
 }
 
-const MAX_LOG_BYTES = 64 * 1024 * 1024; // a 10 min log at 90 Hz is about 5 MB
+const MAX_LOG_BYTES = 16 * 1024 * 1024; // a 10 min log at 90 Hz is about 5 MB
 
 function readBody(req: IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {

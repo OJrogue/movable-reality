@@ -1,13 +1,13 @@
 # Handoff: continue locally in Claude Code
 
-Written Thu 29 Oct 2026, 18:30 Prague, by the cloud orchestration session, for OJ's local
-Claude Code sessions. Read this file first, then `AGENTS.md` (rules, lane ownership),
+Written Thu 29 Oct 2026 for OJ's local Claude Code sessions, after the move from Cowork.
+Updated the same evening when coverage merged. Read this file first, then `AGENTS.md` (rules, lane ownership),
 `docs/PLAN.md` (schedule, benchmarks, video), `docs/ARCHITECTURE.md` (stages) and
 `docs/DEVICES.md` (headsets). Deadline: Wed 4 Nov 21:00 ET = **Thu 5 Nov 03:00 Prague**.
 
 ## 1. Where things stand
 
-`main` contains the scaffold plus three merged lanes. Nothing has run on a headset, on a
+`main` contains the scaffold plus four merged lanes. Nothing has run on a headset, on a
 real room or on Modal yet; every result so far is from synthetic data and headless
 Chromium (about 1 FPS, so no performance meaning).
 
@@ -16,11 +16,8 @@ Chromium (about 1 FPS, so no performance meaning).
 | lod | Merged (PR #1). Per-object Spark LOD trees (`.RAD` via Spark's `build-lod`, compiled from Spark's repo), load-time `lod: true` fallback, one shared splat budget, priority (`lodScale` 2.0, 300 ms ramp) for the object under the pointer/controller/head ray and the last-edited object. | `src/movable_reality/lod/`, `scripts/build_lod.py`, `web/src/lod/`, `docs/LOD.md` |
 | bake | Merged (PR #2). RANSAC plane fit, CPU orthographic splat bake, hand-written GLB quads, reduced background PLY, viewer loader. Splats depth-test against the quads (verified). GPU job (gsplat 1.5.3 ortho) written, never run. | `src/movable_reality/bake/`, `scripts/bake_planes.py`, `modal_jobs/bake.py`, `web/src/planes/` |
 | renderer | Merged (PR #3). HUD, frame logs (`/__bench` endpoint), budget controller (owns `lodSplatCount`, `lodRenderScale`), naive/LOD toggle, bench mode with walk paths, `/r0` run menu, synthetic bench scenes, `bench_report.py`, LAN HTTPS (`MR_HTTPS=1`). | `web/src/perf/`, `web/src/bench/`, `scripts/bench_*.py`, `docs/DEVICES.md` |
-| coverage | **Not merged.** Was still running in the cloud session at handoff. Branch `lane/coverage` (merged with main at 12c3f6c) has: synthetic capture with ground truth, per-Gaussian view count and angle spread, voxel gap map, gaps written to `scene.json`, next-best views, U-3DGS uncertainty job on Modal (not run), viewer gap overlay (in progress). Missing: Muse Image repair client, finished overlay, PR. | `src/movable_reality/coverage/`, `web/src/coverage/` |
+| coverage | Merged (PR #4). Synthetic capture with ground truth, per-Gaussian view count and angle spread, voxel gap map inside the room box, gaps and next-best views in `scene.json`, viewer gap overlay (`?gaps=1`, G, XR squeeze), Muse Image repair groundwork (gap view, references, cached edit call; no live call yet). U-3DGS uncertainty job on Modal written, never run. | `src/movable_reality/coverage/`, `scripts/score_coverage.py`, `scripts/coverage_repair.py`, `web/src/coverage/` |
 | core (M1-M5) | **Not started.** Reconstruction, objects, agent, server, voice, insert, completion. | `scripts/`, `modal_jobs/reconstruct.py`, `src/movable_reality/{sam,clients}.py` |
-
-Check first: is there a PR from `lane/coverage`? If yes, review and merge it (section 6).
-If not, continue the coverage lane from its branch (section 5, coverage).
 
 ## 2. Decisions taken on 29 Oct
 
@@ -40,16 +37,22 @@ If not, continue the coverage lane from its branch (section 5, coverage).
 | D12 | Items resting on furniture belong to that furniture (support rule in `lift_ids`, task C-M2). | OJ agreed |
 | D13 | Main demo room: living room or bedroom. Second: a different layout (L-shaped or with a doorway). Optional third: kitchen, for the "does it fit" insert. No bathroom (mirrors, glass, fixed fixtures). | OJ agreed |
 | D14 | Steam Frame: OJ already has a Chromium XR build with WebXR on it; no install needed. | OJ |
+| D15 | Evaluation metrics with no Meta equivalent (LPIPS in gsplat's trainer and in the benchmarks) may use their usual networks. Only product runtime models must be Meta models. | OJ, 29 Oct |
+| D16 | Build order: capture, M1, M2 and M3 first; headset work on headset days (PLAN, "Build order"). | OJ asked for the best order, 29 Oct |
+| D17 | C2 first does a full reconstruction rerun on all frames (best quality); the fast fine-tune path comes second and replaces it in the demo only if it comes close. | OJ, 29 Oct |
 
 Still open, OJ decides: **feature freeze date** (suggested Mon 2 Nov 20:00, the latest that
 leaves Tue for the video), **borrowing a Quest 2** for one Meta-headset clip, **hosting** of
 the demo (needs chunked `.RAD` or HTTP Range support, see `docs/LOD.md`).
 
-## 3. Tonight
+## 3. Next steps (tonight and Fri 30)
 
-### 3.1 Setup on the PC (once)
-1. Tools: git, Python 3.12 with uv, Node 22, ffmpeg, Rust/cargo (for `build-lod`), adb
-   (Pico over USB), Modal CLI (`uv run modal setup`).
+### 3.1 Setup on the Mac (once)
+1. Tools: git, Python 3.12 with uv, Node 22 or later, ffmpeg, Rust/cargo (for
+   `build-lod`), adb (Pico over USB), Modal CLI (`uv run modal setup`). State on 29 Oct:
+   git, uv, Node 24, ffmpeg and gh are installed. Missing: Rust
+   (`brew install rustup && rustup-init -y`), adb (`brew install --cask
+   android-platform-tools`), the Modal token, `.env`.
 2. Keys in environment variables or `.env` (never in prompts): `MODEL_API_KEY`,
    `BASETEN_API_KEY`, `HF_TOKEN` (gated SAM 3D Objects weights). Modal token via
    `modal setup`.
@@ -67,7 +70,7 @@ the demo (needs chunked `.RAD` or HTTP Range support, see `docs/LOD.md`).
   used for training; it measures off-path quality (benchmark 7 in `docs/PLAN.md`).
 - Raw files go to `data/raw/` (gitignored), e.g. `room01.mp4`, `room01_test.mp4`.
 
-### 3.3 R0 device baseline (`docs/DEVICES.md` section 8)
+### 3.3 R0 device baseline, Fri 30 with the headset (`docs/DEVICES.md` section 8)
 `uv run python scripts/bench_make_splats.py`, then `cd web && npm run dev`.
 Pico 4: `adb reverse tcp:5173 tcp:5173`, open `http://localhost:5173/r0` in Pico Browser.
 Steam Frame: `MR_HTTPS=1 npm run dev`, open `https://<pc-ip>:5173/r0` in Chromium XR
@@ -82,17 +85,11 @@ popping when objects move.
 Modal image build to need fixes on the first run (never run so far). Then try
 `build_lod.py room01` and the viewer on the headset.
 
-## 4. Schedule (unchanged from `docs/PLAN.md`, shifted by the late start of capture)
+## 4. Schedule
 
-| Day | Core | Coverage | Renderer, lod, bake | Ship |
-|---|---|---|---|---|
-| Thu 29 | Setup, filming, M1 | Finish PR | R0 on both headsets | |
-| Fri 30 | M2 (lift_ids, labels, support rule, floor alignment) | Run on room01; C2 groundwork | L1, B1; LOD and bake on room01 | |
-| Sat 31 | M3 (agent tools, server, verifier) | C2 recapture loop | Tune from R0 data | |
-| Sun 1 | M4 (insert, SAM 3D Objects, completed swap) | C3 Muse Image repair + tag | R3 on device | |
-| Mon 2 | M5 (voice, all scenes) | Coverage metrics | R4 benchmarks | Freeze (OJ decides) |
-| Tue 3 | | | | Video; draft submission by 20:00 |
-| Wed 4 | | | | Final cut, README; submit by 20:00 |
+See `docs/PLAN.md`, "Build order". In short: Fri 30 and Sun 1 to Wed 4 have the headset.
+Sat 31 OJ is away, so that day's sessions run M2, M3, C1, L1, L2 and B1 on room01 without
+the headset.
 
 ## 5. Tasks by lane
 
@@ -138,8 +135,8 @@ is updated. Before real scenes exist, use the synthetic scenes (`demo`, `bakedem
 - Later, for the demo walk: smooth locomotion with snap turn in VR outside bench mode.
 
 **coverage**
-- Finish: Muse Image repair client (`coverage/repair.py`, API facts in section 7), finished
-  overlay, merge main, PR.
+- C1 on room01 once M1 has produced it; first live `coverage_repair.py --call` (needs
+  `MODEL_API_KEY`).
 - C2 Recapture loop: show the next-best viewpoint in the viewer, register the top-up video
   with MapAnything together with the original frames, gsplat fine-tune, re-score.
 - C3 Repair: render gap views, Muse Image edit with nearest real frames as references,
@@ -150,22 +147,19 @@ is updated. Before real scenes exist, use the synthetic scenes (`demo`, `bakedem
 - One Claude Code session per lane, each in its own worktree:
   `git worktree add ../mr-<lane> -b lane/<lane> origin/main` (or `origin/lane/<lane>` to
   continue an existing branch). Never share a working folder between sessions.
-- Agents in the repo: `explorer` (Haiku, low effort) for searches, `reviewer` (high effort)
-  once per PR. `.claude/settings.json` sets compaction at 400k tokens. Lane sessions run at
-  the default effort.
 - Commit small and push at least every 30 minutes (protects work if a usage limit is hit).
 - Merge order and conflicts: lanes append to `docs/BUILD_LOG.md` and the Commands block in
   `AGENTS.md`, so those conflict; keep both sides. Lane installs in `web/src/main.ts` run in
   this order: planes, lod, coverage, perf (perf wraps lod's `meshOptions`).
-- Before merging a PR: run `uv run pytest`, `uv run ruff check .`, `uv run ruff format
-  --check .`, `npm test`, `npm run build`, and open the viewer once.
+- Before merging a PR: the checks in AGENTS.md "Definition of done", plus
+  `uv run ruff format --check .`, and open the viewer once.
 
 ### Starter prompts for local sessions
 - Core: "Read docs/HANDOFF.md and AGENTS.md. You own the core lane. Do M2 from section 5
   (lift_ids with labels.json, support rule, floor alignment) against the demo scene first,
   then on room01 once M1 has produced it. Branch lane/core, PR when done."
-- Coverage: "Read docs/HANDOFF.md and AGENTS.md. Continue the coverage lane from
-  origin/lane/coverage: finish the repair client and overlay, merge main, open the PR."
+- Coverage: "Read docs/HANDOFF.md and AGENTS.md. Run C1 on room01, then do C3 from
+  section 5 on branch lane/coverage."
 - LOD: "Read docs/HANDOFF.md and AGENTS.md. Do L1 and L2 from section 5 on branch lane/lod."
 - Bake: "Read docs/HANDOFF.md and AGENTS.md. Do B1 from section 5 on branch lane/bake."
 
@@ -190,5 +184,3 @@ is updated. Before real scenes exist, use the synthetic scenes (`demo`, `bakedem
   https://rocm.docs.amd.com/projects/gsplat/en/latest/reference/gsplat-api-reference.html
 - Steam Frame: the built-in browser has no WebXR; OJ's Chromium XR build does. Pico 4
   browser supports WebXR; over USB use `adb reverse`.
-- In cloud sessions `gh pr create` fails (GraphQL blocked) and `gh api .../pulls` works;
-  locally `gh pr create` is fine.

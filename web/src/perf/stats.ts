@@ -99,10 +99,6 @@ export class RateEstimator {
     return this.last;
   }
 
-  get hz(): number | null {
-    return this.last;
-  }
-
   clear(): void {
     this.ring = [];
     this.pushes = 0;
@@ -132,10 +128,6 @@ export class RollingWindow {
 
   get length(): number {
     return this.values.length;
-  }
-
-  snapshot(): number[] {
-    return this.values.slice();
   }
 
   summary(targetMs: number): FrameSummary {

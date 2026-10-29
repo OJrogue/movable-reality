@@ -14,6 +14,7 @@ import numpy as np
 from plyfile import PlyData, PlyElement
 
 from movable_reality.config import scene_dir
+from movable_reality.lod.split import object_ply_name
 from movable_reality.scene import Scene, SceneObject
 
 SH_C0 = 0.28209479177387814
@@ -90,7 +91,7 @@ def main() -> int:
     for oid, label, lo, hi, color in specs:
         pts = box_surface(rng, lo, hi, 4000)
         rgb = np.clip(np.asarray(color) + rng.normal(0, 0.03, (len(pts), 3)), 0, 1)
-        ply = f"objects/{oid.replace(' ', '_').replace('#', '_')}.ply"
+        ply = object_ply_name(oid)
         write_gaussian_ply(out / ply, pts, rgb, size=0.015)
         objects.append(
             SceneObject(

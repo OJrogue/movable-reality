@@ -3,8 +3,8 @@
 //
 // Shows the last frame time, rolling p50/p99 over ~2 s, FPS, missed-frame share, splats
 // drawn (Spark's sort output), splats in the current cut, total splats in the scene, the
-// LOD settings and the budget-controller state. Toggle: `H` on the desktop, the left
-// controller's B or Y button in XR (input.ts), and `?hud=0` to start hidden.
+// LOD settings and the budget-controller state. Toggle: `H` on the desktop, B or Y on
+// either controller in XR (input.ts), and `?hud=0` to start hidden.
 // `?hudPanel=1` also shows the XR panel on the desktop (layout checks, desktop recordings).
 import * as THREE from "three";
 
@@ -106,10 +106,6 @@ export class Hud {
     this.panel.visible = false;
     camera.add(this.panel);
     if (this.el && !visible) this.el.style.display = "none";
-  }
-
-  get shown(): boolean {
-    return this.visible;
   }
 
   toggle(): void {

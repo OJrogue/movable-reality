@@ -11,6 +11,7 @@
 //     foveation fields are read on every LOD update, so they can change at runtime.
 import * as THREE from "three";
 import { SplatMesh, type SparkRenderer } from "@sparkjsdev/spark";
+import { failedMeshes } from "../scene";
 import type { LodSettings } from "./frameLog";
 
 export interface SparkCounters {
@@ -82,9 +83,11 @@ export function hasFullSplats(m: SplatMesh): boolean {
 /**
  * True once every splat mesh has loaded and, with LOD on, every visible LOD mesh has its
  * first cut. Before that, frame times measure loading, not rendering.
+ * Meshes that failed to load are skipped, so one missing PLY does not stall the HUD,
+ * the budget controller and bench runs.
  */
 export function splatsReady(scene: THREE.Object3D, spark: SparkRenderer): boolean {
-  const meshes = splatMeshes(scene);
+  const meshes = splatMeshes(scene).filter((m) => !failedMeshes.has(m));
   if (meshes.length === 0) return false;
   if (meshes.some((m) => !m.isInitialized)) return false;
   if (!spark.enableLod) return true;
@@ -96,19 +99,6 @@ export function splatsReady(scene: THREE.Object3D, spark: SparkRenderer): boolea
   return true;
 }
 
-/** Sum of the trees' sizes over all splat meshes (null if no mesh has a tree). */
-export function totalTreeSplats(scene: THREE.Object3D): number | null {
-  let sum = 0;
-  let any = false;
-  for (const m of splatMeshes(scene)) {
-    const n = treeSplats(m);
-    if (n !== null) {
-      sum += n;
-      any = true;
-    }
-  }
-  return any ? sum : null;
-}
 
 /** Vertex count from a binary or ASCII PLY header; reads only the header bytes. */
 export async function plyVertexCount(url: string): Promise<number | null> {

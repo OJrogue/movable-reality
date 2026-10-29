@@ -233,3 +233,36 @@ This log is the record of what was built during the hackathon (26 Oct to 4 Nov 2
   Reviewer agent verdict before the fixes: ready after fixes.
 - Next: one live `--call` once `MODEL_API_KEY` is set, then score room01 after M1. C2
   (recapture loop) and C3 distillation of repaired views back into generated splats.
+
+## 2026-10-29 (Claude Code, whole-repo review after the move from Cowork)
+
+- Merged PR #4 (coverage). On main, pytest gives 121 passed, 1 skipped, and vitest 82.
+- Two reviewer agents read all Python and viewer code on main. Fixed from their findings:
+  - Reconstruction job: gsplat now builds with `--no-build-isolation` against the image's
+    torch 2.9.1, with the glm submodule checked out. Both upstream repos are pinned
+    (MapAnything 3d10cf7, gsplat 512d366). Changed frames force a new reconstruction, and
+    old frames are removed from the volume. Still not run on Modal.
+  - `extract_frames.py` always clears frames left by an earlier or crashed run.
+  - `sam.py` uploads the video again once when a remembered file id is rejected.
+  - Viewer: a failed splat load no longer stalls the HUD, the budget controller and bench
+    runs. Polls of `scene.json` no longer overlap. A plane removed while loading is
+    dropped. A bake that changes `background_ply` replaces the background mesh.
+  - Renderer: the budget controller starts at its own start level (474k) instead of
+    Spark's default (2.5M on the Steam Frame). The dev server answers Range requests for
+    paged `.rad` files. The naive toggle no longer reloads, and so no longer ends, an XR
+    session. Dead code removed.
+  - `MapAnything` ID in `config.py`, `.glb`/`.rad` in `.gitignore`, argument checks in
+    `edit_scene.py`, demo object PLYs named `objects/obj_<id>.ply`.
+- Docs: HANDOFF updated for the local setup (Mac, missing tools listed) and the merged
+  coverage lane. Cloud-session notes and a duplicated check list removed.
+- Not changed, recorded for later: four copies of the 3DGS PLY writer (merge after the
+  freeze), `modal_jobs/bake.py` lacks `--max-tilt` and `--format`.
+- Tested: pytest, ruff, vitest, `npm run build`, `tsc --noEmit`, `make_demo_scene.py`.
+  In the desktop app's browser pane, `?scene=demo` renders, and a copy of the demo with one
+  object PLY deleted shows the 404 in the status line while the HUD and budget controller
+  run. Not run on a headset.
+- Added `.claude/launch.json` (dev server for Claude Code's browser preview).
+- Decisions with OJ, recorded as D15 to D17 in `docs/HANDOFF.md`: evaluation metrics
+  with no Meta equivalent (LPIPS) are allowed; the build order follows the headset days
+  (`docs/PLAN.md`, "Build order"); C2 builds a full reconstruction rerun first and the
+  fast fine-tune path second. The Muse Code notes in README and AGENTS.md are shorter.

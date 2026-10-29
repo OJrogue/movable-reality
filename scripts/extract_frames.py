@@ -70,7 +70,8 @@ def main() -> int:
     if (out / "frames.json").exists() and not args.force:
         print(f"{out / 'frames.json'} exists, skipping (use --force to redo)")
         return 0
-    if out.exists() and args.force:
+    # Clear what an earlier or crashed run left: extra frames would end up in the SAM clip.
+    if out.exists():
         for sub in ("frames", "frames.json", "sam_input.mp4"):
             p = out / sub
             shutil.rmtree(p) if p.is_dir() else p.unlink(missing_ok=True)

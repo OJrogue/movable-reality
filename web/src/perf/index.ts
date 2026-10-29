@@ -81,8 +81,8 @@ export function installPerf(ctx: ViewerContext): PerfHandle {
   let mode: RenderMode = bench?.cfg.mode ?? (p.get("mode") === "naive" ? "naive" : "lod");
   const keepFull = !bench && mode === "lod" && p.get("keepFull") !== "0";
   if (mode === "lod") {
-    // Lane lod sets ctx.meshOptions in installLod (runs before this). Until it is in
-    // main.ts, fall back to Spark's load-time LOD tree (tiny-lod in a worker).
+    // Lane lod sets ctx.meshOptions in installLod (runs before this). Without it, fall
+    // back to Spark's load-time LOD tree (tiny-lod in a worker).
     const inner = ctx.meshOptions;
     ctx.meshOptions = (ply, id, m) => {
       const o: Partial<SplatMeshOptions> = { ...(inner ? inner(ply, id, m) : { lod: true }) };
@@ -111,9 +111,11 @@ export function installPerf(ctx: ViewerContext): PerfHandle {
     source: explicitTarget > 0 ? "url" : "default",
     hz: null as number | null,
   };
+  // Spark's own default (2.5M on the Steam Frame, 1M on the Pico 4) starts far above
+  // what a headset holds, and the first seconds of every log would be missed frames.
   const startLevel = hasUrlCount
     ? levelForSplatCount(urlCount, DEFAULT_BUDGET)
-    : levelForSplatCount(lodSplatCount(spark).count, DEFAULT_BUDGET);
+    : DEFAULT_BUDGET.startLevel;
   const controller = new BudgetController({ targetMs: target.ms, startLevel });
   const budgetActive = () => budgetWanted && mode === "lod";
   const applyBudget = () => {
@@ -282,6 +284,8 @@ export function installPerf(ctx: ViewerContext): PerfHandle {
   // ---- mode toggle and budget toggle
   let savedCleanupMs = spark.lodCleanupTimeoutMs;
   const reloadWithMode = (m: RenderMode) => {
+    // A reload ends the XR session; one button press should not take the headset out.
+    if (ctx.renderer.xr.isPresenting) return say(`${m} needs a reload: exit VR first`);
     const u = new URL(location.href);
     u.searchParams.set("mode", m);
     location.assign(u.toString());

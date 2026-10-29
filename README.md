@@ -83,9 +83,9 @@ cd web && npm install && npm run dev   # open http://localhost:5173/?scene=room0
 
 ## How this was built
 
-Solo build by OJ during the event. Code is written with AI coding assistants (Claude Code,
-and Muse Code where its commits say so); commit trailers record which. The coding tools
-are not part of the product: every model the product calls is a Meta model.
+Solo build by OJ during the event, written with AI coding assistants (Claude Code and
+Muse Code). The coding tools are not part of the product: every model the product calls
+is a Meta model.
 
 ## Licence
 

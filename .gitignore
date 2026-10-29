@@ -17,6 +17,9 @@ data/
 *.pth
 *.ckpt
 *.safetensors
+*.glb
+*.rad
+*.radc
 web/public/scenes/*
 !web/public/scenes/.gitkeep
 

@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 import numpy as np
+import openai
 from meta_sam_parser import (
     SegmentationMask,
     SegmentationMaskRecord,
@@ -186,8 +187,16 @@ async def segment_video(
     if cache.exists() and not force:
         return [_instance_from_json(d) for d in json.loads(cache.read_text())]
     file_id = await upload_video(video)
-    part = {"type": "input_video", "file_id": file_id}
-    records = await _segment(part, noun, "video", encoding)
+    try:
+        records = await _segment(
+            {"type": "input_video", "file_id": file_id}, noun, "video", encoding
+        )
+    except (openai.NotFoundError, openai.BadRequestError):
+        # The remembered file id may have expired or belong to another key: upload again once.
+        file_id = await upload_video(video, force=True)
+        records = await _segment(
+            {"type": "input_video", "file_id": file_id}, noun, "video", encoding
+        )
     cache.parent.mkdir(parents=True, exist_ok=True)
     cache.write_text(json.dumps(records))
     return [_instance_from_json(d) for d in records]

@@ -13,6 +13,7 @@ STATUS: first version, not yet run. The image build is the most likely thing to 
 
 from __future__ import annotations
 
+import hashlib
 import json
 import shutil
 import subprocess
@@ -25,6 +26,9 @@ APP_NAME = "movable-reality-recon"
 GPU = "L40S"
 VOLUME_ROOT = "/data"  # mount point of the scenes volume in the container
 CUDA_ARCHS = "8.0;8.6;8.9;9.0"  # A100, A10/3090, L40S/4090, H100
+# Pinned upstream commits (main on 29 Oct 2026), so a rebuild of the image gets the same code.
+MAPANYTHING_SHA = "3d10cf7a3016fc0f9bb13a071ee66c47b10be0d9"
+GSPLAT_SHA = "512d366b67073d77ca099ede742683c165dfc23b"
 
 image = (
     modal.Image.from_registry("nvidia/cuda:12.8.1-devel-ubuntu22.04", add_python="3.12")
@@ -32,14 +36,21 @@ image = (
     .pip_install(
         "torch==2.9.1", "torchvision==0.24.1", index_url="https://download.pytorch.org/whl/cu128"
     )
+    .pip_install("setuptools", "wheel", "ninja", "numpy")
     .run_commands(
-        "git clone --depth 1 https://github.com/facebookresearch/map-anything /opt/map-anything",
+        "git clone https://github.com/facebookresearch/map-anything /opt/map-anything",
+        f"git -C /opt/map-anything checkout {MAPANYTHING_SHA}",
         "pip install -e '/opt/map-anything[colmap]'",
     )
     .run_commands(
-        "git clone --depth 1 https://github.com/nerfstudio-project/gsplat /opt/gsplat",
-        "cd /opt/gsplat && pip install .",  # compiles CUDA kernels for CUDA_ARCHS
-        "pip install -r /opt/gsplat/examples/requirements.txt",
+        # gsplat's CUDA build needs the glm submodule. --no-build-isolation builds against
+        # the torch installed above; with isolation pip fetches the newest torch from PyPI
+        # (pyproject asks for torch>=2.7) and the extension then fails to import.
+        "git clone https://github.com/nerfstudio-project/gsplat /opt/gsplat",
+        f"git -C /opt/gsplat checkout {GSPLAT_SHA}",
+        "git -C /opt/gsplat submodule update --init --recursive",
+        "cd /opt/gsplat && pip install --no-build-isolation .",  # CUDA kernels for CUDA_ARCHS
+        "pip install --no-build-isolation -r /opt/gsplat/examples/requirements.txt",
         env={"TORCH_CUDA_ARCH_LIST": CUDA_ARCHS, "MAX_JOBS": "8"},
     )
     .env({"PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:True", "HF_HOME": "/cache/hf"})
@@ -48,6 +59,14 @@ image = (
 app = modal.App(APP_NAME, image=image)
 scenes_vol = modal.Volume.from_name("movable-reality-scenes", create_if_missing=True)
 cache_vol = modal.Volume.from_name("movable-reality-cache", create_if_missing=True)
+
+
+def _frames_hash(frames: Path) -> str:
+    """Hash of the frame names and sizes: a re-extracted video gives a new hash."""
+    h = hashlib.sha256()
+    for f in sorted(frames.glob("*.jpg")):
+        h.update(f"{f.name}:{f.stat().st_size}\n".encode())
+    return h.hexdigest()[:16]
 
 
 def _run(cmd: list[str], cwd: str | None = None) -> float:
@@ -69,6 +88,11 @@ def reconstruct(scene_id: str, max_steps: int = 15_000, force: bool = False) -> 
     if not frames.is_dir():
         raise FileNotFoundError(f"{frames} missing; run extract_frames.py and upload first")
     timings: dict[str, float] = {}
+    fhash = _frames_hash(frames)
+    stamp = recon / "frames_hash.txt"
+    if not force and stamp.exists() and stamp.read_text().strip() != fhash:
+        print("frames changed since the last reconstruction; redoing every stage")
+        force = True
 
     # 1. MapAnything: metric cameras + points, exported as a COLMAP model (Apache weights).
     if force or not (recon / "sparse").exists():
@@ -82,6 +106,7 @@ def reconstruct(scene_id: str, max_steps: int = 15_000, force: bool = False) -> 
                 "--apache",
             ]
         )
+        stamp.write_text(fhash)
         # TODO(day 2): replace recon/images (model input resolution, ~518 px) with full-res
         # frames and rescale intrinsics in sparse/cameras.bin before training.
 
@@ -126,6 +151,10 @@ def main(scene: str, max_steps: int = 15_000, force: bool = False, skip_upload: 
     if not skip_upload:
         if not (local / "frames").is_dir():
             raise SystemExit(f"{local / 'frames'} missing; run scripts/extract_frames.py first")
+        try:  # drop frames from an earlier, longer extraction
+            scenes_vol.remove_file(f"/scenes/{scene}/frames", recursive=True)
+        except Exception:  # noqa: BLE001 - nothing uploaded yet
+            pass
         with scenes_vol.batch_upload(force=True) as batch:
             batch.put_directory(local / "frames", f"/scenes/{scene}/frames")
         print(f"uploaded {local / 'frames'}")

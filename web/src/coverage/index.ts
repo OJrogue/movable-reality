@@ -99,7 +99,9 @@ function viewNode(v: ViewMarker, mat: THREE.MeshBasicMaterial, ring: THREE.RingG
 function disposeTree(obj: THREE.Object3D, keep: Set<THREE.BufferGeometry | THREE.Material>): void {
   obj.traverse((o) => {
     const m = o as THREE.Mesh;
-    if (m.geometry && !keep.has(m.geometry)) m.geometry.dispose();
+    // ArrowHelper's line and cone geometries are module-level and shared by every arrow.
+    const sharedGeometry = o.parent instanceof THREE.ArrowHelper;
+    if (m.geometry && !sharedGeometry && !keep.has(m.geometry)) m.geometry.dispose();
     const mats = Array.isArray(m.material) ? m.material : m.material ? [m.material] : [];
     for (const mat of mats) if (!keep.has(mat)) mat.dispose();
   });

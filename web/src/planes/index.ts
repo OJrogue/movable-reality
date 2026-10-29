@@ -29,15 +29,21 @@ export function installPlanes(ctx: ViewerContext): PlanesHandle {
   const loader = new GLTFLoader();
   const nodes = new Map<string, { id: string; node: THREE.Object3D }>();
   const pending = new Set<Promise<void>>();
+  const loading = new Set<string>(); // keys requested and not yet resolved
   const maxAniso = ctx.renderer.capabilities.getMaxAnisotropy();
   let attached = false;
   let warnedLod = false;
 
   const load = (plane: BakedPlane, key: string, worldFromRecon: THREE.Matrix4) => {
     const url = planeUrl(ctx.sceneBase ?? "", plane);
+    loading.add(key);
     const p = loader
       .loadAsync(url)
       .then((gltf) => {
+        if (!loading.delete(key)) {
+          dispose(gltf.scene); // removed from the manifest while it loaded
+          return;
+        }
         const recon = reconGroup(worldFromRecon);
         recon.name = `plane:${plane.id}`;
         const meshes = makeOpaque(gltf.scene, maxAniso);
@@ -46,7 +52,10 @@ export function installPlanes(ctx: ViewerContext): PlanesHandle {
         nodes.set(key, { id: plane.id, node: recon });
         console.info(`[planes] ${plane.id}: ${plane.mesh} (${meshes} mesh, ${plane.removed_splats} splats replaced)`);
       })
-      .catch((err) => console.warn(`[planes] ${plane.id}: failed to load ${url}: ${String(err)}`))
+      .catch((err) => {
+        loading.delete(key);
+        console.warn(`[planes] ${plane.id}: failed to load ${url}: ${String(err)}`);
+      })
       .finally(() => pending.delete(p));
     pending.add(p);
   };
@@ -57,8 +66,9 @@ export function installPlanes(ctx: ViewerContext): PlanesHandle {
       attached = true;
     }
     const worldFromRecon = matrixFromRows(m.world_from_recon);
-    const { add, remove } = diffPlanes(nodes.keys(), m);
+    const { add, remove } = diffPlanes([...nodes.keys(), ...loading], m);
     for (const key of remove) {
+      if (loading.delete(key)) continue; // still loading: dropped when it resolves
       const entry = nodes.get(key);
       if (!entry) continue;
       group.remove(entry.node);
