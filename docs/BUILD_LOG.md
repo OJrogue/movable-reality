@@ -167,3 +167,13 @@ This log is the record of what was built during the hackathon (26 Oct to 4 Nov 2
 - Next: R0 tonight (Pico 4 for sure, the Frame if a Chromium XR build is installed), commit
   the logs and `RESULTS.md`, choose the main device; then R1 with the lod lane's per-object
   trees and R3 tuning of the controller on the walk path.
+
+## 2026-10-29 (orchestration, evening)
+
+- Reviewed and merged PRs #1 (lod), #2 (bake) and #3 (renderer) into main; conflicts in
+  `AGENTS.md`, `docs/BUILD_LOG.md` and `web/src/main.ts` resolved by keeping both sides.
+  Combined checks: 70 Python and 69 viewer tests pass; headless Chromium loads the baked
+  synthetic room with LOD trees, baked planes, HUD and a bench run.
+- Wrote `docs/HANDOFF.md` for the local continuation: state, decisions D1-D14, tonight's
+  runbook (setup, filming, R0, M1), tasks per lane, how to run lanes locally.
+- Next: filming and R0 tonight on the PC and both headsets; coverage PR; core lane M2.
