@@ -150,6 +150,18 @@ uv run pytest                                  # unit tests (no paid calls)
 uv run ruff check . && uv run ruff format .
 cd web && npm install && npm run dev           # viewer, http://localhost:5173/?scene=room01
 cd web && npm test                             # viewer unit tests (vitest), pure logic only
+uv run python scripts/build_lod.py --setup     # lod: build Spark's build-lod once (git + Rust/cargo, ~2 min)
+uv run python scripts/build_lod.py demo        # lod: one .RAD per object -> lod/, sets lod fields (--force, --method quick)
+# viewer LOD: ?mode=naive (LOD off), ?lodPriority=2, ?lodRamp=300, ?lodPaged=1, ?lodSplatCount=<n>; see docs/LOD.md
+uv run python scripts/bake_planes.py --scene bakedemo --synthetic   # bake: synthetic room, then bake floor + ceiling
+uv run python scripts/bake_planes.py --scene room01   # bake: planes/<label>.glb + reduced background (--force, --labels floor, --revert)
+uv run modal run modal_jobs/bake.py --scene room01    # bake: same stage, gsplat ortho rasterizer on an L4 (not yet run)
+# bake depth check (dev server): http://localhost:5173/src/planes/depthcheck.html?case=behind|front|both|crossing
+uv run python scripts/bench_make_splats.py     # renderer: synthetic rooms data/scenes/bench_{50000..2000000}
+cd web && MR_HTTPS=1 npm run dev               # renderer: dev server on the LAN over HTTPS (headsets)
+# renderer: /r0 = run menu for a device session; bench: /?bench=1&scene=bench_300000&mode=lod|naive&duration=120&path=walk
+# renderer: viewer ?budget=0|1, ?hud=0, ?target=<ms>, ?xrScale=<f>; keys M naive/LOD, H HUD, B budget, L save log
+uv run python scripts/bench_report.py          # renderer: benchmarks/raw/*.json -> benchmarks/RESULTS.md (see docs/DEVICES.md)
 ```
 
 Lanes add their own commands here in their PR.
@@ -222,6 +234,17 @@ change updates both files and their tests in the same commit.
   in this repo: it writes its own `AGENTS.md` and may replace this one.
 - The Steam Frame's built-in browser has no WebXR; use the Chromium XR build. WebXR
   needs a secure context (HTTPS, or `localhost` through `adb reverse`).
+
+## Agent settings and helper agents (Claude Code)
+
+- `.claude/settings.json` sets `CLAUDE_CODE_AUTO_COMPACT_WINDOW=400000`: sessions and
+  subagents in this repo compact at 400k tokens to stay within usage limits.
+- `.claude/agents/explorer.md` (Haiku, low effort): use it for searches of the repo,
+  `web/node_modules` sources and docs, instead of reading many files yourself.
+- `.claude/agents/reviewer.md` (high effort): run it once on your branch before opening
+  a PR, fix what it finds, and mention its verdict in the PR.
+- Lane sessions run at the model's default effort (medium on Opus 5.5). Raise effort only
+  for a specific hard problem, not for a whole lane.
 
 ## Definition of done for a task
 

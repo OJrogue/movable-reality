@@ -30,6 +30,23 @@ export interface BakedPlane {
   label: string;
   mesh: string; // .glb relative to the scene folder, recon frame like the PLYs
   removed_splats: number;
+  // Geometry in the world frame, written by scripts/bake_planes.py.
+  normal?: Vec3 | null; // unit, points into the room
+  offset?: number | null; // plane is {p : normal . p = offset}, metres
+  corners?: Vec3[]; // quad corners, world frame, in order
+  texel_m?: number | null;
+  texture_px?: [number, number] | null; // width, height
+  fit_rms_m?: number | null;
+  filled_fraction?: number; // share of texels no Gaussian covered, filled by hole filling
+}
+
+/** How the planes were baked; background_ply in the manifest already points at the reduced PLY. */
+export interface PlaneBake {
+  source_background_ply: string; // original background, unchanged
+  background_ply: string; // background without the baked Gaussians
+  ids: string;
+  ids_ply: string;
+  removed_splats: number;
 }
 
 // ---- lane: coverage (owned by the coverage lane, see AGENTS.md)
@@ -71,6 +88,7 @@ export interface SceneManifest {
   background_lod?: string | null; // lane lod
   objects: SceneObject[];
   planes?: BakedPlane[]; // lane bake
+  plane_bake?: PlaneBake | null; // lane bake
   coverage?: Coverage | null; // lane coverage
   history: unknown[];
 }

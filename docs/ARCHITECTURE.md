@@ -156,6 +156,10 @@ splats; default 500K-750K in WebXR), `lodSplatScale`, `lodRenderScale` (minimum 
 size in pixels, 1 to 5) and `lodTraverseMode`. The npm package ships no `build-lod`
 binary, so the precomputed `.RAD` path needs Spark's repo tooling; until then, build at
 load time with `lod: true`. Fork the traversal (MIT) only if these controls fall short.
+Status 29 Oct (lane lod): `scripts/build_lod.py` builds Spark's `build-lod` with cargo and
+writes one `.RAD` per object; the viewer falls back to `lod: true` when a tree is missing.
+Moves trigger no rebuild, but Spark does not re-traverse on a one-frame move or a
+`lodScale` change, so `web/src/lod/` requests a traversal. Details: `docs/LOD.md`.
 
 ### 12. Plane baking (lane: bake)
 Fit planes to the Gaussians labelled floor and ceiling (RANSAC on centres, inside the
@@ -164,6 +168,13 @@ orthographic camera looking at the plane into a texture, and export one textured
 plane as glTF. Remove those Gaussians from the splat set. The quads are drawn first, opaque,
 with depth writes on, so large, overdrawn splats disappear and the floor under a moved
 object is no longer a hole. Fallback if seams show: floor only.
+Status 29 Oct (lane bake): `scripts/bake_planes.py` fits, bakes (CPU reference rasterizer
+with gsplat's classic-mode rules, 5 mm texels, push-pull hole fill) and writes
+`planes/<label>.glb` plus `objects/background_baked.ply`; `background_ply` then points at
+the reduced PLY and `plane_bake` keeps the original. `modal_jobs/bake.py` is the gsplat
+`camera_model="ortho"` path (not yet run). Inputs: `ids/gaussian_ids.npy` indexes
+`splat/scene.ply`, and `ids/labels.json` maps those ids to object ids (`"floor#1"`). Spark
+2.4.0 splats depth-test against the opaque quads (verified in headless Chromium).
 
 ### 13. Renderer loop and budget controller (lane: renderer, `web/src/perf/`)
 Each frame: opaque planes, then the joint LOD cut, then Spark's sort and blend. The HUD
@@ -175,6 +186,9 @@ not flicker. `SplatMesh` also has foveation options (`coneFov`, `coneFoveate`,
 PLY, no LOD) for the proof shot. Synthetic splat sets (50k to 600k) and a scripted walk
 path make device runs repeatable. Devices: Steam Frame through the Chromium XR build
 (main), Pico 4 (low end), Quest 2 if available. Never measure through PC streaming.
+Status 29 Oct (lane renderer): HUD, frame-time log, budget controller, naive/LOD toggle
+and bench mode are in `web/src/perf/` and `web/src/bench/`; device steps, runtime-changeable
+Spark settings and the R0 checklist are in `docs/DEVICES.md`.
 
 ## Decisions and fallbacks
 

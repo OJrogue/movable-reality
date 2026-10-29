@@ -91,6 +91,25 @@ class BakedPlane(BaseModel):
     label: str
     mesh: str  # .glb relative to the scene folder, same frame as the PLYs (recon frame)
     removed_splats: int = 0  # Gaussians this plane replaced
+    # Geometry in the world frame, written by scripts/bake_planes.py.
+    normal: Vec3 | None = None  # unit, points into the room
+    offset: float | None = None  # plane is {p : normal . p = offset}, metres
+    corners: list[Vec3] = Field(default_factory=list)  # quad corners, world frame, in order
+    texel_m: float | None = None  # texture texel size, metres
+    texture_px: tuple[int, int] | None = None  # width, height
+    fit_rms_m: float | None = None  # RMS distance of the fitted Gaussian centres to the plane
+    filled_fraction: float = 0.0  # share of texels no Gaussian covered, filled by hole filling
+
+
+class PlaneBake(BaseModel):
+    """How the planes were baked. The bake sets Scene.background_ply to `background_ply` (the
+    background without the replaced Gaussians) and keeps the original for re-bakes and undo."""
+
+    source_background_ply: str  # original background, unchanged
+    background_ply: str  # background without the baked Gaussians
+    ids: str = "ids/gaussian_ids.npy"  # per-Gaussian ids that selected the plane Gaussians
+    ids_ply: str = "splat/scene.ply"  # the PLY those ids index
+    removed_splats: int = 0  # all planes together
 
 
 # ---------------------------------------------------------------- lane: coverage
@@ -142,6 +161,7 @@ class Scene(BaseModel):
     background_lod: str | None = None  # lane lod: Spark .RAD tree for the background
     objects: list[SceneObject] = Field(default_factory=list)
     planes: list[BakedPlane] = Field(default_factory=list)  # lane bake
+    plane_bake: PlaneBake | None = None  # lane bake
     coverage: Coverage | None = None  # lane coverage
     history: list[HistoryEntry] = Field(default_factory=list)
 
