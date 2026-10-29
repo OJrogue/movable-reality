@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Movable Reality</title>
+    <style>
+      html, body { margin: 0; height: 100%; overflow: hidden; background: #111; }
+      canvas { display: block; }
+      #hud {
+        position: fixed; left: 12px; top: 12px; padding: 6px 10px; border-radius: 6px;
+        background: rgba(0, 0, 0, 0.55); color: #eee; font: 13px/1.4 system-ui, sans-serif;
+        pointer-events: none; white-space: pre;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="hud">loading…</div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

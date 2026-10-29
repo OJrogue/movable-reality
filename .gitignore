@@ -1,0 +1,45 @@
+# secrets
+.env
+.env.*
+!.env.example
+
+# data, captures, model outputs
+data/
+*.mp4
+*.mov
+*.ply
+*.spz
+*.splat
+*.ksplat
+*.npy
+*.npz
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+web/public/scenes/*
+!web/public/scenes/.gitkeep
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+build/
+
+# node
+node_modules/
+web/dist/
+
+# os / editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# local agent files
+CLAUDE.local.md
+.claude/settings.local.json
