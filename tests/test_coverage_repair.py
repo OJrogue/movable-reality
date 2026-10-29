@@ -98,6 +98,25 @@ def test_repair_camera_backs_off_inside_the_room():
     small = (np.array([-10.0, 0.0, -10.0]), np.array([10.0, 3.0, 2.5]))
     cam = repair.repair_camera(gap, 300, 200, 65.0, bounds=small, fill=0.5)
     assert cam.center[2] == pytest.approx(2.35)
+    # A ceiling gap: the eye keeps its height and backs off horizontally (+z here).
+    up = NextBestView(eye=(0.0, 1.6, 1.0), target=(0.0, 2.5, 0.0), visible=10, gain=0.5)
+    ceil = Gap(id="c", center=(0.0, 2.5, 0.0), radius=0.75, score=1.0, next_best_views=[up])
+    cam = repair.repair_camera(ceil, 300, 200, 65.0, bounds=big, fill=0.5)
+    assert cam.center[1] == pytest.approx(1.6)
+    assert cam.center[0] == pytest.approx(0.0) and cam.center[2] > 1.5
+    assert np.linalg.norm(cam.center - np.array(ceil.center)) == pytest.approx(
+        0.75 / np.sin(0.5 * vhalf), rel=1e-6
+    )
+    # A sofa back at z = 2.0 stops it 0.3 m short (within one 5 cm step).
+    g = np.linspace(-1, 1, 41)
+    gx, gy = np.meshgrid(g, g + 1.5)
+    sofa = np.stack([gx.ravel(), gy.ravel(), np.full(gx.size, 2.0)], 1)
+    cam = repair.repair_camera(ceil, 300, 200, 65.0, bounds=big, obstacles=sofa)
+    assert 1.6 <= cam.center[2] <= 1.7 + 1e-9
+    # Without a next view the fallback eye is clamped into the room.
+    lost = Gap(id="l", center=(0.0, 1.0, 1.9), radius=0.3, score=1.0)
+    box = (np.array([-2.0, 0.0, -2.0]), np.array([2.0, 2.6, 2.0]))
+    assert repair.repair_camera(lost, bounds=box).center[2] <= 1.85 + 1e-9
     # A small gap needs no back-off; the view stays where coverage put it.
     tiny = gap.model_copy(update={"radius": 0.1})
     assert repair.repair_camera(tiny, 300, 200, 65.0, bounds=big).center == pytest.approx(
@@ -126,10 +145,10 @@ def test_gap_mask_covers_the_gap_and_empty_pixels_only():
     assert mask[24, 32]  # centre: ray through the sphere hits nothing (the hole)
     assert not mask[2, 2]  # corner: wall far outside the sphere
     assert tuple(img[24, 32]) == repair.MASK_COLOR
-    # Wall behind the sphere but outside it is not masked.
-    _, d = repair.render_points(cam, wall, np.full((n, 3), 0.5), np.full(n, 0.03))
-    m2 = repair.gap_mask(cam, gap, d)
-    assert m2.sum() == mask.sum()
+    # A ray through the sphere's silhouette that hits the wall behind it, outside the
+    # hole (0.12 rad off axis: 0.23 m from the centre at the sphere, 0.35 m at the wall).
+    assert not mask[24, 38]
+    assert tuple(img[24, 38]) != repair.MASK_COLOR
 
 
 def test_nearest_frames_prefers_similar_poses():

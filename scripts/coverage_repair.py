@@ -3,12 +3,13 @@
     uv run python scripts/coverage_repair.py --scene cov_synth                 # dry run
     uv run python scripts/coverage_repair.py --scene room01 --gap gap_003 --call   # paid
 
-For each selected gap (default: open gaps up to --max-radius, at most --limit): renders
-the gap view from its next-best viewpoint with the gap painted magenta, picks the nearest
-real frames as references, and writes coverage/repair/<gap>/{view.png, mask.png,
-request.json}. With --call it sends one Muse Image edit per gap (Meta Model API,
-MODEL_API_KEY, about $0.01 per image), cached under data/cache/muse_image/, and writes
-coverage/repair/<gap>/repaired.webp. Distilling repairs back into splats is not done here.
+For each selected gap (default: open gaps up to --max-radius that have a next-best view,
+at most --limit): renders the gap view from near its next-best viewpoint with the gap
+painted magenta, picks the nearest real frames as references, and writes
+coverage/repair/<gap>/{view.png, mask.png, request.json}. With --call it sends one Muse
+Image edit per gap (Meta Model API, MODEL_API_KEY, about $0.01 per image), cached under
+data/cache/muse_image/, and writes coverage/repair/<gap>/repaired.webp.
+Distilling repairs back into splats is not done here.
 """
 
 from __future__ import annotations
@@ -45,7 +46,9 @@ def main() -> int:
         gaps = [g for g in scene.coverage.gaps if g.id in set(args.gap)]
     else:
         gaps = [
-            g for g in scene.coverage.gaps if g.status == "open" and g.radius <= args.max_radius
+            g
+            for g in scene.coverage.gaps
+            if g.status == "open" and g.radius <= args.max_radius and g.next_best_views
         ][: args.limit]
     splats, _ = load_splats(folder, scene)
     W = np.asarray(scene.world_from_recon, dtype=np.float64)
