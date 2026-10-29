@@ -4,8 +4,8 @@
 // Shows the last frame time, rolling p50/p99 over ~2 s, FPS, missed-frame share, splats
 // drawn (Spark's sort output), splats in the current cut, total splats in the scene, the
 // LOD settings and the budget-controller state. Toggle: `H` on the desktop, the left
-// controller's X button (or, with one controller, its thumbstick press) in XR, and
-// `?hud=0` to start hidden.
+// controller's B or Y button in XR (input.ts), and `?hud=0` to start hidden.
+// `?hudPanel=1` also shows the XR panel on the desktop (layout checks, desktop recordings).
 import * as THREE from "three";
 
 export interface HudData {
@@ -60,9 +60,13 @@ export function hudLines(d: HudData): string[] {
 }
 
 const PANEL_PX = { w: 768, h: 320 };
-/** Panel size in metres and placement in front of the left eye, below centre. */
-const PANEL_M = { w: 0.32, h: 0.1333 };
-const PANEL_POS = new THREE.Vector3(-0.09, -0.12, -0.6);
+/**
+ * Panel size in metres and placement: 0.6 m ahead, a little left of and below the centre
+ * of view, about 38 deg wide. A text line is about 2 deg tall, readable at the 0.5 XR
+ * framebuffer scale that Spark (and this viewer) use by default.
+ */
+const PANEL_M = { w: 0.42, h: 0.175 };
+const PANEL_POS = new THREE.Vector3(-0.1, -0.14, -0.6);
 
 export class Hud {
   private visible: boolean;
@@ -74,7 +78,11 @@ export class Hud {
   private lastXrDraw = -Infinity;
   private lastText = "";
 
-  constructor(camera: THREE.Camera, visible: boolean) {
+  constructor(
+    camera: THREE.Camera,
+    visible: boolean,
+    private readonly panelOnDesktop = false,
+  ) {
     this.visible = visible;
     this.el = document.getElementById("hud");
     this.canvas.width = PANEL_PX.w;
@@ -117,7 +125,7 @@ export class Hud {
   /** Called once per frame; redraws the XR panel at most 4 times a second. */
   update(d: HudData, now: number): void {
     const lines = hudLines(d);
-    if (!d.xr) {
+    if (!d.xr && !this.panelOnDesktop) {
       this.panel.visible = false;
       if (this.el && this.visible) {
         const text = lines.join("\n");
@@ -125,7 +133,7 @@ export class Hud {
       }
       return;
     }
-    if (this.el) this.el.style.display = "none";
+    if (this.el && d.xr) this.el.style.display = "none";
     this.panel.visible = this.visible;
     if (!this.visible || now - this.lastXrDraw < 250) return;
     this.lastXrDraw = now;
@@ -148,7 +156,7 @@ export class Hud {
       g.roundRect(0, 0, w, h, 18);
       g.fill();
     } else g.fillRect(0, 0, w, h); // older headset browsers
-    g.font = "600 30px ui-monospace, Menlo, Consolas, monospace";
+    g.font = "bold 30px ui-monospace, Menlo, Consolas, monospace";
     g.textBaseline = "top";
     lines.slice(0, 8).forEach((line, i) => {
       g.fillStyle = i === 1 && over ? "#ff7a6b" : i === 0 ? "#9fe3a8" : "#f2f2f2";

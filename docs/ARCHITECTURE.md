@@ -175,6 +175,9 @@ not flicker. `SplatMesh` also has foveation options (`coneFov`, `coneFoveate`,
 PLY, no LOD) for the proof shot. Synthetic splat sets (50k to 600k) and a scripted walk
 path make device runs repeatable. Devices: Steam Frame through the Chromium XR build
 (main), Pico 4 (low end), Quest 2 if available. Never measure through PC streaming.
+Status 29 Oct (lane renderer): HUD, frame-time log, budget controller, naive/LOD toggle
+and bench mode are in `web/src/perf/` and `web/src/bench/`; device steps, runtime-changeable
+Spark settings and the R0 checklist are in `docs/DEVICES.md`.
 
 ## Decisions and fallbacks
 

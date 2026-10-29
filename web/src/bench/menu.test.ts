@@ -17,6 +17,7 @@ describe("R0 run menu", () => {
       mode: "lod",
       duration: "60",
       path: "walk",
+      hz: "72",
       device: "Steam Frame",
     });
   });

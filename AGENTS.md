@@ -150,6 +150,11 @@ uv run pytest                                  # unit tests (no paid calls)
 uv run ruff check . && uv run ruff format .
 cd web && npm install && npm run dev           # viewer, http://localhost:5173/?scene=room01
 cd web && npm test                             # viewer unit tests (vitest), pure logic only
+uv run python scripts/bench_make_splats.py     # renderer: synthetic rooms data/scenes/bench_{50000..2000000}
+cd web && MR_HTTPS=1 npm run dev               # renderer: dev server on the LAN over HTTPS (headsets)
+# renderer: /r0 = run menu for a device session; bench: /?bench=1&scene=bench_300000&mode=lod|naive&duration=120&path=walk
+# renderer: viewer ?budget=0|1, ?hud=0, ?target=<ms>, ?xrScale=<f>; keys M naive/LOD, H HUD, B budget, L save log
+uv run python scripts/bench_report.py          # renderer: benchmarks/raw/*.json -> benchmarks/RESULTS.md (see docs/DEVICES.md)
 ```
 
 Lanes add their own commands here in their PR.

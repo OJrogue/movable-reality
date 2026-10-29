@@ -2,7 +2,8 @@
 // every run of the R0 checklist as a big link, ticks the runs whose logs already exist
 // (GET /__bench), and links to the next one. Typing long URLs in a headset browser is
 // slow; this needs one short URL per device.
-// Options: ?duration=<s> (default 120), ?path=<name> (default walk), ?device=<label>.
+// Options: ?duration=<s> (default 120), ?path=<name> (default walk), ?device=<label>,
+// ?hz=<rate> (default 72; requested from the XR session if the browser supports it).
 import { deviceLabel, isLogOf, modeTag } from "../perf/logName";
 
 export const R0_SCENES = [50_000, 150_000, 300_000, 600_000, 1_000_000].map((n) => `bench_${n}`);
@@ -18,10 +19,12 @@ export function r0Runs(params: URLSearchParams): MenuRun[] {
   const duration = params.get("duration") ?? "120";
   const path = params.get("path") ?? "walk";
   const device = params.get("device");
+  const hz = params.get("hz") ?? "72";
   const runs: MenuRun[] = [];
   for (const scene of R0_SCENES) {
     for (const mode of R0_MODES) {
-      const q = new URLSearchParams({ bench: "1", scene, mode, duration, path });
+      // hz=72: ask for the project's target rate (a headset may default to 90 Hz).
+      const q = new URLSearchParams({ bench: "1", scene, mode, duration, path, hz });
       if (device) q.set("device", device);
       runs.push({ scene, mode, url: `/?${q}` });
     }

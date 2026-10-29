@@ -56,6 +56,7 @@ export interface FrameLogMeta {
   xr: boolean;
   headless: boolean;
   device: DeviceInfo;
+  /** Target in force at the end of the recording; changes are in `events` ("target"). */
   target_ms: number;
   /** "xr" (XRSession.frameRate), "estimate" (steady frame intervals), "url" or "default". */
   target_source: string;

@@ -71,6 +71,45 @@ export function estimateHz(medianDtMs: number): number | null {
   return best;
 }
 
+/**
+ * Display-rate estimate from recent frame intervals: the last `size` intervals under
+ * `maxDtMs` (stalls and loading pauses are ignored), re-estimated every 30 frames once
+ * `min` are in. Uses p10: overload only lengthens intervals, so the short ones show the
+ * display period. Returns null while it cannot tell (too few frames, no common rate).
+ */
+export class RateEstimator {
+  private ring: number[] = [];
+  private pushes = 0;
+  private last: number | null = null;
+
+  constructor(
+    private readonly size = 120,
+    private readonly min = 60,
+    private readonly maxDtMs = 100,
+  ) {}
+
+  /** Feed one interval; returns a new estimate (Hz) when one is due, else undefined. */
+  push(dtMs: number): number | null | undefined {
+    if (!(dtMs > 0) || dtMs >= this.maxDtMs) return undefined;
+    this.ring.push(dtMs);
+    if (this.ring.length > this.size) this.ring.shift();
+    this.pushes++;
+    if (this.ring.length < this.min || this.pushes % 30 !== 0) return undefined;
+    this.last = estimateHz(percentile(this.ring, 10));
+    return this.last;
+  }
+
+  get hz(): number | null {
+    return this.last;
+  }
+
+  clear(): void {
+    this.ring = [];
+    this.pushes = 0;
+    this.last = null;
+  }
+}
+
 /** Keeps the frame intervals of the last `spanMs` milliseconds (the HUD's ~2 s window). */
 export class RollingWindow {
   private readonly values: number[] = [];

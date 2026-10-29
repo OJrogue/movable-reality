@@ -61,7 +61,10 @@ Every POSTed log lands on the laptop, whichever way the headset connects.
 Open **`/r0`** in the headset browser (for example `http://localhost:5173/r0`). It lists
 every R0 run as a big button, ticks the runs whose logs are already on the laptop, and has
 a **next** button. Options: `/r0?duration=60` (shorter runs), `/r0?device=steam-frame`
-(file name label; default from the user agent: `pico`, `linux-arm64` for the Frame).
+(file name label; default from the user agent: `pico`, `linux-arm64` for the Frame),
+`/r0?hz=90` (the runs ask the XR session for 72 Hz by default, which is the project's
+target; the log records the rate the session really ran at). If the headset has a refresh
+rate setting (Pico 4: Settings > Display), set it to 72 Hz as well.
 
 Each run:
 
@@ -94,7 +97,7 @@ The bench URL itself, if you need it by hand:
 | `lodSplatCount` | LOD splat budget for the run | `500000` in bench mode |
 | `xr` | `1` wait for Enter VR, `0` run on the flat page, `auto` | `auto` |
 | `xrScale` | WebXR framebuffer scale 0.25 to 1 | `0.5` (Spark's default) |
-| `hz` | ask the session for this rate (if the browser lists it) | the browser's |
+| `hz` | ask the session for this rate (if the browser lists it in `supportedFrameRates`) | the browser's; `/r0` adds `hz=72` |
 | `device` | label for the log file name | from the user agent |
 | `hud` | `0` hides the HUD | shown |
 
@@ -144,9 +147,11 @@ The choice is OJ's; this repo does not download or install any of them.
 With option 1 or 3, saphid's notes (tested on 156.0.8071.0, SteamOS 0.3.0, SteamVR
 2.17.10) say: start it from the Steam library (it opens as a panel), open the page, press
 **ENTER VR**, answer **Allow VR?** with *Allow*; leave VR with the Steam button. A first
-**External Controller Translation** notice can be dismissed with OK. The session renders at
-72 Hz with a 2880 x 1440 framebuffer (1440 x 1440 per eye) before Spark's 0.5 scale. From
-an SSH shell, `chromium-xr https://<laptop-ip>:5173/r0` opens the menu directly.
+**External Controller Translation** notice can be dismissed with OK. saphid measured
+72 Hz and a 2880 x 1440 framebuffer (1440 x 1440 per eye) with the WebXR samples; this
+viewer requests 0.5 of the browser's default size (`xrScale`, Spark's default), and each
+log records the framebuffer it got. From an SSH shell,
+`chromium-xr https://<laptop-ip>:5173/r0` opens the menu directly.
 
 If none of these is ready, run R0 on the Pico 4 only and note it in the build log.
 

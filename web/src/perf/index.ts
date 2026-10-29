@@ -9,6 +9,7 @@
 //   ?lodSplatCount=<n>     starting splat budget (the controller owns it when active)
 //   ?lodRenderScale=<f>    starting minimum splat size in pixels (1 to 5)
 //   ?hud=0                 start with the HUD hidden
+//   ?hudPanel=1            also show the in-headset HUD panel on the desktop
 //   ?device=<label>        device name for log file names (default: from the user agent)
 //   ?keepFull=0            LOD mode: do not keep the full splat set for the instant toggle
 //   ?bench=1&scene=<id>&mode=lod|naive&duration=<s>&path=<name>   bench mode (bench/)
@@ -40,7 +41,7 @@ import {
   splatMeshes,
   splatsReady,
 } from "./sparkInfo";
-import { estimateHz, percentile, RollingWindow, summarize, targetForHz } from "./stats";
+import { RateEstimator, RollingWindow, summarize, targetForHz } from "./stats";
 
 /** Fixed LOD budget for bench runs without the controller, so devices are comparable. */
 export const BENCH_LOD_SPLATS = 500_000;
@@ -48,7 +49,6 @@ const DEFAULT_TARGET_MS = 13.9;
 /** Free (non-bench) recordings stop growing after 30 min at 72 Hz. */
 const MAX_FREE_FRAMES = 72 * 60 * 30;
 const HUD_INTERVAL_MS = 250;
-const ESTIMATE_AFTER_MS = 2000;
 
 export interface PerfHandle {
   mode(): RenderMode;
@@ -123,7 +123,7 @@ export function installPerf(ctx: ViewerContext): PerfHandle {
   };
 
   // ---- HUD, input, download button
-  const hud = new Hud(ctx.camera, p.get("hud") !== "0");
+  const hud = new Hud(ctx.camera, p.get("hud") !== "0", p.get("hudPanel") === "1");
   const input = new PerfInput(ctx.renderer);
   const button = document.createElement("button");
   button.textContent = "save log";
@@ -177,17 +177,21 @@ export function installPerf(ctx: ViewerContext): PerfHandle {
   // ---- XR session: frame rate and target
   const xrScale = ctx.xrFramebufferScale;
   const wantHz = Number(p.get("hz"));
-  let estimateFrom: number | null = null;
+  const rate = new RateEstimator();
   // Target sources, strongest first: ?target= ("url"), XRSession.frameRate ("xr"), the
   // display rate estimated from steady frames ("estimate"), 13.9 ms ("default"; after a
-  // failed estimate "default-checked", and estimation keeps trying every 2 s).
+  // failed estimate "default-checked", and estimation keeps trying).
   const setTarget = (ms: number, source: string, hz: number | null) => {
     target.hz = hz;
     if (target.source === "url") return;
     target.ms = ms;
     target.source = source;
     controller.setTarget(ms);
-    recorder?.event(lastTime ?? 0, "target", { ms, source, hz });
+    if (recorder) {
+      recorder.meta.target_ms = ms;
+      recorder.meta.target_source = source;
+      recorder.event(lastTime ?? 0, "target", { ms, source, hz });
+    }
   };
   const resetTarget = () => setTarget(DEFAULT_TARGET_MS, "default", null);
   ctx.renderer.xr.addEventListener("sessionstart", () => {
@@ -334,7 +338,7 @@ export function installPerf(ctx: ViewerContext): PerfHandle {
   const resetWindows = (why: string) => {
     window2s.clear();
     controller.reset();
-    estimateFrom = null;
+    rate.clear();
     recorder?.event(lastTime ?? 0, "reset", { why });
   };
 
@@ -376,19 +380,12 @@ export function installPerf(ctx: ViewerContext): PerfHandle {
     const counters = sparkCounters(spark);
     if (ready && dt > 0) {
       window2s.push(dt);
-      // Display rate from steady frames once the scene is up (desktop, or XR without
-      // XRSession.frameRate). An overloaded start gives no estimate; the default stays.
+      // Display rate from recent frames (desktop, or XR without XRSession.frameRate).
+      // A device that misses every frame gives no estimate, and the default stays.
       if (target.source === "default" || target.source === "default-checked") {
-        estimateFrom ??= time;
-        if (time - estimateFrom >= ESTIMATE_AFTER_MS) {
-          // p10: overload only lengthens intervals, so the short ones show the display.
-          const hz = estimateHz(percentile(window2s.snapshot(), 10));
-          if (hz) setTarget(targetForHz(hz), "estimate", hz);
-          else {
-            target.source = "default-checked";
-            estimateFrom = time;
-          }
-        }
+        const hz = rate.push(dt);
+        if (hz) setTarget(targetForHz(hz), "estimate", hz);
+        else if (hz === null) target.source = "default-checked";
       }
       if (budgetActive() && target.source !== "default") {
         const step = controller.update(dt);

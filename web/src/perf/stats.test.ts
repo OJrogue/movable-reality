@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { estimateHz, percentile, RollingWindow, summarize, targetForHz } from "./stats";
+import {
+  estimateHz,
+  percentile,
+  RateEstimator,
+  RollingWindow,
+  summarize,
+  targetForHz,
+} from "./stats";
 
 describe("percentile", () => {
   it("matches numpy's linear interpolation", () => {
@@ -35,6 +42,29 @@ describe("refresh rate", () => {
     expect(estimateHz(16.7)).toBe(60);
     expect(estimateHz(25)).toBeNull();
     expect(estimateHz(0)).toBeNull();
+  });
+});
+
+describe("RateEstimator", () => {
+  it("finds 72 Hz through stalls and missed frames, and stays silent on a slow device", () => {
+    const r = new RateEstimator();
+    const got: (number | null)[] = [];
+    for (let i = 0; i < 200; i++) {
+      const dt = i === 10 ? 8000 : i % 5 === 0 ? 27.8 : 13.9 + ((i % 3) - 1) * 0.1;
+      const hz = r.push(dt);
+      if (hz !== undefined) got.push(hz);
+    }
+    expect(got.length).toBeGreaterThan(0);
+    expect(got.every((h) => h === 72)).toBe(true);
+    const slow = new RateEstimator();
+    for (let i = 0; i < 200; i++) expect(slow.push(500)).toBeUndefined();
+    const odd = new RateEstimator();
+    const answers = new Set<number | null>();
+    for (let i = 0; i < 200; i++) {
+      const hz = odd.push(40); // 25 Hz: no common display rate
+      if (hz !== undefined) answers.add(hz);
+    }
+    expect([...answers]).toEqual([null]);
   });
 });
 
