@@ -150,6 +150,10 @@ uv run pytest                                  # unit tests (no paid calls)
 uv run ruff check . && uv run ruff format .
 cd web && npm install && npm run dev           # viewer, http://localhost:5173/?scene=room01
 cd web && npm test                             # viewer unit tests (vitest), pure logic only
+uv run python scripts/bake_planes.py --scene bakedemo --synthetic   # bake: synthetic room, then bake floor + ceiling
+uv run python scripts/bake_planes.py --scene room01   # bake: planes/<label>.glb + reduced background (--force, --labels floor, --revert)
+uv run modal run modal_jobs/bake.py --scene room01    # bake: same stage, gsplat ortho rasterizer on an L4 (not yet run)
+# bake depth check (dev server): http://localhost:5173/src/planes/depthcheck.html?case=behind|front|both|crossing
 ```
 
 Lanes add their own commands here in their PR.

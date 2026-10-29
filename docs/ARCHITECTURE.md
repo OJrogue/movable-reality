@@ -164,6 +164,13 @@ orthographic camera looking at the plane into a texture, and export one textured
 plane as glTF. Remove those Gaussians from the splat set. The quads are drawn first, opaque,
 with depth writes on, so large, overdrawn splats disappear and the floor under a moved
 object is no longer a hole. Fallback if seams show: floor only.
+Status 29 Oct (lane bake): `scripts/bake_planes.py` fits, bakes (CPU reference rasterizer
+with gsplat's classic-mode rules, 5 mm texels, push-pull hole fill) and writes
+`planes/<label>.glb` plus `objects/background_baked.ply`; `background_ply` then points at
+the reduced PLY and `plane_bake` keeps the original. `modal_jobs/bake.py` is the gsplat
+`camera_model="ortho"` path (not yet run). Inputs: `ids/gaussian_ids.npy` indexes
+`splat/scene.ply`, and `ids/labels.json` maps those ids to object ids (`"floor#1"`). Spark
+2.4.0 splats depth-test against the opaque quads (verified in headless Chromium).
 
 ### 13. Renderer loop and budget controller (lane: renderer, `web/src/perf/`)
 Each frame: opaque planes, then the joint LOD cut, then Spark's sort and blend. The HUD
