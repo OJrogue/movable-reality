@@ -46,9 +46,23 @@ image = (
     .pip_install(
         "torch==2.9.1", "torchvision==0.24.1", index_url="https://download.pytorch.org/whl/cu128"
     )
-    .pip_install("numpy>=2.0", "pillow>=11.0", "plyfile>=1.1", "pydantic>=2.8", "python-dotenv")
+    .pip_install(
+        "numpy>=2.0",
+        "pillow>=11.0",
+        "plyfile>=1.1",
+        "pydantic>=2.8",
+        "python-dotenv",
+        "openai>=1.0",
+        "setuptools",
+        "wheel",
+        "ninja",
+    )  # fmt: skip
     .run_commands(
-        f"pip install --no-build-isolation 'gsplat=={GSPLAT_VERSION}'",
+        # Same build path as modal_jobs/reconstruct.py, pinned to a tag: compiles the CUDA
+        # kernels at install time for CUDA_ARCHS against the torch installed above.
+        f"git clone --depth 1 --branch v{GSPLAT_VERSION} "
+        "https://github.com/nerfstudio-project/gsplat /opt/gsplat",
+        "cd /opt/gsplat && pip install --no-build-isolation .",
         env={"TORCH_CUDA_ARCH_LIST": CUDA_ARCHS, "MAX_JOBS": "8"},
     )
     .env({"PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:True"})
