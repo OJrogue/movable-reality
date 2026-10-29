@@ -99,7 +99,7 @@ export function overlayModel(m: SceneManifest | null, perGap = 1): OverlayModel 
   const gaps = gapMarkers(cov);
   const views = viewMarkers(cov, perGap);
   const share = cov?.gap_share;
-  const pct = share == null ? "" : `, ${(100 * share).toFixed(0)}% of visible room`;
+  const pct = share == null ? "" : `, ${(100 * share).toFixed(0)}% of visible surfaces`;
   const gen = cov && cov.generated_splats > 0 ? `, ${cov.generated_splats} generated splats` : "";
   const summary = cov ? `coverage: ${gaps.length} gaps${pct}${gen}` : "coverage: not scored";
   return { gaps, views, summary };

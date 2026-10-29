@@ -75,7 +75,7 @@ export interface Coverage {
   gap_map: string | null;
   gaps: Gap[];
   generated_splats: number;
-  gap_share?: number | null; // share of the VR-visible room volume flagged as gaps
+  gap_share?: number | null; // share of VR-visible non-empty voxels (surfaces, unobserved space) in gaps
 }
 
 // Optional sections may be missing in older manifests; fall back to the plain PLY path.

@@ -110,7 +110,7 @@ describe("overlay model", () => {
   it("summarises gaps, gap share and generated splats", () => {
     const m = { coverage: cov([gap(), gap({ id: "b" })], { gap_share: 0.123, generated_splats: 42 }) };
     const model = overlayModel(m as unknown as SceneManifest);
-    expect(model.summary).toBe("coverage: 2 gaps, 12% of visible room, 42 generated splats");
+    expect(model.summary).toBe("coverage: 2 gaps, 12% of visible surfaces, 42 generated splats");
   });
 
   it("has a key that only changes when the drawing changes", () => {

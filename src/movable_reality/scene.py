@@ -144,7 +144,8 @@ class Coverage(BaseModel):
     gap_map: str | None = None  # per-Gaussian or voxel scores, relative path
     gaps: list[Gap] = Field(default_factory=list)
     generated_splats: int = 0  # splats with PLY property generated = 1, whole scene
-    gap_share: float | None = None  # share of the VR-visible room volume flagged as gaps
+    # Share of the VR-visible non-empty voxels (surfaces and unobserved space) inside gaps.
+    gap_share: float | None = None
 
 
 # ---------------------------------------------------------------- manifest
