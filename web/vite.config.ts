@@ -1,4 +1,11 @@
-import { createReadStream, existsSync, mkdirSync, statSync, writeFileSync } from "node:fs";
+import {
+  createReadStream,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import type { IncomingMessage } from "node:http";
 import { extname, join, normalize, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -70,14 +77,19 @@ interface PostedLog {
   created?: unknown;
   scene?: unknown;
   mode?: unknown;
+  budget?: unknown;
   headless?: unknown;
   device?: { label?: unknown };
 }
+
+const jsonFiles = (dir: string) =>
+  existsSync(dir) ? readdirSync(dir).filter((f) => f.endsWith(".json")).sort() : [];
 
 /**
  * Dev only: POST /__bench with a frame log (web/src/perf/frameLog.ts) writes
  * benchmarks/raw/<timestamp>_<device>_<scene>_<mode>.json. Logs from headless browsers go
  * to benchmarks/headless/ instead, so they are never mistaken for device numbers.
+ * GET /__bench lists the log files, for the run menu (?menu=r0).
  */
 function benchEndpoint(): Plugin {
   return {
@@ -89,6 +101,12 @@ function benchEndpoint(): Plugin {
           res.setHeader("Content-Type", "application/json");
           res.end(JSON.stringify(body));
         };
+        if (req.method === "GET") {
+          return reply(200, {
+            raw: jsonFiles(join(BENCH_DIR, "raw")),
+            headless: jsonFiles(join(BENCH_DIR, "headless")),
+          });
+        }
         if (req.method !== "POST") return reply(405, { error: "POST a frame log" });
         try {
           const text = await readBody(req);
@@ -99,6 +117,7 @@ function benchEndpoint(): Plugin {
             device: { label: String(log.device?.label ?? "unknown") },
             scene: String(log.scene ?? "unknown"),
             mode: String(log.mode ?? "unknown"),
+            budget: log.budget === true,
           });
           const dir = join(BENCH_DIR, log.headless === true ? "headless" : "raw");
           mkdirSync(dir, { recursive: true });
@@ -116,13 +135,34 @@ function benchEndpoint(): Plugin {
   };
 }
 
+// Dev only: /r0 serves the R0 run menu (src/bench/menu.ts; Vite compiles the module).
+const MENU_HTML = `<!doctype html>
+<html lang="en"><head><meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>R0 runs</title><style>html,body{margin:0;background:#111}</style></head>
+<body><script type="module" src="/src/bench/menu.ts"></script></body></html>`;
+
+function runMenu(): Plugin {
+  return {
+    name: "run-menu",
+    configureServer(server) {
+      server.middlewares.use("/r0", (req, res, next) => {
+        if ((req.url ?? "/").split("?")[0] !== "/") return next();
+        res.setHeader("Content-Type", "text/html; charset=utf-8");
+        res.setHeader("Cache-Control", "no-store");
+        res.end(MENU_HTML);
+      });
+    },
+  };
+}
+
 // HTTPS for headsets on the LAN (WebXR needs a secure context): MR_HTTPS=1 npm run dev.
 // @vitejs/plugin-basic-ssl makes a self-signed certificate; the headset browser asks once
 // to accept it. Over USB, `adb reverse` + http://localhost needs no certificate.
 const https = process.env.MR_HTTPS === "1";
 
 export default defineConfig({
-  plugins: [serveLocalScenes(), benchEndpoint(), ...(https ? [basicSsl()] : [])],
+  plugins: [serveLocalScenes(), benchEndpoint(), runMenu(), ...(https ? [basicSsl()] : [])],
   server: { port: 5173, host: https ? true : undefined },
   build: { chunkSizeWarningLimit: 4000 }, // Spark bundles its WASM sorter (~3 MB)
 });

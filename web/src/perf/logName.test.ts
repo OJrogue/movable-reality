@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { compactTimestamp, deviceLabel, logStem, sanitizeName } from "./logName";
+import { compactTimestamp, deviceLabel, isLogOf, logStem, sanitizeName } from "./logName";
 
 const UA = {
   headless:
@@ -40,5 +40,25 @@ describe("log naming", () => {
       mode: "lod",
     });
     expect(stem).toBe("20261029T211503Z_pico_bench_300000_lod");
+    const withBudget = logStem({
+      created: "2026-10-29T21:15:03.120Z",
+      device: { label: "pico" },
+      scene: "bench_300000",
+      mode: "lod",
+      budget: true,
+    });
+    expect(withBudget).toBe("20261029T211503Z_pico_bench_300000_lod-budget");
+  });
+
+  it("recognises the logs of a run", () => {
+    const f = "20261029T211503Z_pico_bench_300000_lod.json";
+    expect(isLogOf(f, "pico", "bench_300000", "lod")).toBe(true);
+    expect(isLogOf("20261029T211503Z_pico_bench_300000_lod_2.json", "pico", "bench_300000", "lod")).toBe(
+      true,
+    );
+    expect(isLogOf(f, "pico", "bench_300000", "naive")).toBe(false);
+    expect(isLogOf(f, "pico", "bench_30000", "lod")).toBe(false);
+    expect(isLogOf(f, "linux-arm64", "bench_300000", "lod")).toBe(false);
+    expect(isLogOf("RESULTS.md", "pico", "bench_300000", "lod")).toBe(false);
   });
 });
