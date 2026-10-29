@@ -165,6 +165,11 @@ cd web && MR_HTTPS=1 npm run dev               # renderer: dev server on the LAN
 # renderer: /r0 = run menu for a device session; bench: /?bench=1&scene=bench_300000&mode=lod|naive&duration=120&path=walk
 # renderer: viewer ?budget=0|1, ?hud=0, ?target=<ms>, ?xrScale=<f>; keys M naive/LOD, H HUD, B budget, L save log
 uv run python scripts/bench_report.py          # renderer: benchmarks/raw/*.json -> benchmarks/RESULTS.md (see docs/DEVICES.md)
+uv run python scripts/coverage_synthetic.py   # coverage: synthetic capture with ground truth -> data/scenes/cov_synth
+uv run python scripts/score_coverage.py --scene cov_synth   # coverage: gap map, next-best views -> scene.json coverage (--force, --voxel)
+uv run modal run modal_jobs/coverage.py --scene room01      # coverage: per-Gaussian uncertainty on Modal (not yet run)
+uv run python scripts/coverage_repair.py --scene cov_synth  # coverage: gap views + references, dry run; --call = Muse Image ($0.01/image, cached)
+# coverage viewer: ?gaps=1 shows the gap overlay, key G or XR squeeze toggles it, ?gapViews=<n>
 ```
 
 Lanes add their own commands here in their PR.

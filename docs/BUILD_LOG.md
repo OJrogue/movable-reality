@@ -177,3 +177,38 @@ This log is the record of what was built during the hackathon (26 Oct to 4 Nov 2
 - Wrote `docs/HANDOFF.md` for the local continuation: state, decisions D1-D14, tonight's
   runbook (setup, filming, R0, M1), tasks per lane, how to run lanes locally.
 - Next: filming and R0 tonight on the PC and both headsets; coverage PR; core lane M2.
+
+## 2026-10-29 (lane: coverage)
+
+- Coverage scoring (C1) in `src/movable_reality/coverage/`, run by
+  `scripts/score_coverage.py`. Per Gaussian it counts the training views that see it
+  (projection plus a coarse depth test) and the angle spread between them. A 10 cm voxel
+  grid carries the scores, and exposure rays from walkable standing positions decide which
+  voxels a VR user can see. Poorly covered visible voxels cluster into gaps (wide ones split),
+  each with a label from the nearest object and up to three next-best views from walkable
+  positions. Results go to `coverage/{gaussians,gaps}.npz`, `coverage/report.json` and the
+  `coverage` section of `scene.json` (new fields `Gap.next_best_views`, `Coverage.gap_share`
+  in `scene.py` and `scene.ts`).
+- Synthetic capture with ground truth (`scripts/coverage_synthetic.py`, scene `cov_synth`):
+  a 208k-Gaussian room, 150 views on a perimeter walk, and hidden regions behind the sofa,
+  under the desk and coffee table, on top of the bookshelf and on the ceiling. Scoring takes
+  4.7 s on the Mac (M-series CPU). Against the exact per-sample view counts the score map
+  reaches precision 0.907 and recall 0.989 (1-voxel tolerance). Region recall is 1.0 for
+  four regions and 0.956 under the desk. 37 gaps, gap share 0.62 of the VR-visible volume.
+- U-3DGS-style uncertainty job (`modal_jobs/coverage.py`): frozen scene, per-Gaussian SH
+  uncertainty fitted to the L1 + DSSIM residual with gsplat. The numpy reference and CPU
+  tests cover the maths. Not yet run on Modal.
+- Viewer gap overlay (`web/src/coverage/`, `installCoverage` in `main.ts`): rim-glow spheres
+  per open gap, orange once a recapture is requested, floor ring and arrow for the best next
+  view. `?gaps=1`, key G, XR squeeze. Checked in the browser pane on `cov_synth`: spheres
+  render, G toggles, no console errors. Not yet seen on a headset.
+- Repair groundwork (C3, `coverage/repair.py`, `scripts/coverage_repair.py`): renders a gap
+  view with the gap painted magenta, picks the three nearest real frames as references and
+  sends one Muse Image edit per gap, cached under `data/cache/muse_image/`. The repair camera
+  now backs off along the view line inside the room bounds, because next-best views stood
+  so close that a 0.75 m gap filled the whole frame. Dry run on `cov_synth` writes five gap
+  views. No live Muse Image call yet (no `.env` on this machine). The CPU preview renders
+  splats as squares, so sparse regions show holes. A gsplat render is the better input.
+- Tested: pytest 121 passed, 1 skipped; vitest 82; `npm run build`; ruff clean.
+- Next: one live `--call` once `MODEL_API_KEY` is set, then score room01 after M1. C2
+  (recapture loop) and C3 distillation of repaired views back into generated splats.
