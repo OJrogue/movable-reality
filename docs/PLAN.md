@@ -1,9 +1,8 @@
 # Plan
 
 All times Prague. Hard deadline Thu 5 Nov 03:00. Own deadline: submit Wed 4 Nov 20:00.
-Updated 29 Oct: nothing is cut; three build lanes run in parallel; the freeze below is a
-suggestion, not a rule. The working copy of this plan with diagrams is OJ's planning doc;
-this file is the version agents follow.
+Updated 29 Oct: nothing is cut; build lanes run in parallel; the freeze below is a
+suggestion, not a rule. This file is the plan agents follow.
 
 ## Frontier claim
 

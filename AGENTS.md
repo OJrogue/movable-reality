@@ -198,7 +198,8 @@ change updates both files and their tests in the same commit.
   build. Second device: Pico 4 (Snapdragon XR2 Gen 1) in Pico Browser. Optional: Quest 2
   in the Meta Quest Browser.
 - Budget: 72 Hz, so p99 frame time at or under 13.9 ms over a 10 min scripted walk, with
-  under 1% of frames over budget and at most a 5% FPS drop between the first and last
+  under 1% of frames over budget (an interval over 1.2x the target, i.e. a missed vsync,
+  as `bench_report.py` counts it) and at most a 5% FPS drop between the first and last
   minute.
 - Standalone only: never claim numbers measured with PC streaming.
 - WebXR exposes no eye gaze; priority uses the controller ray and head direction.
