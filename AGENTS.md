@@ -4,6 +4,9 @@ Instructions for coding agents working in this repo (Muse Code, Claude Code, oth
 Read this whole file before your first change. Longer context lives in `docs/`; open the
 file a task points you to instead of guessing.
 
+**Start here:** `docs/HANDOFF.md` has the current state, the decisions taken so far and the
+next tasks per lane.
+
 ## Project in one paragraph
 
 Movable Reality turns a ~30 s phone video of a room into a metric 3D Gaussian Splatting
