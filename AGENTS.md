@@ -223,6 +223,17 @@ change updates both files and their tests in the same commit.
 - The Steam Frame's built-in browser has no WebXR; use the Chromium XR build. WebXR
   needs a secure context (HTTPS, or `localhost` through `adb reverse`).
 
+## Agent settings and helper agents (Claude Code)
+
+- `.claude/settings.json` sets `CLAUDE_CODE_AUTO_COMPACT_WINDOW=400000`: sessions and
+  subagents in this repo compact at 400k tokens to stay within usage limits.
+- `.claude/agents/explorer.md` (Haiku, low effort): use it for searches of the repo,
+  `web/node_modules` sources and docs, instead of reading many files yourself.
+- `.claude/agents/reviewer.md` (high effort): run it once on your branch before opening
+  a PR, fix what it finds, and mention its verdict in the PR.
+- Lane sessions run at the model's default effort (medium on Opus 5.5). Raise effort only
+  for a specific hard problem, not for a whole lane.
+
 ## Definition of done for a task
 
 Works end to end on at least one real scene (or, before real scenes exist, on the
