@@ -150,6 +150,9 @@ uv run pytest                                  # unit tests (no paid calls)
 uv run ruff check . && uv run ruff format .
 cd web && npm install && npm run dev           # viewer, http://localhost:5173/?scene=room01
 cd web && npm test                             # viewer unit tests (vitest), pure logic only
+uv run python scripts/build_lod.py --setup     # lod: build Spark's build-lod once (git + Rust/cargo, ~2 min)
+uv run python scripts/build_lod.py demo        # lod: one .RAD per object -> lod/, sets lod fields (--force, --method quick)
+# viewer LOD: ?mode=naive (LOD off), ?lodPriority=2, ?lodRamp=300, ?lodPaged=1, ?lodSplatCount=<n>; see docs/LOD.md
 ```
 
 Lanes add their own commands here in their PR.
