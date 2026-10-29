@@ -121,10 +121,17 @@ export interface ObjectNode {
  *      └ pivot(obj) ─ offset(-centre) ─ recon ─ SplatMesh
  * `recon` groups hold world_from_recon; `pivot` holds the object's edit about its centre.
  */
+/** Splat meshes whose load failed (404, corrupt file); they never initialise. */
+export const failedMeshes = new WeakSet<SplatMesh>();
+
 export class SceneView {
   readonly root = new THREE.Group();
   private readonly nodes = new Map<string, ObjectNode>();
   private background?: SplatMesh;
+  private backgroundPly?: string;
+
+  /** Called when a splat file fails to load. */
+  onLoadError?: (ply: string, err: unknown) => void;
 
   /**
    * Hook for lanes that need to change how splat meshes are created (lod: LOD trees,
@@ -147,8 +154,16 @@ export class SceneView {
 
   apply(m: SceneManifest): void {
     const worldFromRecon = matrixFromRows(m.world_from_recon);
-    if (!this.background) {
+    // A bake swaps background_ply for the reduced PLY: replace the mesh, or the baked floor
+    // and ceiling splats stay drawn over the new quads.
+    if (this.backgroundPly !== m.background_ply) {
+      const old = this.background;
+      if (old) {
+        old.parent?.removeFromParent();
+        old.dispose();
+      }
       this.background = this.addRecon(this.root, m.background_ply, worldFromRecon, null, m);
+      this.backgroundPly = m.background_ply;
     }
     for (const obj of m.objects) {
       const node = this.nodes.get(obj.id) ?? this.create(obj, worldFromRecon, m);
@@ -189,6 +204,10 @@ export class SceneView {
     recon.matrixWorldNeedsUpdate = true;
     const extra = this.meshOptions?.(ply, objectId, m) ?? {};
     const mesh = new SplatMesh({ url: `${this.baseUrl}/${ply}`, ...extra });
+    mesh.initialized.catch((err: unknown) => {
+      failedMeshes.add(mesh);
+      this.onLoadError?.(ply, err);
+    });
     recon.add(mesh);
     parent.add(recon);
     return mesh;
