@@ -283,16 +283,24 @@ def visible_mask(
     return out
 
 
-def exact_view_counts(surf: Surface, cameras: list[Camera]) -> np.ndarray:
-    """Number of cameras that see each sample (inside the image, front-facing, unblocked)."""
+def exact_view_counts(surf: Surface, cameras: list[Camera]) -> tuple[np.ndarray, np.ndarray]:
+    """Number of cameras that see each sample (inside the image, front-facing, unblocked),
+    and the angle spread of their viewing directions in degrees (2 acos of the mean
+    resultant length, 0 for fewer than two views)."""
     lo, hi, _ = all_boxes()
     counts = np.zeros(len(surf.points), dtype=np.int32)
+    dir_sum = np.zeros((len(surf.points), 3))
     for cam in cameras:
         inf = cam.in_frustum(surf.points)
         idx = np.nonzero(inf)[0]
         vis = visible_mask(cam.center, surf.points[idx], surf.normals[idx], lo, hi)
-        counts[idx[vis]] += 1
-    return counts
+        sel = idx[vis]
+        counts[sel] += 1
+        d = cam.center - surf.points[sel]
+        dir_sum[sel] += d / np.linalg.norm(d, axis=1, keepdims=True)
+    r = np.linalg.norm(dir_sum, axis=1) / np.maximum(counts, 1)
+    spread = np.where(counts >= 2, np.degrees(2 * np.arccos(np.clip(r, 0, 1))), 0.0)
+    return counts, spread
 
 
 def walkable_eyes(cfg: SynthConfig) -> np.ndarray:
@@ -379,6 +387,7 @@ class SyntheticCapture:
     cameras: list[Camera]  # world frame
     surface: Surface
     views: np.ndarray  # exact view count per sample
+    spread: np.ndarray  # exact angle spread per sample, degrees
     vr_visible: np.ndarray  # per sample
     region: np.ndarray  # per sample, index into REGIONS or -1
     splat_sample: np.ndarray  # per Gaussian, index of its source sample
@@ -402,7 +411,7 @@ def make_capture(cfg: SynthConfig) -> SyntheticCapture:
     surf = sample_surfaces(cfg.spacing, cfg.seed)
     cams = orbit_cameras(cfg)
     t1 = time.perf_counter()
-    views = exact_view_counts(surf, cams)
+    views, spread = exact_view_counts(surf, cams)
     t2 = time.perf_counter()
     vr = vr_visibility(surf, cfg)
     t3 = time.perf_counter()
@@ -421,6 +430,7 @@ def make_capture(cfg: SynthConfig) -> SyntheticCapture:
         cameras=cams,
         surface=surf,
         views=views,
+        spread=spread,
         vr_visible=vr,
         region=sample_regions(surf.points),
         splat_sample=idx,
@@ -494,6 +504,7 @@ def write_scene(cap: SyntheticCapture, out: Path, cfg: SynthConfig, scene_id: st
         normals=cap.surface.normals.astype(np.int8),
         object_index=cap.surface.object_index.astype(np.int16),
         views=cap.views.astype(np.int32),
+        spread=cap.spread.astype(np.float32),
         vr_visible=cap.vr_visible,
         region=cap.region.astype(np.int16),
         splat_sample=cap.splat_sample.astype(np.int32),

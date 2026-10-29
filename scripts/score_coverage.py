@@ -42,7 +42,7 @@ def main() -> int:
     if (folder / "synthetic" / "ground_truth.npz").exists():
         ev = evaluate_scene(folder)
         (folder / "coverage" / "eval.json").write_text(json.dumps(ev, indent=2))
-        summary["eval"] = ev["overall"] | {"regions": ev["regions"]}
+        summary["eval"] = {k: ev[k] for k in ("score", "views", "regions")}
     print(json.dumps(summary, indent=2))
     for g in res.coverage.gaps:
         nbv = g.next_best_views[0] if g.next_best_views else None

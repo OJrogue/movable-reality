@@ -1,16 +1,18 @@
 """Precision and recall of the gap map against the synthetic ground truth.
 
-Ground truth per voxel (from synthetic/ground_truth.npz, exact ray-box visibility of every
-true surface sample):
-  truth gap  the voxel holds a true surface sample a VR user would see (vr_visible) that
-             the capture saw from fewer than `min_views` views;
-  scored     the voxel holds any VR-visible true surface sample.
+Ground truth per true surface sample comes from exact ray-box visibility
+(synthetic/ground_truth.npz): its view count and angle spread over the training cameras,
+turned into the same geometric score the estimator uses (geometry.geometric_score). A
+sample is poorly covered when that exact score is below the gap threshold; the
+views-only variant (fewer than 3 views) is reported too.
 
-Matching uses a tolerance of `tol` voxels (26-neighbourhood), as in boundary F-scores: a
-gap drawn one voxel in front of the surface it stands for still counts.
+Per voxel:
+  truth gap  holds a poorly covered true sample that a VR user would see (vr_visible);
+  scored     holds any VR-visible true sample.
+Matching uses a tolerance of `tol` voxels (26-neighbourhood), as in boundary F-scores:
   precision = gap voxels within tol of a truth-gap voxel / gap voxels within tol of a
-              scored voxel (gap voxels in empty space far from any true surface are not
-              scored either way, and are reported as `gap_voxels_unscored`)
+              scored voxel (gap voxels in empty space away from any true surface are not
+              scored either way; reported as `gap_voxels_unscored`)
   recall    = truth-gap voxels within tol of a gap voxel / truth-gap voxels
 Also reported per named hidden region (behind the sofa, under the desk, ...).
 """
@@ -22,6 +24,7 @@ from pathlib import Path
 
 import numpy as np
 
+from .geometry import geometric_score
 from .voxels import VoxelGrid, dilate
 
 
@@ -31,13 +34,24 @@ def load_truth(folder: Path) -> tuple[dict, dict]:
     return {k: gt[k] for k in gt.files}, meta
 
 
+def poorly_covered(
+    truth: dict, mode: str = "score", cov_threshold: float = 0.35, min_views: int = 3
+) -> np.ndarray:
+    """Per true sample: "score" uses the exact geometric score (views and spread),
+    "views" only the exact view count."""
+    if mode == "views":
+        return truth["views"] < min_views
+    exact = geometric_score(truth["views"], truth["spread"])
+    return exact < cov_threshold
+
+
 def truth_voxels(
-    grid: VoxelGrid, points: np.ndarray, views: np.ndarray, vr: np.ndarray, min_views: int
+    grid: VoxelGrid, points: np.ndarray, poor: np.ndarray, vr: np.ndarray
 ) -> tuple[np.ndarray, np.ndarray]:
     """(truth_gap, scored) flat bool masks over the grid."""
     flat, inside = grid.index(points)
     sel = inside & vr
-    bad = np.bincount(flat[sel & (views < min_views)], minlength=grid.n) > 0
+    bad = np.bincount(flat[sel & poor], minlength=grid.n) > 0
     scored = np.bincount(flat[sel], minlength=grid.n) > 0
     return bad, scored
 
@@ -72,22 +86,26 @@ def precision_recall(
 
 
 def evaluate_labels(
-    folder: Path, grid: VoxelGrid, labels: np.ndarray, min_views: int = 3, tol: int = 1
+    folder: Path,
+    grid: VoxelGrid,
+    labels: np.ndarray,
+    tol: int = 1,
+    cov_threshold: float = 0.35,
+    min_views: int = 3,
 ) -> dict:
     truth, meta = load_truth(folder)
-    pts, views, vr = truth["points"], truth["views"], truth["vr_visible"].astype(bool)
-    bad, scored = truth_voxels(grid, pts, views, vr, min_views)
+    pts, vr = truth["points"], truth["vr_visible"].astype(bool)
     gap = labels.ravel() >= 0
-    out = {
-        "min_views": min_views,
-        "tolerance_voxels": tol,
-        "overall": precision_recall(grid, gap, bad, scored, tol),
-        "regions": {},
-    }
     near_gap = _near(gap, grid, tol)
+    out: dict = {"tolerance_voxels": tol, "cov_threshold": cov_threshold, "min_views": min_views}
+    for mode in ("score", "views"):
+        poor = poorly_covered(truth, mode, cov_threshold, min_views)
+        bad, scored = truth_voxels(grid, pts, poor, vr)
+        out[mode] = precision_recall(grid, gap, bad, scored, tol)
+    poor = poorly_covered(truth, "views", cov_threshold, min_views)
+    out["regions"] = {}
     for i, name in enumerate(meta["regions"].keys()):
-        sel = (truth["region"] == i) & vr & (views < min_views)
-        flat, inside = grid.index(pts[sel])
+        flat, inside = grid.index(pts[(truth["region"] == i) & vr & poor])
         vox = np.unique(flat[inside])
         out["regions"][name] = {
             "truth_gap_voxels": int(len(vox)),
@@ -95,14 +113,15 @@ def evaluate_labels(
         }
     out["truth"] = {
         "vr_visible_samples": int(vr.sum()),
-        "vr_visible_under_min_views": int((vr & (views < min_views)).sum()),
-        "scored_voxels": int(scored.sum()),
+        "vr_visible_poor_score": int((vr & poorly_covered(truth, "score", cov_threshold)).sum()),
+        "vr_visible_under_min_views": int((vr & poor).sum()),
     }
     return out
 
 
-def evaluate_scene(folder: Path, min_views: int = 3, tol: int = 1) -> dict:
+def evaluate_scene(folder: Path, tol: int = 1, cov_threshold: float = 0.35) -> dict:
     """Precision/recall from the files score_coverage wrote (coverage/gaps.npz)."""
     g = np.load(Path(folder) / "coverage" / "gaps.npz")
     grid = VoxelGrid.from_dict(json.loads(str(g["grid"])))
-    return evaluate_labels(folder, grid, g["labels"].ravel().astype(np.int32), min_views, tol)
+    labels = g["labels"].ravel().astype(np.int32)
+    return evaluate_labels(folder, grid, labels, tol, cov_threshold)

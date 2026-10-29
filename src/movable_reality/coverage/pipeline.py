@@ -33,6 +33,7 @@ from .gaps import (
     gap_voxels,
     voxel_coverage,
     voxel_gap_score,
+    voxel_poor_share,
     voxel_states,
 )
 from .geometry import DepthParams, compute_coverage, geometric_score
@@ -126,9 +127,11 @@ def score_scene(folder: Path, params: ScoreParams | None = None) -> ScoreResult:
     t0 = time.perf_counter()
     occ, gvox = occupancy(grid, means, splats.opacity, p.min_opacity)
     state = voxel_states(occ, free)
-    vcov = voxel_coverage(grid, gvox, gauss_cov, splats.opacity * keep)
+    weight = splats.opacity * keep
+    vcov = voxel_coverage(grid, gvox, gauss_cov, weight)
     score = voxel_gap_score(state, vcov)
-    cand = candidates(state, vcov, p.gaps)
+    poor = voxel_poor_share(grid, gvox, gauss_cov, weight, p.gaps.cov_threshold)
+    cand = candidates(state, poor, p.gaps)
     stand = walkable(grid, state, p.walk)
     coarse = stand[
         (np.round(stand / p.walk.exposure_spacing, 6) % 1 == 0).all(axis=1)
