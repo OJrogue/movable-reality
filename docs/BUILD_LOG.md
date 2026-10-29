@@ -258,4 +258,7 @@ This log is the record of what was built during the hackathon (26 Oct to 4 Nov 2
 - Not changed, recorded for later: four copies of the 3DGS PLY writer (merge after the
   freeze), `modal_jobs/bake.py` lacks `--max-tilt` and `--format`.
 - Tested: pytest, ruff, vitest, `npm run build`, `tsc --noEmit`, `make_demo_scene.py`.
-  The viewer fixes were not run in a browser or on a headset.
+  In the desktop app's browser pane, `?scene=demo` renders, and a copy of the demo with one
+  object PLY deleted shows the 404 in the status line while the HUD and budget controller
+  run. Not run on a headset.
+- Added `.claude/launch.json` (dev server for Claude Code's browser preview).
