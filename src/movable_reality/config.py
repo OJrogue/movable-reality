@@ -26,6 +26,7 @@ class Models:
     # Open weights run on Modal. MapAnything: Apache-2.0 weights only, never the CC-BY-NC
     # facebook/map-anything (demo_colmap.py --apache selects them).
     MAPANYTHING = "facebook/map-anything-apache"
+    SAM3D_OBJECTS = "facebook/sam-3d-objects"  # gated on Hugging Face, SAM License
 
 
 DATA_DIR = Path(os.environ.get("MR_DATA_DIR", REPO_ROOT / "data"))
