@@ -17,7 +17,7 @@ import * as THREE from "three";
 import type { SplatMeshOptions } from "@sparkjsdev/spark";
 import type { ViewerContext } from "../context";
 import { applyPose, BenchRunner, parseBench } from "../bench";
-import { BudgetController, DEFAULT_BUDGET, levelForSplatCount, settingsForLevel } from "./budget";
+import { BudgetController, ceilingForScene, DEFAULT_BUDGET, levelForSplatCount } from "./budget";
 import {
   deviceInfo,
   downloadLog,
@@ -164,11 +164,7 @@ export function installPerf(ctx: ViewerContext): PerfHandle {
       sum += n;
     }
     totalSplats = sum;
-    if (budgetActive()) {
-      let ceiling = levelForSplatCount(sum, DEFAULT_BUDGET);
-      if (settingsForLevel(ceiling, DEFAULT_BUDGET).splatCount < sum) ceiling++;
-      controller.setMaxLevel(ceiling);
-    }
+    controller.setMaxLevel(ceilingForScene(sum, DEFAULT_BUDGET));
   };
   ctx.onManifest((m) => {
     if (!ctx.sceneBase) return;

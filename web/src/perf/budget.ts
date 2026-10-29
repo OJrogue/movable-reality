@@ -131,6 +131,17 @@ export function settingsForLevel(level: number, cfg: BudgetConfig): BudgetSettin
   return { level: l, splatCount, renderScale: Math.round(renderScale * 1000) / 1000 };
 }
 
+/**
+ * Highest useful level for a scene of `total` splats: the first level whose count covers
+ * the scene, but never below the render-scale knee, so a small scene keeps full-size splats.
+ */
+export function ceilingForScene(total: number, cfg: BudgetConfig): number {
+  if (!(total > 0)) return cfg.levels;
+  let l = levelForSplatCount(total, cfg);
+  if (settingsForLevel(l, cfg).splatCount < total) l++;
+  return clamp(Math.max(l, Math.ceil(cfg.renderScaleKnee * cfg.levels)), 0, cfg.levels);
+}
+
 /** The level whose splat count is closest to `count` (geometrically). */
 export function levelForSplatCount(count: number, cfg: BudgetConfig): number {
   if (!(count > 0)) return clamp(Math.round(cfg.startLevel), 0, cfg.levels);

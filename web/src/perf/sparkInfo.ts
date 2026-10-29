@@ -1,9 +1,11 @@
 // Read-only views of Spark 2.4.0 state for the HUD, the frame log and bench readiness.
 // Every access to a Spark internal lives here, so a Spark upgrade touches one file.
 // Checked against node_modules/@sparkjsdev/spark/dist/spark.module.js (2.4.0):
-//   - SparkRenderer.activeSplats: splats drawn last frame (the sort result; instanceCount).
-//   - SparkRenderer.display.mapping[].count: splats each visible mesh put into the frame:
-//     the LOD cut for an LOD mesh, all of its splats otherwise.
+//   - SparkRenderer.activeSplats: splats drawn (the instance count), i.e. the last sort's
+//     result after culling. Sorting runs in a worker, so after a change (LOD cut, toggle)
+//     it lags by one sort, which on a headset is a few frames and in SwiftShader seconds.
+//   - SparkRenderer.display.mapping[].count: splats each visible mesh put into the
+//     displayed frame: the LOD cut for an LOD mesh, all of its splats otherwise. Same lag.
 //   - SparkRenderer.lodInstances: Map<SplatMesh, {numSplats}> once a mesh has a cut.
 //   - lodSplatCount, lodSplatScale, lodRenderScale, lodTraverseMode, enableLod and the cone
 //     foveation fields are read on every LOD update, so they can change at runtime.

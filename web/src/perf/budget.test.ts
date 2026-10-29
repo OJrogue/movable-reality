@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   BudgetController,
+  ceilingForScene,
   DEFAULT_BUDGET,
   levelForSplatCount,
   settingsForLevel,
@@ -159,6 +160,16 @@ describe("BudgetController on simulated traces", () => {
     expect(Math.max(...huge.levels)).toBe(cfg.levels);
     expect(huge.ctl.settings().splatCount).toBe(cfg.splatMax);
     expect(huge.changes.every((c) => c.reason === "probe")).toBe(true);
+  });
+
+  it("ceiling covers the scene but keeps full-size splats for small scenes", () => {
+    expect(ceilingForScene(50_000, cfg)).toBe(cfg.levels / 2);
+    expect(settingsForLevel(ceilingForScene(50_000, cfg), cfg).renderScale).toBe(1);
+    const c = ceilingForScene(1_000_000, cfg);
+    expect(settingsForLevel(c, cfg).splatCount).toBeGreaterThanOrEqual(1_000_000);
+    expect(settingsForLevel(c - 1, cfg).splatCount).toBeLessThan(1_000_000);
+    expect(ceilingForScene(5_000_000, cfg)).toBe(cfg.levels);
+    expect(ceilingForScene(Number.NaN, cfg)).toBe(cfg.levels);
   });
 
   it("respects a lower ceiling (scene smaller than splatMax)", () => {
