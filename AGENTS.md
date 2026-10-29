@@ -157,6 +157,11 @@ uv run python scripts/bake_planes.py --scene bakedemo --synthetic   # bake: synt
 uv run python scripts/bake_planes.py --scene room01   # bake: planes/<label>.glb + reduced background (--force, --labels floor, --revert)
 uv run modal run modal_jobs/bake.py --scene room01    # bake: same stage, gsplat ortho rasterizer on an L4 (not yet run)
 # bake depth check (dev server): http://localhost:5173/src/planes/depthcheck.html?case=behind|front|both|crossing
+uv run python scripts/bench_make_splats.py     # renderer: synthetic rooms data/scenes/bench_{50000..2000000}
+cd web && MR_HTTPS=1 npm run dev               # renderer: dev server on the LAN over HTTPS (headsets)
+# renderer: /r0 = run menu for a device session; bench: /?bench=1&scene=bench_300000&mode=lod|naive&duration=120&path=walk
+# renderer: viewer ?budget=0|1, ?hud=0, ?target=<ms>, ?xrScale=<f>; keys M naive/LOD, H HUD, B budget, L save log
+uv run python scripts/bench_report.py          # renderer: benchmarks/raw/*.json -> benchmarks/RESULTS.md (see docs/DEVICES.md)
 ```
 
 Lanes add their own commands here in their PR.
