@@ -70,9 +70,23 @@ class RepairResult:
 # ---------------------------------------------------------------- views
 
 
-def repair_camera(gap: Gap, width: int = 768, height: int = 512, hfov_deg: float = 65.0) -> Camera:
+def repair_camera(
+    gap: Gap,
+    width: int = 768,
+    height: int = 512,
+    hfov_deg: float = 65.0,
+    bounds: tuple[np.ndarray, np.ndarray] | None = None,
+    fill: float = 0.5,
+    margin: float = 0.15,
+) -> Camera:
     """Camera at the gap's best next view (else 1.5 m in front of the gap at eye height)
-    looking at the gap centre."""
+    looking at the gap centre.
+
+    A next-best view stands close to its gap, so the gap sphere can fill the whole frame and
+    Muse Image gets no surroundings to continue. With `bounds` (room min and max corners,
+    world frame) the eye backs off along the line from the gap centre, never past `margin`
+    inside the bounds, until the gap's angular radius is at most `fill` times the vertical
+    half FOV."""
     c = np.asarray(gap.center, dtype=np.float64)
     if gap.next_best_views:
         eye = np.asarray(gap.next_best_views[0].eye, dtype=np.float64)
@@ -81,7 +95,41 @@ def repair_camera(gap: Gap, width: int = 768, height: int = 512, hfov_deg: float
         eye = c + np.array([0.0, 0.0, 1.5 + gap.radius])
         eye[1] = 1.6
         target = c
+    if bounds is not None:
+        vhalf = np.arctan(np.tan(np.radians(hfov_deg) / 2) * height / width)
+        want = gap.radius / np.sin(min(fill * vhalf, np.pi / 2 - 1e-3))
+        eye = _back_off(eye, c, want, bounds, margin)
     return look_at(eye, target, width, height, hfov_deg, name=f"repair_{gap.id}")
+
+
+def _back_off(
+    eye: np.ndarray,
+    centre: np.ndarray,
+    want: float,
+    bounds: tuple[np.ndarray, np.ndarray],
+    margin: float,
+) -> np.ndarray:
+    """Move `eye` away from `centre` until it is `want` metres away or reaches the shrunk
+    bounds. An eye that already lies outside them stays put."""
+    lo = np.asarray(bounds[0], dtype=np.float64) + margin
+    hi = np.asarray(bounds[1], dtype=np.float64) - margin
+    away = eye - centre
+    dist = float(np.linalg.norm(away))
+    if want <= dist or dist < 1e-6 or np.any(eye < lo) or np.any(eye > hi):
+        return eye
+    away /= dist
+    # Largest step s >= 0 along `away` that keeps eye + s * away inside [lo, hi].
+    with np.errstate(divide="ignore", invalid="ignore"):
+        s_hi = np.where(away > 0, (hi - eye) / away, np.inf)
+        s_lo = np.where(away < 0, (lo - eye) / away, np.inf)
+    room = float(max(0.0, min(s_hi.min(), s_lo.min())))
+    return eye + away * min(want - dist, room)
+
+
+def room_bounds(means: np.ndarray, q: float = 1.0) -> tuple[np.ndarray, np.ndarray]:
+    """Room box from splat centres (world frame): percentiles `q` and 100 - `q` per axis,
+    so floaters outside the walls do not stretch it."""
+    return np.percentile(means, q, axis=0), np.percentile(means, 100 - q, axis=0)
 
 
 def gap_mask(cam: Camera, gap: Gap, depth: np.ndarray) -> np.ndarray:
@@ -225,7 +273,8 @@ def prepare_request(
     coverage/repair/<gap_id>/ in the scene folder."""
     folder = Path(folder)
     means, rgb, scales, opacity, generated = splats_world
-    cam = repair_camera(gap)
+    real = means if generated is None else means[np.asarray(generated) == 0]
+    cam = repair_camera(gap, bounds=room_bounds(real) if len(real) else None)
     img, mask = render_gap_view(cam, gap, means, rgb, scales, opacity, generated)
     out = folder / "coverage" / "repair" / gap.id
     out.mkdir(parents=True, exist_ok=True)

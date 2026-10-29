@@ -84,6 +84,32 @@ def test_repair_camera_uses_the_next_best_view():
     assert no_view.center[1] == pytest.approx(1.6)
 
 
+def test_repair_camera_backs_off_inside_the_room():
+    # Gap of radius 0.75 m 1.25 m from its view: it would fill the frame.
+    nbv = NextBestView(eye=(0.0, 1.6, 1.25), target=(0.0, 1.6, 0.0), visible=10, gain=0.5)
+    gap = Gap(id="g", center=(0.0, 1.6, 0.0), radius=0.75, score=1.0, next_best_views=[nbv])
+    big = (np.array([-10.0, 0.0, -10.0]), np.array([10.0, 3.0, 10.0]))
+    cam = repair.repair_camera(gap, 300, 200, 65.0, bounds=big, fill=0.5)
+    vhalf = np.arctan(np.tan(np.radians(32.5)) * 200 / 300)
+    dist = np.linalg.norm(cam.center - np.array(gap.center))
+    assert np.arcsin(0.75 / dist) == pytest.approx(0.5 * vhalf)
+    assert cam.center[[0, 1]] == pytest.approx([0.0, 1.6])  # moved along the view line only
+    # A wall at z = 2.5 stops the back-off 0.15 m inside it.
+    small = (np.array([-10.0, 0.0, -10.0]), np.array([10.0, 3.0, 2.5]))
+    cam = repair.repair_camera(gap, 300, 200, 65.0, bounds=small, fill=0.5)
+    assert cam.center[2] == pytest.approx(2.35)
+    # A small gap needs no back-off; the view stays where coverage put it.
+    tiny = gap.model_copy(update={"radius": 0.1})
+    assert repair.repair_camera(tiny, 300, 200, 65.0, bounds=big).center == pytest.approx(
+        [0.0, 1.6, 1.25]
+    )
+    # An eye outside the room (a bad next view) is left alone.
+    outside = (np.array([-1.0, 0.0, -1.0]), np.array([1.0, 3.0, 1.0]))
+    assert repair.repair_camera(gap, 300, 200, 65.0, bounds=outside).center == pytest.approx(
+        [0.0, 1.6, 1.25]
+    )
+
+
 def test_gap_mask_covers_the_gap_and_empty_pixels_only():
     cam = look_at([0.0, 1.0, 2.0], [0.0, 1.0, 0.0], 64, 48, hfov_deg=60)
     gap = Gap(id="g", center=(0.0, 1.0, 0.0), radius=0.3, score=1.0)
