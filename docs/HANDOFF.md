@@ -50,9 +50,10 @@ the demo (needs chunked `.RAD` or HTTP Range support, see `docs/LOD.md`).
 ### 3.1 Setup on the Mac (once)
 1. Tools: git, Python 3.12 with uv, Node 22 or later, ffmpeg, Rust/cargo (for
    `build-lod`), adb (Pico over USB), Modal CLI (`uv run modal setup`). State on 29 Oct:
-   git, uv, Node 24, ffmpeg and gh are installed. Missing: Rust
-   (`brew install rustup && rustup-init -y`), adb (`brew install --cask
-   android-platform-tools`), the Modal token, `.env`.
+   git, uv, Node 24, ffmpeg, gh, adb and Rust (Homebrew rustup, keg-only) are installed,
+   and `build_lod.py --setup` has built `build-lod` into `~/.cache/movable-reality/`.
+   Rust is not on the shell PATH; only a new `--setup` needs it
+   (`PATH=/opt/homebrew/opt/rustup/bin:$PATH`). Missing: the Modal token, `.env`.
 2. Keys in environment variables or `.env` (never in prompts): `MODEL_API_KEY`,
    `BASETEN_API_KEY`, `HF_TOKEN` (gated SAM 3D Objects weights). Modal token via
    `modal setup`.
