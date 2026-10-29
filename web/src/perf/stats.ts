@@ -16,8 +16,10 @@ export function percentile(values: ArrayLike<number>, p: number): number {
   return percentileSorted(Float64Array.from(values).sort(), p);
 }
 
-/** A frame counts as missed when its interval exceeds this multiple of the budget. */
-export const MISS_FACTOR = 1.5;
+/** A frame counts as missed (over budget) when its interval exceeds this multiple of the
+ * target. The budget controller uses the same factor. Raw intervals jitter around the
+ * display period (13.8 to 14.1 ms at 72 Hz), so a strict comparison would count jitter. */
+export const MISS_FACTOR = 1.2;
 
 export interface FrameSummary {
   frames: number;
@@ -51,6 +53,24 @@ export function summarize(
   };
 }
 
+/** Frame-time target for a display rate: 72 Hz -> 13.9 ms, 90 Hz -> 11.1 ms. */
+export function targetForHz(hz: number): number {
+  return Math.round((1000 / hz) * 10) / 10;
+}
+
+/** Display rate from the median of steady frame intervals, snapped to common rates. */
+export function estimateHz(medianDtMs: number): number | null {
+  if (!(medianDtMs > 0)) return null;
+  const hz = 1000 / medianDtMs;
+  let best: number | null = null;
+  for (const r of [60, 72, 80, 90, 120, 144]) {
+    if (Math.abs(hz - r) / r < 0.04 && (best === null || Math.abs(hz - r) < Math.abs(hz - best))) {
+      best = r;
+    }
+  }
+  return best;
+}
+
 /** Keeps the frame intervals of the last `spanMs` milliseconds (the HUD's ~2 s window). */
 export class RollingWindow {
   private readonly values: number[] = [];
@@ -73,6 +93,10 @@ export class RollingWindow {
 
   get length(): number {
     return this.values.length;
+  }
+
+  snapshot(): number[] {
+    return this.values.slice();
   }
 
   summary(targetMs: number): FrameSummary {
