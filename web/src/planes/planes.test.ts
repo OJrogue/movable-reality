@@ -1,7 +1,15 @@
 import { describe, expect, it } from "vitest";
 import * as THREE from "three";
 import type { BakedPlane, SceneManifest } from "../scene";
-import { diffPlanes, makeOpaque, PLANE_RENDER_ORDER, planeKey, planeUrl, reconGroup } from "./planes";
+import {
+  diffPlanes,
+  makeOpaque,
+  PLANE_RENDER_ORDER,
+  planeKey,
+  planeUrl,
+  reconGroup,
+  staleBackgroundLod,
+} from "./planes";
 import { matrixFromRows } from "../scene";
 
 const floor: BakedPlane = {
@@ -84,6 +92,26 @@ describe("makeOpaque", () => {
     expect(mat.blending).toBe(THREE.NoBlending);
     expect(mesh.renderOrder).toBe(PLANE_RENDER_ORDER);
     expect(map.anisotropy).toBe(8);
+  });
+});
+
+describe("staleBackgroundLod", () => {
+  const bake = {
+    source_background_ply: "objects/background.ply",
+    background_ply: "objects/background_baked.ply",
+    ids: "ids/gaussian_ids.npy",
+    ids_ply: "splat/scene.ply",
+    removed_splats: 100,
+  };
+  it("flags a background tree built from the full background", () => {
+    const m = { ...manifest([floor]), plane_bake: bake, background_lod: "lod/background.rad" };
+    expect(staleBackgroundLod(m)).toBe(true);
+  });
+  it("accepts a tree built from the reduced background, or no tree", () => {
+    const m = { ...manifest([floor]), plane_bake: bake, background_lod: "lod/background_baked.rad" };
+    expect(staleBackgroundLod(m)).toBe(false);
+    expect(staleBackgroundLod({ ...m, background_lod: null })).toBe(false);
+    expect(staleBackgroundLod(manifest([floor]))).toBe(false);
   });
 });
 

@@ -63,6 +63,22 @@ export function makeOpaque(root: THREE.Object3D, maxAnisotropy = 1): number {
   return n;
 }
 
+/**
+ * True when the manifest names a background LOD tree built from another PLY than the
+ * reduced background (lane lod names trees lod/<ply stem>.rad). The viewer then loads the
+ * tree, so the baked floor and ceiling splats are drawn again on top of the quads.
+ */
+export function staleBackgroundLod(m: SceneManifest): boolean {
+  if (!m.plane_bake || !m.background_lod || !(m.planes ?? []).length) return false;
+  return stem(m.background_lod) !== stem(m.plane_bake.background_ply);
+}
+
+function stem(path: string): string {
+  const name = path.split("/").pop() ?? path;
+  const dot = name.lastIndexOf(".");
+  return dot > 0 ? name.slice(0, dot) : name;
+}
+
 /** Group that maps the recon frame (OpenCV, like the PLYs) into the world frame. */
 export function reconGroup(worldFromRecon: THREE.Matrix4): THREE.Group {
   const g = new THREE.Group();

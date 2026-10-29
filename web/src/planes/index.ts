@@ -13,7 +13,7 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import type { ViewerContext } from "../context";
 import { matrixFromRows, type BakedPlane } from "../scene";
-import { diffPlanes, makeOpaque, planeKey, planeUrl, reconGroup } from "./planes";
+import { diffPlanes, makeOpaque, planeKey, planeUrl, reconGroup, staleBackgroundLod } from "./planes";
 
 export interface PlanesHandle {
   readonly group: THREE.Group;
@@ -31,6 +31,7 @@ export function installPlanes(ctx: ViewerContext): PlanesHandle {
   const pending = new Set<Promise<void>>();
   const maxAniso = ctx.renderer.capabilities.getMaxAnisotropy();
   let attached = false;
+  let warnedLod = false;
 
   const load = (plane: BakedPlane, key: string, worldFromRecon: THREE.Matrix4) => {
     const url = planeUrl(ctx.sceneBase ?? "", plane);
@@ -65,6 +66,13 @@ export function installPlanes(ctx: ViewerContext): PlanesHandle {
       nodes.delete(key);
     }
     for (const plane of add) load(plane, planeKey(plane), worldFromRecon);
+    if (!warnedLod && staleBackgroundLod(m)) {
+      warnedLod = true;
+      console.warn(
+        `[planes] background_lod ${m.background_lod} predates the bake; it still holds the` +
+          ` baked splats. Run scripts/build_lod.py ${m.scene_id} to rebuild it from ${m.plane_bake?.background_ply}.`,
+      );
+    }
     // Planes replace splats that a re-bake or revert brings back; SceneView builds the
     // background mesh once, so a changed background_ply shows after a reload.
   });
