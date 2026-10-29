@@ -227,3 +227,13 @@ def test_rescore_is_idempotent_and_keeps_gap_labels(synth_scene):
     assert again is not None
     assert again.gaps[0].label == "behind the sofa"
     assert [g.center for g in again.gaps] == [g.center for g in s.coverage.gaps]
+
+
+def test_coarse_subset_takes_every_other_position():
+    from movable_reality.coverage.pipeline import coarse_subset
+
+    xs, zs = np.meshgrid(np.arange(6) * 0.25 - 1.954, np.arange(4) * 0.25 + 0.3, indexing="ij")
+    xz = np.stack([xs.ravel(), zs.ravel()], 1)
+    sub = coarse_subset(xz, 0.25, 0.5)
+    assert len(sub) == 3 * 2
+    assert len(coarse_subset(xz, 0.25, 0.25)) == len(xz)

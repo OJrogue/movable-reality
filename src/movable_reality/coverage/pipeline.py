@@ -71,6 +71,17 @@ class ScoreResult:
     report: dict
 
 
+def coarse_subset(xz: np.ndarray, spacing: float, coarse: float) -> np.ndarray:
+    """Every k-th standing position along both grid axes (k = coarse / spacing), so the
+    exposure pass uses a coarser grid than next-best-view ranking."""
+    k = max(1, int(round(coarse / spacing)))
+    if k == 1 or len(xz) == 0:
+        return xz
+    idx = np.rint((xz - xz.min(axis=0)) / spacing).astype(int)
+    sel = (idx % k == 0).all(axis=1)
+    return xz[sel] if sel.any() else xz
+
+
 def scene_ply_paths(folder: Path, scene: Scene) -> list[Path]:
     """splat/scene.ply when present, else background + object PLYs from the manifest."""
     full = folder / "splat" / "scene.ply"
@@ -133,12 +144,9 @@ def score_scene(folder: Path, params: ScoreParams | None = None) -> ScoreResult:
     poor = voxel_poor_share(grid, gvox, gauss_cov, weight, p.gaps.cov_threshold)
     cand = candidates(state, poor, p.gaps)
     stand = walkable(grid, state, p.walk)
-    coarse = stand[
-        (np.round(stand / p.walk.exposure_spacing, 6) % 1 == 0).all(axis=1)
-    ]  # subset on the coarser grid
-    if len(coarse) == 0:
-        coarse = stand
-    eyes = eyes_at(coarse, p.walk.exposure_heights)
+    eyes = eyes_at(
+        coarse_subset(stand, p.walk.spacing, p.walk.exposure_spacing), p.walk.exposure_heights
+    )
     # Rays stop at well-covered surfaces only: a VR user sees into poorly covered or
     # never-observed regions (floaters, holes), so those count as exposed.
     solid = (state == OCCUPIED) & ~cand
