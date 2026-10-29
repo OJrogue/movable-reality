@@ -149,6 +149,7 @@ uv run modal run modal_jobs/reconstruct.py --scene room01
 uv run pytest                                  # unit tests (no paid calls)
 uv run ruff check . && uv run ruff format .
 cd web && npm install && npm run dev           # viewer, http://localhost:5173/?scene=room01
+cd web && npm test                             # viewer unit tests (vitest), pure logic only
 ```
 
 Lanes add their own commands here in their PR.
@@ -226,7 +227,7 @@ change updates both files and their tests in the same commit.
 
 Works end to end on at least one real scene (or, before real scenes exist, on the
 synthetic `demo` scene with a note in the build log); `uv run pytest` passes; ruff is
-clean; if `web/` changed, `npm run build` passes; `docs/BUILD_LOG.md` updated;
+clean; if `web/` changed, `npm test` and `npm run build` pass; `docs/BUILD_LOG.md` updated;
 `git status` shows no secrets, videos or `.ply` files staged.
 
 ## When unsure
