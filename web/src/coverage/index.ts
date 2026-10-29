@@ -1,7 +1,7 @@
 // Lane coverage: gap overlay in the viewer (desktop and XR).
 //
-// Every open gap in scene.json `coverage.gaps` is a translucent red sphere (size = gap
-// radius, opacity = gap score; orange once a recapture is requested). Each gap's best
+// Every open gap in scene.json `coverage.gaps` is a translucent red sphere with a rim glow
+// (size = gap radius, intensity = gap score; orange once a recapture is requested). Each gap's best
 // next view is a standing marker on the floor (ring + post up to eye height) with an arrow
 // from the eye towards the gap: where to stand and point the phone for a 10 s top-up.
 //
@@ -33,14 +33,39 @@ export interface CoverageHandle {
 
 const XR_TOGGLE_BUTTON = 1; // squeeze / grip
 
-function gapMesh(g: GapMarker, geo: THREE.SphereGeometry): THREE.Mesh {
-  const mat = new THREE.MeshBasicMaterial({
-    color: g.color,
+// Rim glow: nearly clear in the middle, strongest at the silhouette, so a gap reads as a
+// glowing shell and the splats inside stay visible. `intensity` is the peak alpha.
+const RIM_VERTEX = /* glsl */ `
+varying vec3 vNormal;
+varying vec3 vView;
+void main() {
+  vec4 mv = modelViewMatrix * vec4(position, 1.0);
+  vNormal = normalize(normalMatrix * normal);
+  vView = normalize(-mv.xyz);
+  gl_Position = projectionMatrix * mv;
+}`;
+const RIM_FRAGMENT = /* glsl */ `
+uniform vec3 color;
+uniform float intensity;
+varying vec3 vNormal;
+varying vec3 vView;
+void main() {
+  float rim = 1.0 - abs(dot(normalize(vNormal), normalize(vView)));
+  gl_FragColor = vec4(color, intensity * (0.12 + 0.88 * rim * rim));
+}`;
+
+function rimMaterial(color: number, intensity: number): THREE.ShaderMaterial {
+  return new THREE.ShaderMaterial({
+    uniforms: { color: { value: new THREE.Color(color) }, intensity: { value: intensity } },
+    vertexShader: RIM_VERTEX,
+    fragmentShader: RIM_FRAGMENT,
     transparent: true,
-    opacity: g.opacity,
     depthWrite: false,
   });
-  const mesh = new THREE.Mesh(geo, mat);
+}
+
+function gapMesh(g: GapMarker, geo: THREE.SphereGeometry): THREE.Mesh {
+  const mesh = new THREE.Mesh(geo, rimMaterial(g.color, g.opacity));
   mesh.name = `gap:${g.id}`;
   mesh.position.set(...g.center);
   mesh.scale.setScalar(g.radius);
