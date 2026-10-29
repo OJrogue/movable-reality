@@ -34,6 +34,9 @@ def main() -> int:
         return 0
     if not args.object_id:
         ap.error("object_id is required for this operation")
+    need = {"move": 3, "rotate": 1}.get(args.op, 0)
+    if len(args.values) < need:
+        ap.error(f"{args.op} needs {need} value(s), got {len(args.values)}")
     if args.op == "move":
         scene.move(args.object_id, *args.values[:3])
     elif args.op == "rotate":

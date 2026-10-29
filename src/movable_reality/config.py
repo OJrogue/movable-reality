@@ -23,6 +23,9 @@ class Models:
     TRANSCRIBE = "muse-voice-transcribe-1.0"  # voice commands
     SAM = "sam-3.1"  # segmentation and tracking
     VERIFIER_OPEN = "meta-models/muse-spark-open-1026"  # open weights on Baseten
+    # Open weights run on Modal. MapAnything: Apache-2.0 weights only, never the CC-BY-NC
+    # facebook/map-anything (demo_colmap.py --apache selects them).
+    MAPANYTHING = "facebook/map-anything-apache"
 
 
 DATA_DIR = Path(os.environ.get("MR_DATA_DIR", REPO_ROOT / "data"))
