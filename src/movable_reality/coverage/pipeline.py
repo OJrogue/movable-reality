@@ -139,7 +139,10 @@ def score_scene(folder: Path, params: ScoreParams | None = None) -> ScoreResult:
     if len(coarse) == 0:
         coarse = stand
     eyes = eyes_at(coarse, p.walk.exposure_heights)
-    exp_count = exposure(grid, state == OCCUPIED, state != FREE, eyes, n_dirs=p.exposure_dirs)
+    # Rays stop at well-covered surfaces only: a VR user sees into poorly covered or
+    # never-observed regions (floaters, holes), so those count as exposed.
+    solid = (state == OCCUPIED) & ~cand
+    exp_count = exposure(grid, solid, state != FREE, eyes, n_dirs=p.exposure_dirs)
     exposed = exp_count > 0
     t["voxels_and_exposure_s"] = time.perf_counter() - t0
 
