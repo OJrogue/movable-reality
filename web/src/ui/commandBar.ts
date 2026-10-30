@@ -165,9 +165,8 @@ export class CommandBar {
     let rec: { wav: ArrayBuffer; seconds: number };
     try {
       rec = await this.recorder.stop();
-    } catch (err) {
-      this.line("error", `microphone: ${err instanceof Error ? err.message : String(err)}`);
-      return;
+    } catch {
+      return; // start() failed and its handler has already shown the error
     }
     if (rec.seconds < MIN_TALK_S) {
       this.line("info", "hold Space while you speak");

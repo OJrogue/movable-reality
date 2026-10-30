@@ -18,6 +18,8 @@ export type ServerMessage =
   | { type: "agent"; stage: AgentStage; text: string }
   | { type: "capture_request"; id: number; camera?: { eye: Vec3; target: Vec3 } };
 
+const EDIT_TIMEOUT_MS = 5000;
+
 /** The request reached the server and it refused (HTTP 4xx); not a reason to go offline. */
 export class ServerRefused extends Error {}
 
@@ -31,8 +33,8 @@ async function readError(r: Response): Promise<string> {
   return `HTTP ${r.status}`;
 }
 
-async function postJson<T>(url: string, body: BodyInit, headers?: HeadersInit): Promise<T> {
-  const r = await fetch(url, { method: "POST", body, headers });
+async function postJson<T>(url: string, body: BodyInit, headers?: HeadersInit, signal?: AbortSignal): Promise<T> {
+  const r = await fetch(url, { method: "POST", body, headers, signal });
   if (r.status >= 400 && r.status < 500) throw new ServerRefused(await readError(r));
   if (!r.ok) throw new Error(await readError(r));
   return (await r.json()) as T;
@@ -45,13 +47,18 @@ export class SceneServer {
     return `/api/scenes/${encodeURIComponent(this.sceneId)}`;
   }
 
-  /** True if GET /api/health answers {"ok": true} within `timeoutMs`. */
+  /**
+   * True if GET /api/health answers {"ok": true} and the server has this scene, each within
+   * `timeoutMs`. A server without the scene would refuse every edit, so it counts as offline.
+   */
   async health(timeoutMs = 2000): Promise<boolean> {
     try {
       const r = await fetch("/api/health", { cache: "no-store", signal: AbortSignal.timeout(timeoutMs) });
       if (!r.ok) return false;
       const body = (await r.json()) as { ok?: unknown };
-      return body.ok === true;
+      if (body.ok !== true) return false;
+      const scene = await fetch(this.base, { cache: "no-store", signal: AbortSignal.timeout(timeoutMs) });
+      return scene.ok;
     } catch {
       return false;
     }
@@ -62,6 +69,7 @@ export class SceneServer {
       `${this.base}/edit`,
       JSON.stringify(req),
       { "Content-Type": "application/json" },
+      AbortSignal.timeout(EDIT_TIMEOUT_MS), // a hung request would block the edit queue
     );
     return res.scene;
   }

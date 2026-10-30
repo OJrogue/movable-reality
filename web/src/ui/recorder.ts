@@ -45,6 +45,7 @@ export class Recorder {
       audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true },
     });
     const ctx = new AudioContext();
+    await ctx.resume(); // created after an await, so Safari may start it suspended
     const url = URL.createObjectURL(new Blob([WORKLET], { type: "text/javascript" }));
     try {
       await ctx.audioWorklet.addModule(url);

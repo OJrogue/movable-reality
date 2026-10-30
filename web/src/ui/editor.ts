@@ -1,12 +1,12 @@
 // Lane ui, U1: desktop editing with mouse and keyboard. Click an object to select it (ray
-// against the manifest boxes, lane lod's picker), drag it across a horizontal plane through
+// against the manifest boxes with lane lod's rayBoxDistance), drag it across a horizontal plane through
 // the grab point (height unchanged), Q/E rotate by 15 degrees, Delete or Backspace hides,
 // R restores the newest hidden object, Ctrl/Cmd+Z undoes, Escape clears the selection.
 // Drags on empty space reach SparkControls as before. Nothing here runs during an XR session.
 import * as THREE from "three";
 import type { ViewerContext } from "../context";
 import type { SceneObject } from "../scene";
-import { halfSize, pickNearest, type Pickable } from "../lod/pick";
+import { halfSize, rayBoxDistance, type Pickable } from "../lod/pick";
 import { lastHidden, type EditRequest } from "./edits";
 
 export const ROTATE_STEP_DEG = 15;
@@ -28,7 +28,6 @@ interface Drag {
   x0: number;
   y0: number;
   moved: boolean;
-  controlsBefore: boolean;
 }
 
 export const isTyping = (t: EventTarget | null): boolean =>
@@ -104,9 +103,17 @@ export class Editor {
     return out;
   }
 
+  /**
+   * Nearest box the ray enters. Boxes that contain the camera are skipped: picking them
+   * would grab that object on every click and leave no way to orbit.
+   */
   private pick(ray: THREE.Ray): { id: string; point: THREE.Vector3 } | null {
-    const hit = pickNearest(ray, this.pickables());
-    return hit ? { id: hit.id, point: ray.at(hit.distance, new THREE.Vector3()) } : null;
+    let best: { id: string; distance: number } | null = null;
+    for (const p of this.pickables()) {
+      const d = rayBoxDistance(ray, p.pivotWorld, p.half);
+      if (d !== null && d > 0 && (best === null || d < best.distance)) best = { id: p.id, distance: d };
+    }
+    return best ? { id: best.id, point: ray.at(best.distance, new THREE.Vector3()) } : null;
   }
 
   select(id: string | null): void {
@@ -153,6 +160,9 @@ export class Editor {
 
   private onPointerDown(e: PointerEvent): void {
     if (this.xr || e.target !== this.canvas || e.button !== 0 || this.drag) return;
+    // preventDefault below would keep focus in the command bar, where Q, E, Delete and
+    // Space would then type instead of editing.
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
     const ray = this.rayAt(e.clientX, e.clientY);
     const hit = this.pick(ray);
     if (!hit) {
@@ -174,9 +184,9 @@ export class Editor {
       x0: e.clientX,
       y0: e.clientY,
       moved: false,
-      controlsBefore: this.ctx.controlsEnabled,
     };
-    this.ctx.controlsEnabled = false;
+    // ctx.controlsEnabled stays on: SparkControls never saw this press, so it does not
+    // orbit, and pausing it would leave a stale timestamp that jumps the rig afterwards.
     this.canvas.style.cursor = "grabbing";
   }
 
@@ -210,7 +220,6 @@ export class Editor {
     }
     if (e.pointerId !== d.pointerId) return;
     this.drag = null;
-    this.ctx.controlsEnabled = d.controlsBefore;
     this.canvas.style.cursor = "grab";
     if (this.canvas.hasPointerCapture(e.pointerId)) this.canvas.releasePointerCapture(e.pointerId);
     const node = this.ctx.view?.objectNode(d.id);

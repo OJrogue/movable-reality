@@ -39,13 +39,38 @@ export function installUi(ctx: UiContext): UiHandle {
   let online = false;
   let socket: WebSocket | null = null;
   let queue: Promise<void> = Promise.resolve();
+  let localEdits = 0; // edits applied by the local mirror since the last server scene
 
+  // History is append-only, so a manifest with a shorter history is older than the one on
+  // screen: a POST reply, a WebSocket push and main.ts's 1 s poll can arrive out of order.
+  let latest: SceneManifest | null = null;
   const publish = (m: SceneManifest) => {
     const view = ctx.view;
-    if (!view) return;
+    if (!view || (latest && m.history.length < latest.history.length)) return;
+    latest = m;
     view.apply(m);
     ctx.runManifest(m, view);
   };
+  ctx.onManifest((m) => {
+    if (!latest || m === latest) return;
+    if (m.history.length >= latest.history.length) {
+      latest = m;
+      return;
+    }
+    // The poll in main.ts applied a stale file. Put the newer manifest back before the next
+    // frame, after the other lanes' callbacks for this one have run.
+    const keep = latest;
+    latest = null;
+    queueMicrotask(() => publish(keep));
+  });
+
+  const frameWaiters: { left: number; resolve: () => void }[] = [];
+  ctx.onFrameEnd(() => {
+    for (let i = frameWaiters.length - 1; i >= 0; i--) {
+      if (--frameWaiters[i].left <= 0) frameWaiters.splice(i, 1)[0].resolve();
+    }
+  });
+  const frames = (n: number) => new Promise<void>((resolve) => frameWaiters.push({ left: n, resolve }));
 
   const bar = new CommandBar({
     server,
@@ -60,7 +85,12 @@ export function installUi(ctx: UiContext): UiHandle {
     const was = online;
     online = on;
     bar.setMode(on, on ? "server" : sceneId ? OFFLINE_TEXT : "no scene");
-    if (on && !was) bar.line("info", "connected to the scene server");
+    if (on && !was) {
+      latest = null; // the server's scene is the truth from here on
+      bar.line("info", "connected to the scene server");
+      if (localEdits > 0) bar.line("info", `${localEdits} local edits replaced by the server's scene`);
+      localEdits = 0;
+    }
     if (!on && was) bar.line("info", "lost the scene server; edits are local until it is back");
   };
 
@@ -86,6 +116,7 @@ export function installUi(ctx: UiContext): UiHandle {
       const next = applyEdit(m, req);
       if (req.op === "undo" && next.history.length === m.history.length) bar.line("info", "nothing to undo");
       publish(next);
+      localEdits++;
     } catch (err) {
       bar.line("error", err instanceof EditError ? err.message : `edit failed: ${String(err)}`);
       publish(m);
@@ -100,10 +131,11 @@ export function installUi(ctx: UiContext): UiHandle {
     if (msg.type === "scene") publish(msg.scene);
     else if (msg.type === "agent") bar.agent(msg.stage, msg.text);
     else if (msg.type === "capture_request") {
-      const jpeg = capture(ctx, msg.camera);
-      if (jpeg && socket?.readyState === WebSocket.OPEN) {
-        socket.send(JSON.stringify({ type: "capture", id: msg.id, jpeg }));
-      }
+      const ws = socket;
+      void capture(ctx, frames, msg.camera).then((jpeg) => {
+        // null answers at once, so the server need not wait for its timeout.
+        if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "capture", id: msg.id, jpeg }));
+      });
     }
   };
 
@@ -152,16 +184,23 @@ export function installUi(ctx: UiContext): UiHandle {
 }
 
 const _eye = new THREE.Vector3();
+const SETTLE_FRAMES = 3;
+const SETTLE_TIMEOUT_MS = 1500; // a hidden tab runs no frames
 
 /**
  * Screenshot for the verifier. With a camera request, the rig and camera move to `eye`
- * looking at `target` for one frame and then go back. In XR the headset pose wins, so the
- * request's camera is ignored there.
+ * looking at `target` for a few frames, so Spark's sort and the LOD cut catch up with the
+ * new viewpoint, and then go back. In XR the headset renders into its own framebuffer and
+ * the canvas holds no image, so the answer is null.
  */
-function capture(ctx: ViewerContext, camera?: { eye: Vec3; target: Vec3 }): string | null {
+async function capture(
+  ctx: ViewerContext,
+  frames: (n: number) => Promise<void>,
+  camera?: { eye: Vec3; target: Vec3 },
+): Promise<string | null> {
   const fn = (window as unknown as { mrCapture?: () => string }).mrCapture;
-  if (!fn) return null;
-  if (!camera || ctx.renderer.xr.isPresenting) return fn();
+  if (!fn || ctx.renderer.xr.isPresenting) return null;
+  if (!camera) return fn();
   const { rig, camera: cam } = ctx;
   const saved = {
     rigPos: rig.position.clone(),
@@ -169,7 +208,9 @@ function capture(ctx: ViewerContext, camera?: { eye: Vec3; target: Vec3 }): stri
     rigScale: rig.scale.clone(),
     camPos: cam.position.clone(),
     camQuat: cam.quaternion.clone(),
+    controls: ctx.controlsEnabled,
   };
+  ctx.controlsEnabled = false; // SparkControls must not move the rig meanwhile
   try {
     rig.position.set(0, 0, 0);
     rig.quaternion.identity();
@@ -177,7 +218,8 @@ function capture(ctx: ViewerContext, camera?: { eye: Vec3; target: Vec3 }): stri
     cam.position.copy(_eye.fromArray(camera.eye));
     cam.lookAt(camera.target[0], camera.target[1], camera.target[2]);
     rig.updateMatrixWorld(true);
-    return fn();
+    await Promise.race([frames(SETTLE_FRAMES), new Promise((r) => setTimeout(r, SETTLE_TIMEOUT_MS))]);
+    return ctx.renderer.xr.isPresenting ? null : fn();
   } finally {
     rig.position.copy(saved.rigPos);
     rig.quaternion.copy(saved.rigQuat);
@@ -185,5 +227,6 @@ function capture(ctx: ViewerContext, camera?: { eye: Vec3; target: Vec3 }): stri
     cam.position.copy(saved.camPos);
     cam.quaternion.copy(saved.camQuat);
     rig.updateMatrixWorld(true);
+    ctx.controlsEnabled = saved.controls;
   }
 }
