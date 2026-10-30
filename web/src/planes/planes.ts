@@ -7,7 +7,10 @@ export const PLANE_RENDER_ORDER = -100;
 
 /** Identity of a baked plane: a re-bake changes geometry or texture, so it changes the key. */
 export function planeKey(p: BakedPlane): string {
-  return JSON.stringify([p.mesh, p.corners ?? null, p.texel_m ?? null, p.texture_px ?? null, p.fit_rms_m ?? null]);
+  const key: unknown[] = [p.mesh, p.corners ?? null, p.texel_m ?? null, p.texture_px ?? null, p.fit_rms_m ?? null];
+  // The alpha mask changes the texture, not the geometry. Unmasked planes keep their old key.
+  if (p.transparent_fraction) key.push(p.transparent_fraction);
+  return JSON.stringify(key);
 }
 
 export function planeUrl(sceneBase: string, p: BakedPlane): string {

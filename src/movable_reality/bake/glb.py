@@ -44,6 +44,7 @@ def quad_glb(
     With alpha_mask the image has an alpha channel that marks texels outside the surface.
     The material then uses alphaMode MASK (cutoff 0.5), which three.js renders as alpha
     test, so the quad stays an opaque depth writer where it is drawn."""
+    webp = mime == "image/webp"
     corners = np.asarray(corners, dtype=np.float32).reshape(4, 3)
     uv = np.array([[0, 0], [1, 0], [1, 1], [0, 1]], dtype=np.float32)
     idx = np.array([0, 2, 1, 0, 3, 2], dtype=np.uint16)
@@ -63,7 +64,7 @@ def quad_glb(
     ]
     doc = {
         "asset": {"version": "2.0", "generator": "movable-reality bake"},
-        "extensionsUsed": ["KHR_materials_unlit"],
+        "extensionsUsed": ["KHR_materials_unlit"] + (["EXT_texture_webp"] if webp else []),
         "scene": 0,
         "scenes": [{"nodes": [0]}],
         "nodes": [{"mesh": 0, "name": name}],
@@ -92,7 +93,11 @@ def quad_glb(
                 "extensions": {"KHR_materials_unlit": {}},
             }
         ],
-        "textures": [{"sampler": 0, "source": 0}],
+        "textures": [
+            {"sampler": 0, "extensions": {"EXT_texture_webp": {"source": 0}}}
+            if webp
+            else {"sampler": 0, "source": 0}
+        ],
         "samplers": [
             {
                 "magFilter": LINEAR,
@@ -117,6 +122,8 @@ def quad_glb(
         "bufferViews": views,
         "buffers": [{"byteLength": len(blob)}],
     }
+    if webp:  # no fallback image, so loaders must support it (three.js GLTFLoader does)
+        doc["extensionsRequired"] = ["EXT_texture_webp"]
     if extras:
         doc["nodes"][0]["extras"] = extras
     js = _pad(json.dumps(doc, separators=(",", ":")).encode("utf-8"), b" ")

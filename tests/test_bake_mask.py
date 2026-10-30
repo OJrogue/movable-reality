@@ -8,7 +8,7 @@ from PIL import Image
 
 from movable_reality.bake import glb, mask, synthetic
 from movable_reality.bake.pipeline import BakeOptions, bake_scene
-from movable_reality.scene import Scene
+from movable_reality.scene import Scene, SceneObject
 
 TEXEL = 0.01  # 1 cm texels, 5 cm mask cells
 
@@ -45,6 +45,34 @@ def test_object_footprint_keeps_a_border_hole_opaque():
     assert keep.all()
 
 
+FRAME = {"origin": np.zeros(3), "u": np.array([1.0, 0, 0]), "v": np.array([0, 0, 1.0])}
+
+
+def wall(a, b, step=0.01, heights=(0.5, 1.0)):
+    """World points of a wall from (x, z) a to b, at a few heights."""
+    t = np.arange(0.0, 1.0, step / np.hypot(b[0] - a[0], b[1] - a[1]))
+    xz = np.asarray(a) + t[:, None] * (np.asarray(b) - np.asarray(a))
+    return np.concatenate([np.c_[xz[:, 0], np.full(len(t), h), xz[:, 1]] for h in heights])
+
+
+def test_walls_along_the_edge_cut_the_corner():
+    # The L's inner walls: x = 2.5 for z 1.8..3, and z = 1.8 for x 2.5..4.
+    walls = np.concatenate([wall((2.5, 1.8), (2.5, 3.0)), wall((2.5, 1.8), (4.0, 1.8))])
+    keep = mask.plane_mask(l_shaped_alpha(), TEXEL, walls=walls, **FRAME)
+    assert not keep[200:, 270:].any()
+    assert keep[:170, :].all()
+
+
+def test_unobserved_corner_without_walls_stays_opaque():
+    # Same missing corner, but the only walls are the outer ones: the phone never looked
+    # into the corner of a rectangular room. The floor is filled, not cut.
+    outer = np.concatenate(
+        [wall((0, 0), (4, 0)), wall((4, 0), (4, 3)), wall((4, 3), (0, 3)), wall((0, 3), (0, 0))]
+    )
+    keep = mask.plane_mask(l_shaped_alpha(), TEXEL, walls=outer, **FRAME)
+    assert keep.all()
+
+
 def test_full_coverage_gives_an_all_opaque_mask():
     assert mask.plane_mask(np.ones((50, 70)), TEXEL).all()
 
@@ -73,7 +101,10 @@ def test_l_shaped_room_bakes_transparent_corner(l_room):
         doc, img, o, du, dv = _rgba_and_rect(d, p)
         assert doc["materials"][0]["alphaMode"] == "MASK"
         assert doc["materials"][0]["alphaCutoff"] == 0.5
-        assert doc["images"][0]["mimeType"] == "image/png"  # JPEG was asked, but has no alpha
+        # JPEG was asked, but has no alpha, so the masked texture is WebP.
+        assert doc["images"][0]["mimeType"] == "image/webp"
+        assert doc["extensionsRequired"] == ["EXT_texture_webp"]
+        assert doc["textures"][0]["extensions"]["EXT_texture_webp"]["source"] == 0
         assert img.shape[2] == 4
         h, w = img.shape[:2]
         jj, ii = np.meshgrid(np.arange(w) + 0.5, np.arange(h) + 0.5)
@@ -101,4 +132,37 @@ def test_floor_hole_under_the_sofa_stays_opaque(l_room):
     col = int(rel @ du / (du @ du) * w)
     row = int(rel @ dv / (dv @ dv) * h)
     assert img[row - 5 : row + 5, col - 5 : col + 5, 3].min() == 255
+    # In the L room that hole reaches the far wall (the quad's border). Only the sofa's
+    # footprint keeps it opaque, all the way to the wall.
+    z = np.linspace(centre[2], synthetic.ROOM_Z[0] + 0.02, 50)
+    line = np.c_[np.full(50, centre[0]), np.zeros(50), z] - o
+    cols = np.clip((line @ du / (du @ du) * w).astype(int), 0, w - 1)
+    rows = np.clip((line @ dv / (dv @ dv) * h).astype(int), 0, h - 1)
+    assert img[rows, cols, 3].min() == 255
     assert floor.filled_fraction > 0.03
+
+
+def test_wall_objects_and_lifted_objects_give_no_footprint(tmp_path):
+    synthetic.make_room(
+        tmp_path, floor_spacing=0.04, ceiling_spacing=0.06, wall_spacing=0.1, shape="l"
+    )
+    scene = Scene.load(tmp_path / "scene.json")
+    room = SceneObject(
+        id="wall#1",
+        label="wall",
+        ply="objects/none.ply",
+        bbox_min=(-2, 0, -2.5),
+        bbox_max=(2, 2.5, 2.5),
+    )
+    shelf = SceneObject(
+        id="shelf#1",
+        label="shelf",
+        ply="objects/none.ply",
+        bbox_min=(0.9, 1.2, 1.3),
+        bbox_max=(1.9, 1.6, 2.4),
+    )  # wall-mounted, over the cut corner
+    scene.objects += [room, shelf]
+    scene.save(tmp_path / "scene.json")
+    bake_scene(tmp_path, BakeOptions(texel=0.02), log=lambda _: None)
+    floor = next(p for p in Scene.load(tmp_path / "scene.json").planes if p.label == "floor")
+    assert floor.transparent_fraction > 0.06

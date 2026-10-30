@@ -62,6 +62,12 @@ describe("diffPlanes", () => {
     expect(d.remove.sort()).toEqual([planeKey(floor), planeKey(ceiling)].sort());
   });
 
+  it("treats a re-bake that only changes the alpha mask as a new plane", () => {
+    const masked: BakedPlane = { ...floor, transparent_fraction: 0.07 };
+    expect(planeKey(masked)).not.toBe(planeKey(floor));
+    expect(planeKey({ ...floor, transparent_fraction: 0 })).toBe(planeKey(floor));
+  });
+
   it("treats a manifest without the planes section as no planes", () => {
     expect(diffPlanes([], manifest(undefined))).toEqual({ add: [], remove: [] });
     expect(diffPlanes([planeKey(floor)], manifest(undefined)).remove).toEqual([planeKey(floor)]);

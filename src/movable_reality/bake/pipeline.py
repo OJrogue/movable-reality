@@ -28,6 +28,7 @@ from movable_reality.scene import BakedPlane, PlaneBake, Scene
 from . import gaussians, glb, mask, planefit, raster, texture
 
 DEFAULT_LABELS = ("floor", "ceiling")
+STRUCTURE_LABELS = {"floor", "wall", "ceiling"}  # inventory nouns that are not furniture
 IDS_PATH = "ids/gaussian_ids.npy"
 LABELS_PATH = "ids/labels.json"
 IDS_PLY = "splat/scene.ply"
@@ -60,6 +61,7 @@ class BakeOptions:
     alpha_mask: bool = True
     mask_cell: float = 0.05  # metres, grid of the mask
     mask_close: float = 0.15  # metres, gaps narrower than about twice this are bridged
+    support_gap: float = 0.15  # metres, an object's bbox bottom this close to a floor supports it
 
 
 @dataclass
@@ -119,9 +121,16 @@ def outputs_exist(scene_dir: Path, scene: Scene) -> bool:
 
 
 def _encode(img: np.ndarray, opts: BakeOptions) -> tuple[bytes, str]:
-    """JPEG or PNG as asked. An RGBA image (alpha mask) is always PNG, as JPEG has no alpha."""
+    """JPEG or PNG as asked. An RGBA image (alpha mask) is WebP instead of JPEG, as JPEG has
+    no alpha. WebP keeps lossy colour at the JPEG quality and lossless alpha. On the
+    synthetic L floor it is 39 KB, against 585 KB as RGBA PNG."""
     buf = io.BytesIO()
-    if opts.image_format == "png" or img.shape[-1] == 4:
+    if opts.image_format != "png" and img.shape[-1] == 4:
+        Image.fromarray(img).save(
+            buf, format="WEBP", quality=opts.jpeg_quality, alpha_quality=100, method=4
+        )
+        return buf.getvalue(), "image/webp"
+    if opts.image_format == "png":
         Image.fromarray(img).save(buf, format="PNG", optimize=True)
         return buf.getvalue(), "image/png"
     Image.fromarray(img).save(buf, format="JPEG", quality=opts.jpeg_quality, subsampling=0)
@@ -169,6 +178,11 @@ def bake_scene(
     up = lin @ np.array([0.0, -1.0, 0.0])  # OpenCV -Y in world; +Y after alignment
     up_world = np.array([0.0, 1.0, 0.0])
 
+    bg = gaussians.read_ply(scene_dir / source_bg)
+    bg_verts = gaussians.vertices(bg)
+    bg_recon = np.stack([np.asarray(bg_verts[c], dtype=np.float64) for c in "xyz"], axis=1)
+    bg_world = bg_recon @ lin.T + trans
+
     report = BakeReport(status="baked")
     planes: list[BakedPlane] = []
     removed_idx: dict[str, np.ndarray] = {}
@@ -203,13 +217,21 @@ def bake_scene(
         rgb = texture.push_pull(premult, alpha)
         keep = np.ones(alpha.shape, dtype=bool)
         if opts.alpha_mask:
-            # Objects stand on floors, so the floor under them exists. Ceilings have no such rule.
+            # Objects standing on a floor prove the floor under them exists. Only objects
+            # whose bbox bottom lies on the plane count, and never structure labels.
             on_floor = float(np.dot(plane.normal, up_world)) > 0.9
-            supports = (
-                [(np.asarray(o.bbox_min), np.asarray(o.bbox_max)) for o in scene.objects]
+            supports = [
+                (np.asarray(o.bbox_min), np.asarray(o.bbox_max))
+                for o in scene.objects
                 if on_floor
-                else None
-            )
+                and o.label.split("#")[0].strip().lower() not in STRUCTURE_LABELS
+                and abs(float(plane.signed_distance(np.asarray([o.bbox_min]))[0]))
+                <= opts.support_gap
+            ]
+            # Background splats 0.2 to 1.5 m off the plane are walls (and clutter). The
+            # mask cuts a border region only where they run along the surface's edge.
+            off = plane.signed_distance(bg_world)
+            walls = bg_world[(off > 0.2) & (off < 1.5)]
             keep = mask.plane_mask(
                 alpha,
                 texel,
@@ -217,6 +239,7 @@ def bake_scene(
                 u=rect.u,
                 v=rect.v,
                 supports=supports,
+                walls=walls,
                 cell=opts.mask_cell,
                 close_m=opts.mask_close,
             )
@@ -282,8 +305,6 @@ def bake_scene(
 
     # Background without the replaced Gaussians. Same source PLY, so the float32 centres
     # match exactly; the original stays untouched.
-    bg = gaussians.read_ply(scene_dir / source_bg)
-    bg_verts = gaussians.vertices(bg)
     hit_all = np.zeros(len(bg_verts), dtype=bool)
     for p in planes:
         hit = gaussians.match_positions(bg_verts, verts[removed_idx[p.label]])

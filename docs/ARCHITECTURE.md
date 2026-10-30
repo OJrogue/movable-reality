@@ -176,10 +176,14 @@ the reduced PLY and `plane_bake` keeps the original. `modal_jobs/bake.py` is the
 `splat/scene.ply`, and `ids/labels.json` maps those ids to object ids (`"floor#1"`). Spark
 2.4.0 splats depth-test against the opaque quads (verified in headless Chromium).
 The alpha mask (30 Oct, B1, `bake/mask.py`) works on a 5 cm grid. Cells with baked
-coverage or under an object's footprint (floors only) count as surface. A 15 cm closing
-bridges cracks, and enclosed holes stay opaque. Uncovered regions that reach the quad's
-border are outside the outline and become transparent. The GLB then carries an RGBA PNG with `alphaMode: MASK`
-(cutoff 0.5), which three.js renders as alpha test, so an L-shaped floor stops at the walls.
+coverage count as surface, and on floors so do cells under the footprint of an object
+whose bbox bottom lies within 15 cm of the plane (not floor, wall or ceiling). A 15 cm
+closing bridges cracks, and enclosed holes stay opaque. A region that reaches the quad's
+border becomes transparent only when it reaches deeper than 15 cm and background splats
+0.2 to 1.5 m off the plane (walls) run along at least half of its edge, so an unobserved
+corner of a rectangular room is filled, not cut. A masked plane's texture is WebP with
+alpha (`EXT_texture_webp`, required) and its material `alphaMode: MASK` (cutoff 0.5),
+which three.js renders as alpha test, so an L-shaped floor stops at the walls.
 
 ### 13. Renderer loop and budget controller (lane: renderer, `web/src/perf/`)
 Each frame: opaque planes, then the joint LOD cut, then Spark's sort and blend. The HUD

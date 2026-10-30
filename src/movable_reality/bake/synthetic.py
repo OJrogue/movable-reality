@@ -225,10 +225,13 @@ def make_room(
     f = _flat_layer(rng, ROOM_X, ROOM_Z, 0.0, floor_spacing, 0.003, floor_colour, (0.4, 0.95))
     f = keep(f)
     sofa = BOXES[0]
+    # In the L room the unseen floor runs from under the sofa to the far wall, so the hole
+    # touches the quad's border and only the sofa's footprint keeps it opaque.
+    z_lo = -np.inf if shape == "l" else sofa.lo[2] + 0.05
     under = (
         (f[0][:, 0] > sofa.lo[0] + 0.05)
         & (f[0][:, 0] < sofa.hi[0] - 0.05)
-        & (f[0][:, 2] > sofa.lo[2] + 0.05)
+        & (f[0][:, 2] > z_lo)
         & (f[0][:, 2] < sofa.hi[2] - 0.05)
     )
     groups.append((*(a[~under] for a in f), FLOOR_ID))  # type: ignore[arg-type]
