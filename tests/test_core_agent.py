@@ -151,3 +151,31 @@ def test_server_edit_endpoint(tmp_path, monkeypatch):
 def test_parse_verdict_empty_is_unverified():
     assert parse_verdict("").ok is None
     assert parse_verdict("Maybe.").ok is None
+
+
+def test_sam_cache_packs_decoded_masks(tmp_path, monkeypatch):
+    import json as _json
+
+    import numpy as _np
+
+    from movable_reality import sam
+
+    rng = _np.random.default_rng(0)
+    masks = [rng.random((5, 7)) > 0.5, rng.random((3, 11)) > 0.5]
+    calls = []
+
+    def fake(d):
+        calls.append(d)
+        return sam.Instance(d["object_id"], d["frame_index"], tuple(d["box"]),
+                            masks[d["frame_index"]], d.get("confidence"))  # fmt: skip
+
+    monkeypatch.setattr(sam, "_instance_from_json", fake)
+    cache = tmp_path / "video_x.json"
+    recs = [{"object_id": "1", "frame_index": i, "box": [0, 0, 7, 5], "confidence": 0.9}
+            for i in range(2)]  # fmt: skip
+    cache.write_text(_json.dumps(recs))
+    first = sam._load_cached(cache)
+    second = sam._load_cached(cache)  # from the .npz, no decoding
+    assert len(calls) == 2
+    for a, b, m in zip(first, second, masks, strict=True):
+        assert _np.array_equal(b.mask, m) and b.box == a.box and b.frame_index == a.frame_index

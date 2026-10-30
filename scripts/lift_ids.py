@@ -37,6 +37,7 @@ from movable_reality.lift import (
     STRUCTURE,
     LiftParams,
     assign,
+    ceiling_from_histogram,
     ceiling_scale,
     floor_alignment,
     label_image,
@@ -167,7 +168,13 @@ def finish(args, root, p, names, ids, cams, xyz) -> None:
     s = args.scale
     if args.ceiling_height:
         ceiling = np.isin(ids, [k for k, n in noun_of.items() if n == "ceiling"])
-        s = ceiling_scale(world[ceiling, 1], args.ceiling_height)
+        ceiling_y = world[ceiling, 1]
+        if len(ceiling_y) < 100:  # SAM found no ceiling: densest layer above the cameras
+            cam_y = (centres @ M[:3, :3].T + M[:3, 3])[:, 1]
+            ceiling_y = ceiling_from_histogram(world[:, 1], cam_y)
+            print(f"no ceiling label; ceiling layer from the height histogram, "
+                  f"{len(ceiling_y)} Gaussians")  # fmt: skip
+        s = ceiling_scale(ceiling_y, args.ceiling_height)
     if s:
         M = scaled(M, s)
         world *= s

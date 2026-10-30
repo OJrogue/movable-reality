@@ -108,6 +108,36 @@ def _instance_from_json(d: dict[str, Any]) -> Instance:
     )
 
 
+def _load_cached(cache: Path) -> list[Instance]:
+    """Instances from a cached response. meta_sam_parser decodes and re-encodes every mask in
+    pure Python (~10 min for blender01's 13 nouns), so the decoded masks are kept bit-packed
+    next to the JSON and reused."""
+    packed = cache.with_suffix(".npz")
+    if packed.exists() and packed.stat().st_mtime >= cache.stat().st_mtime:
+        z = np.load(packed)
+        meta = json.loads(str(z["meta"]))
+        bits, out, at = z["bits"], [], 0
+        for d in meta:
+            h, w = d["shape"]
+            n = (h * w + 7) // 8
+            mask = np.unpackbits(bits[at : at + n])[: h * w].reshape(h, w).astype(bool)
+            at += n
+            out.append(
+                Instance(str(d["object_id"]), int(d["frame_index"]), tuple(d["box"]), mask,
+                         d.get("confidence"))
+            )  # fmt: skip
+        return out
+    out = [_instance_from_json(d) for d in json.loads(cache.read_text())]
+    meta = [
+        {"object_id": i.object_id, "frame_index": i.frame_index, "box": list(i.box),
+         "confidence": i.confidence, "shape": list(i.mask.shape)}
+        for i in out
+    ]  # fmt: skip
+    bits = [np.packbits(i.mask.ravel()) for i in out]
+    np.savez(packed, meta=json.dumps(meta), bits=np.concatenate(bits) if bits else np.zeros(0))
+    return out
+
+
 # ---------------------------------------------------------------- API calls
 
 
@@ -185,7 +215,7 @@ async def segment_video(
     key = {"model": Models.SAM, "noun": noun, "sha": sha256_file(video), "enc": encoding}
     cache = _cache_path("video", key)
     if cache.exists() and not force:
-        return [_instance_from_json(d) for d in json.loads(cache.read_text())]
+        return _load_cached(cache)
     file_id = await upload_video(video)
     try:
         records = await _segment(
@@ -199,4 +229,4 @@ async def segment_video(
         )
     cache.parent.mkdir(parents=True, exist_ok=True)
     cache.write_text(json.dumps(records))
-    return [_instance_from_json(d) for d in records]
+    return _load_cached(cache)

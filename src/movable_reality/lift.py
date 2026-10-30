@@ -185,6 +185,22 @@ def ceiling_scale(ceiling_y: np.ndarray, height: float) -> float:
     return height / measured
 
 
+def ceiling_from_histogram(
+    world_y: np.ndarray, cam_y: np.ndarray, bin_m: float = 0.01
+) -> np.ndarray:
+    """Heights of the Gaussians in the ceiling layer when SAM labelled no ceiling (blender01):
+    the densest 1 cm height bin above every camera, plus its neighbours. A ceiling is the one
+    large horizontal surface up there, so it dominates the histogram."""
+    above = world_y[world_y > float(np.max(cam_y)) + 0.1]
+    if len(above) < 100:
+        return above
+    edges = np.arange(above.min(), above.max() + bin_m, bin_m)
+    counts, edges = np.histogram(above, bins=edges)
+    peak = int(np.argmax(counts))
+    lo, hi = edges[max(peak - 2, 0)], edges[min(peak + 3, len(edges) - 1)]
+    return above[(above >= lo) & (above <= hi)]
+
+
 def scaled(M: np.ndarray, s: float) -> np.ndarray:
     """world_from_recon followed by a uniform scale about the world origin (floor stays y = 0)."""
     S = np.diag([s, s, s, 1.0])

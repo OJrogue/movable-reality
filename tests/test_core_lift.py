@@ -154,3 +154,15 @@ def test_ceiling_scale_rejects_too_few_or_negative():
         ceiling_scale(np.ones(10), 2.5)
     with pytest.raises(ValueError):
         ceiling_scale(-np.ones(200), 2.5)
+
+
+def test_ceiling_from_histogram_finds_the_dense_layer():
+    from movable_reality.lift import ceiling_from_histogram
+
+    rng = np.random.default_rng(1)
+    clutter = rng.uniform(0, 1.4, 5000)  # furniture and walls below and around
+    walls = rng.uniform(1.4, 1.5, 800)  # walls continue up to the ceiling
+    ceiling = 1.45 + rng.normal(0, 0.003, 2000)
+    y = np.concatenate([clutter, walls, ceiling])
+    layer = ceiling_from_histogram(y, cam_y=np.array([0.7, 0.8]))
+    assert abs(np.median(layer) - 1.45) < 0.01
