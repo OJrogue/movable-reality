@@ -11,6 +11,9 @@ import {
   overlayKey,
   overlayModel,
   viewMarkers,
+  bestView,
+  frustumCorners,
+  generatedParam,
 } from "./overlay";
 
 function gap(over: Partial<Gap> = {}): Gap {
@@ -139,5 +142,63 @@ describe("toggles", () => {
     expect(t.pressed(right, true)).toBe(true);
     expect(t.pressed(left, false)).toBe(false);
     expect(t.pressed(left, true)).toBe(true);
+  });
+});
+
+describe("best next view", () => {
+  it("prefers the view with most gain on the biggest, least covered gap", () => {
+    const small = gap({ id: "gap_001", radius: 0.2, score: 1 });
+    const big = gap({
+      id: "gap_000",
+      radius: 1.0,
+      score: 0.9,
+      next_best_views: [
+        { eye: [2, 1.6, 0], target: [0, 0.3, -1.8], visible: 9, gain: 0.2 },
+        { eye: [-2, 1.6, 0], target: [0, 0.3, -1.8], visible: 30, gain: 0.6 },
+      ],
+    });
+    const best = bestView(cov([small, big]));
+    expect(best?.gapId).toBe("gap_000");
+    expect(best?.eye).toEqual([-2, 1.6, 0]);
+  });
+
+  it("ignores gaps that are no longer shown and returns null without views", () => {
+    expect(bestView(cov([gap({ status: "generated" })]))).toBeNull();
+    expect(bestView(cov([gap({ next_best_views: [] })]))).toBeNull();
+    expect(bestView(null)).toBeNull();
+  });
+
+  it("is part of the overlay model and its key", () => {
+    const m = { coverage: cov([gap()]) } as SceneManifest;
+    const model = overlayModel(m, 0);
+    expect(model.views).toEqual([]); // ?gapViews=0: only the best view
+    expect(model.best?.gapId).toBe("gap_000");
+    expect(overlayKey(model)).not.toBe(overlayKey({ ...model, best: null }));
+  });
+});
+
+describe("phone frustum", () => {
+  it("puts four corners ahead of the eye, wider than tall, around the aim", () => {
+    const c = frustumCorners([0, 1.6, 0], [0, 0, -1], 1, 90, 2);
+    for (const p of c) expect(p[2]).toBeCloseTo(-1);
+    expect(c[0][0]).toBeCloseTo(-1); // top-left: x = -tan(45 deg)
+    expect(c[0][1]).toBeCloseTo(2.1); // y = 1.6 + 0.5
+    expect(c[2][0]).toBeCloseTo(1);
+    expect(c[2][1]).toBeCloseTo(1.1);
+  });
+
+  it("does not degenerate when aimed straight down", () => {
+    const c = frustumCorners([0, 1.6, 0], [0, -1, 0]);
+    for (const p of c) for (const x of p) expect(Number.isFinite(x)).toBe(true);
+    expect(Math.hypot(c[0][0] - c[2][0], c[0][2] - c[2][2])).toBeGreaterThan(0.1);
+  });
+});
+
+describe("generated toggle parameter", () => {
+  it("shows generated splats unless ?generated=0", () => {
+    expect(generatedParam(new URLSearchParams(""))).toBe(true);
+    expect(generatedParam(new URLSearchParams("generated=0"))).toBe(false);
+    expect(generatedParam(new URLSearchParams("generated=off"))).toBe(false);
+    expect(generatedParam(new URLSearchParams("generated=1"))).toBe(true);
   });
 });

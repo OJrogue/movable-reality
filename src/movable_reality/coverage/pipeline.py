@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import json
 import time
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 
 import numpy as np
@@ -40,6 +40,7 @@ from .geometry import DepthParams, compute_coverage, geometric_score
 from .nbv import NbvParams, WalkParams, exposure, eyes_at, gap_targets, rank_views
 from .nbv import walkable_positions as walkable
 from .ply import Splats, count_generated, read_splats
+from .uncertainty import seen_uncertainty
 from .voxels import VoxelGrid, occupancy, room_bounds
 
 
@@ -55,6 +56,10 @@ class ScoreParams:
     gaps: GapParams = field(default_factory=GapParams)
     walk: WalkParams = field(default_factory=WalkParams)
     nbv: NbvParams = field(default_factory=NbvParams)
+    # Eye height from the capture: the median camera height replaces walk.eye_height (and
+    # scales the crouch height), so a scene whose metric scale or phone height differs from
+    # 1.6 m still gets standing positions inside the scored room.
+    eye_from_cameras: bool = True
 
 
 @dataclass
@@ -80,6 +85,24 @@ def coarse_subset(xz: np.ndarray, spacing: float, coarse: float) -> np.ndarray:
     idx = np.rint((xz - xz.min(axis=0)) / spacing).astype(int)
     sel = (idx % k == 0).all(axis=1)
     return xz[sel] if sel.any() else xz
+
+
+def recon_dir(folder: Path) -> Path:
+    """recon_full/ (cameras rescaled to the full-resolution frames, as gsplat trains on
+    them) when present, else MapAnything's recon/ model."""
+    full = Path(folder) / "recon_full"
+    return full if (full / "sparse").is_dir() else Path(folder) / "recon"
+
+
+def walk_for_capture(walk: WalkParams, cam_heights: np.ndarray, top: float, voxel: float):
+    """WalkParams with the eye height set to the median camera height, kept half a voxel
+    below the top of the grid, and the crouch heights scaled by the same factor."""
+    if len(cam_heights) == 0:
+        return walk
+    eye = float(np.clip(np.median(cam_heights), voxel, top - 0.5 * voxel))
+    k = eye / walk.eye_height
+    heights = tuple(round(min(h * k, eye), 3) for h in walk.exposure_heights)
+    return replace(walk, eye_height=round(eye, 3), exposure_heights=heights)
 
 
 def scene_ply_paths(folder: Path, scene: Scene) -> list[Path]:
@@ -109,11 +132,16 @@ def score_scene(folder: Path, params: ScoreParams | None = None) -> ScoreResult:
     scale, _ = similarity_parts(world_from_recon)
     means = transform_points(world_from_recon, splats.means)
     scales = splats.scales * np.float32(scale)
-    cams = [c.in_frame(world_from_recon) for c in read_model(folder / "recon")]
+    recon_cams = read_model(recon_dir(folder))
+    cams = [c.in_frame(world_from_recon) for c in recon_cams]
     t["load_s"] = time.perf_counter() - t0
 
     lo, hi = room_bounds(means, splats.opacity, min_opacity=p.min_opacity)
     grid = VoxelGrid.from_bounds(lo, hi, p.voxel)
+    if p.eye_from_cameras:
+        top = float(grid.origin[1] + grid.dims[1] * grid.size)
+        heights = np.array([c.center[1] for c in cams])
+        p = replace(p, walk=walk_for_capture(p.walk, heights, top, grid.size))
     keep = np.all(
         (means >= grid.origin) & (means < grid.origin + np.asarray(grid.dims) * grid.size), 1
     )
@@ -130,7 +158,11 @@ def score_scene(folder: Path, params: ScoreParams | None = None) -> ScoreResult:
     used_uncertainty = False
     gauss_cov = geo
     if unc_path.exists():
-        u = np.load(unc_path)["u_mean"].astype(np.float32)
+        unc = np.load(unc_path)
+        if "coeffs" in unc and len(unc["coeffs"]) == len(geo):
+            u = seen_uncertainty(unc["coeffs"], splats.means, recon_cams)
+        else:
+            u = unc["u_mean"].astype(np.float32)
         if len(u) == len(geo):
             gauss_cov = geo * (1.0 - np.clip(u / p.uncertainty_ref, 0.0, 1.0))
             used_uncertainty = True
@@ -183,10 +215,15 @@ def score_scene(folder: Path, params: ScoreParams | None = None) -> ScoreResult:
     exposed_solid = exposed & (state != FREE)
     gap_share = float((labels[exposed_solid] >= 0).mean()) if exposed_solid.any() else 0.0
     old = scene.coverage.gaps if scene.coverage else []
+    # Splats distilled from repairs (C3) are not scored (no camera saw them). The gaps they
+    # filled keep status "generated" through carry_over.
+    gen = scene.coverage.generated_ply if scene.coverage else None
+    gen = gen if gen and (folder / gen).exists() else None
     cov = Coverage(
         gap_map="coverage/gaps.npz",
         gaps=carry_over(gaps, old),
-        generated_splats=count_generated(ply_paths),
+        generated_splats=count_generated(ply_paths + ([folder / gen] if gen else [])),
+        generated_ply=gen,
         gap_share=round(gap_share, 4),
     )
     report = {

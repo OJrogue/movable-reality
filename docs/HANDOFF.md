@@ -201,6 +201,10 @@ is updated. Before real scenes exist, use the synthetic scenes (`demo`, `bakedem
   with MapAnything together with the original frames, gsplat fine-tune, re-score.
 - C3 Repair: render gap views, Muse Image edit with nearest real frames as references,
   distil back, flag `generated`, "show generated" toggle in the viewer.
+- Status 30 Oct (branch lane/coverage): C0, C1, C2 full rerun and C3 run end to end on
+  `covtest` (smoke01 copy), see BUILD_LOG. Muse Image edit keeps the viewpoint only with one
+  reference frame. Repairs that move it are rejected before distil. Open: all of it on
+  `blender01`, the fast top-up path (PLAN C2 step 2).
 
 ## 6. Running lanes locally
 

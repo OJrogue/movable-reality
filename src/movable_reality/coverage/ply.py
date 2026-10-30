@@ -66,9 +66,10 @@ def write_splats(
     scales: np.ndarray | float = 0.02,
     opacity: np.ndarray | float = 0.95,
     generated: np.ndarray | None = None,
+    quats: np.ndarray | None = None,
 ) -> None:
-    """Write a degree-0 3DGS PLY (log scales, logit opacity, identity rotations). The
-    `generated` property is written only when given."""
+    """Write a degree-0 3DGS PLY (log scales, logit opacity, rotations as w x y z quaternions,
+    identity when not given). The `generated` property is written only when given."""
     n = len(means)
     fields = ["x", "y", "z", "nx", "ny", "nz", "f_dc_0", "f_dc_1", "f_dc_2", "opacity"]
     fields += ["scale_0", "scale_1", "scale_2", "rot_0", "rot_1", "rot_2", "rot_3"]
@@ -83,7 +84,13 @@ def write_splats(
     sc = np.repeat(sc[:, None], 3, axis=1) if sc.ndim == 1 else sc
     for i in range(3):
         data[f"scale_{i}"] = np.log(sc[:, i])
-    data["rot_0"] = 1.0
+    if quats is None:
+        data["rot_0"] = 1.0
+    else:
+        q = np.asarray(quats, np.float32)
+        q = q / np.maximum(np.linalg.norm(q, axis=1, keepdims=True), 1e-12)
+        for i in range(4):
+            data[f"rot_{i}"] = q[:, i]
     if generated is not None:
         data[GENERATED] = np.asarray(generated, np.uint8)
     path = Path(path)

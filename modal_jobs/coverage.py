@@ -1,14 +1,20 @@
-"""Per-Gaussian photometric uncertainty on Modal (U-3DGS-style, post hoc, scene frozen).
+"""Coverage GPU jobs on Modal: per-Gaussian uncertainty, gap-view renders, repair distil.
 
-    uv run modal run modal_jobs/coverage.py --scene room01
+    uv run modal run modal_jobs/coverage.py --scene room01                 # uncertainty
     uv run modal run modal_jobs/coverage.py --scene room01 --iters 3000 --lam 0.2
+    uv run modal run modal_jobs/coverage.py --scene room01 --job render    # coverage_repair --gpu
+    uv run modal run modal_jobs/coverage.py --scene room01 --job distil    # after repairs (C3)
+
+--job render and --job distil are described at their functions below and in
+src/movable_reality/coverage/{repair,distil}.py. The rest of this docstring is the
+uncertainty job.
 
 Inputs, uploaded from data/scenes/<scene>/: splat/scene.ply (gsplat result, recon frame),
 recon/ (COLMAP model) and frames/ (the training images; matched to COLMAP image names, or
 recon/images/ if frames/ is missing). Output: coverage/uncertainty.npz, aligned with
 splat/scene.ply: `coeffs` (N, 16) float16 SH coefficients of u_k, `u_mean` and `u_max`
 (N,) float32, plus coverage/uncertainty.json (timings, loss curve, settings).
-scripts/score_coverage.py folds `u_mean` into the coverage score when the file exists.
+scripts/score_coverage.py folds it into the coverage score when the file exists.
 
 Method (src/movable_reality/coverage/uncertainty.py has the maths and the CPU tests): the
 trained Gaussians are frozen; a per-Gaussian SH uncertainty channel (degree 3) is rendered
@@ -21,7 +27,9 @@ problem stays linear. gsplat's SH path clamps colours to >= 0 after adding 0.5, 
 make it non-linear, so u_k(d) is evaluated here (d = mean - camera centre, as in gsplat's
 SH colours) and passed in as a post-activation colour.
 
-STATUS: written 29 Oct, not yet run (no Modal credentials in the coding session). The CPU
+STATUS: first run on covtest (a copy of smoke01) 30 Oct: 32 views, 60k Gaussians, fit
+6.5 s. scripts/score_coverage.py averages u over the observed directions
+(uncertainty.seen_uncertainty), since the spherical mean u_mean stays near the prior. The CPU
 self-check `check_against_numpy()` compares the torch SH basis, residual and regulariser
 with the numpy reference at start-up; a mismatch aborts the run.
 """
@@ -37,36 +45,66 @@ import modal
 APP_NAME = "movable-reality-coverage"
 GPU = "L40S"
 VOLUME_ROOT = "/data"
-GSPLAT_VERSION = "1.5.3"  # rasterization() API checked against the v1.5.3 source
-CUDA_ARCHS = "8.0;8.6;8.9;9.0"
+# ---- BEGIN copy of the modal_jobs/reconstruct.py image (C0, 30 Oct). Modal caches image
+# layers by content, so an identical chain reuses the gsplat layer reconstruct.py already
+# built (41 min on the builder) instead of compiling it again. Keep it byte-identical:
+# tests/test_coverage_modal.py fails when the two drift apart.
+# Only the GPU the job runs on: each extra architecture multiplies the gsplat compile time
+# (four of them took over 2 h on the CPU builder, 30 Oct). Change both together.
+CUDA_ARCHS = "8.9"  # L40S
+# Pinned upstream commits (main on 29 Oct 2026), so a rebuild of the image gets the same code.
+MAPANYTHING_SHA = "3d10cf7a3016fc0f9bb13a071ee66c47b10be0d9"
+GSPLAT_SHA = "512d366b67073d77ca099ede742683c165dfc23b"
 
 image = (
     modal.Image.from_registry("nvidia/cuda:12.8.1-devel-ubuntu22.04", add_python="3.12")
-    .apt_install("git", "build-essential", "ninja-build", "libgl1", "libglib2.0-0")
+    .apt_install("git", "ffmpeg", "libgl1", "libglib2.0-0", "build-essential", "ninja-build")
     .pip_install(
         "torch==2.9.1", "torchvision==0.24.1", index_url="https://download.pytorch.org/whl/cu128"
     )
-    .pip_install(
-        "numpy>=2.0",
-        "pillow>=11.0",
-        "plyfile>=1.1",
-        "pydantic>=2.8",
-        "python-dotenv",
-        "openai>=1.0",
-        "setuptools",
-        "wheel",
-        "ninja",
-    )  # fmt: skip
+    .pip_install("setuptools", "wheel", "ninja", "numpy")
     .run_commands(
-        # Same build path as modal_jobs/reconstruct.py, pinned to a tag: compiles the CUDA
-        # kernels at install time for CUDA_ARCHS against the torch installed above.
-        f"git clone --depth 1 --branch v{GSPLAT_VERSION} "
-        "https://github.com/nerfstudio-project/gsplat /opt/gsplat",
-        "cd /opt/gsplat && pip install --no-build-isolation .",
-        env={"TORCH_CUDA_ARCH_LIST": CUDA_ARCHS, "MAX_JOBS": "8"},
+        "git clone https://github.com/facebookresearch/map-anything /opt/map-anything",
+        f"git -C /opt/map-anything checkout {MAPANYTHING_SHA}",
+        "pip install -e '/opt/map-anything[colmap]'",
     )
-    .env({"PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:True"})
-    .add_local_python_source("movable_reality")
+    .run_commands(
+        # gsplat's CUDA build needs the glm submodule. --no-build-isolation builds against
+        # the torch installed above; with isolation pip fetches the newest torch from PyPI
+        # (pyproject asks for torch>=2.7) and the extension then fails to import.
+        "git clone https://github.com/nerfstudio-project/gsplat /opt/gsplat",
+        f"git -C /opt/gsplat checkout {GSPLAT_SHA}",
+        "git -C /opt/gsplat submodule update --init --recursive",
+        "nproc && python -c 'import sysconfig; print(sysconfig.get_config_var(\"LDCXXSHARED\"))'",
+        # -v streams nvcc progress into the build log (a quiet pip looks like a hang).
+        "cd /opt/gsplat && pip install -v --no-build-isolation .",  # CUDA kernels for CUDA_ARCHS
+        "python -c 'from gsplat.cuda._backend import _C; assert _C is not None'",
+        "pip install --no-build-isolation -r /opt/gsplat/examples/requirements.txt",
+        # add_python's interpreter was built with clang, so setuptools would link with clang++,
+        # which the CUDA image lacks (the link failed after all 50 objects, 30 Oct). Use g++.
+        env={
+            "TORCH_CUDA_ARCH_LIST": CUDA_ARCHS,
+            "MAX_JOBS": "8",
+            "CC": "gcc",
+            "CXX": "g++",
+            "LDSHARED": "gcc -shared",
+            "LDCXXSHARED": "g++ -shared",
+        },
+        # The GPU builder still had 1 CPU (nproc, 30 Oct), so gpu= does not speed the compile.
+        # It stays only because removing it rebuilds this cached layer (41 min). When the layer
+        # is rebuilt anyway, drop gpu= and check `import gsplat.csrc` instead of _C, since
+        # gsplat's _backend can fall back to a JIT compile and hide a broken wheel.
+        gpu=GPU,
+    )
+    .env({"PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:True", "HF_HOME": "/cache/hf"})
+    # MapAnything's COLMAP export voxel-downsamples with open3d (missing on the first run,
+    # 30 Oct). Its own layer, so the gsplat layer above stays cached.
+    .pip_install("open3d==0.19.0")
+    # Our camera helpers (numpy only), for the full-resolution COLMAP model. Added last so
+    # code changes never rebuild the gsplat layer.
+    # ---- END copy. Coverage-only layers below, so they never invalidate the ones above.
+    .pip_install("plyfile>=1.1", "pydantic>=2.8", "python-dotenv>=1.0")
+    .add_local_python_source("movable_reality", copy=False)
 )
 
 app = modal.App(APP_NAME, image=image)
@@ -195,16 +233,19 @@ def _load_gaussians(ply: Path, device):
 def _load_views(root: Path, long_side: int):
     """(Camera rescaled to the image actually loaded, image (H, W, 3) float32) per view.
 
-    Prefers the full-resolution frames/ when their aspect ratio matches the COLMAP camera
-    (intrinsics are then rescaled), else recon/images/ (MapAnything's ~518 px export, which
-    may be cropped to a different aspect ratio)."""
+    Cameras come from recon_full/ (reconstruct.py's cameras rescaled to the full-resolution
+    frames) when present, else recon/. Prefers frames/ when its aspect ratio matches the
+    camera (intrinsics are then rescaled), else recon/images/ (MapAnything's ~518 px export,
+    which may be cropped to a different aspect ratio)."""
     import numpy as np
     from PIL import Image
 
     from movable_reality.coverage.colmap import read_model
 
     out = []
-    for cam in read_model(root / "recon"):
+    full = root / "recon_full"
+    model = full if (full / "sparse").is_dir() else root / "recon"
+    for cam in read_model(model):
         img = None
         for d in (root / "frames", root / "recon" / "images"):
             p = d / cam.name
@@ -327,7 +368,7 @@ def fit_uncertainty(
         "lr": lr,
         "degree": degree,
         "long_side": long_side,
-        "gsplat": GSPLAT_VERSION,
+        "gsplat": GSPLAT_SHA,
         "timings_s": {
             "load": round(t_load, 1),
             "residual": round(t_residual, 1),
@@ -347,27 +388,256 @@ def _fib(n: int):
     return fibonacci_sphere(n)
 
 
+# ---------------------------------------------------------------- C3: gap views and distil
+
+
+def _rasterize(g, viewmat, K, w, h, sh_degree, mode="RGB+ED"):
+    from gsplat import rasterization
+
+    means, quats, scales, opac, colors = g
+    return rasterization(
+        means, quats, scales, opac, colors, viewmat[None], K[None], w, h,
+        sh_degree=sh_degree, packed=False, render_mode=mode,
+    )  # fmt: skip
+
+
+@app.function(gpu=GPU, volumes={VOLUME_ROOT: scenes_vol}, timeout=20 * 60)
+def render_views(scene_id: str, cameras: list[dict]) -> list[dict]:
+    """Alpha-blended gsplat renders of repair cameras (recon frame: K, viewmat, width,
+    height): uint8 RGB, expected depth and accumulated alpha per camera, as .npz bytes."""
+    import io
+
+    import numpy as np
+    import torch
+
+    scenes_vol.reload()
+    dev = torch.device("cuda")
+    root = Path(VOLUME_ROOT) / "scenes" / scene_id
+    means, quats, scales, opac, sh, deg = _load_gaussians(root / "splat" / "scene.ply", dev)
+    out = []
+    with torch.no_grad():
+        for c in cameras:
+            vm = torch.tensor(c["viewmat"], dtype=torch.float32, device=dev)
+            K = torch.tensor(c["K"], dtype=torch.float32, device=dev)
+            img, alpha, _ = _rasterize(
+                (means, quats, scales, opac, sh), vm, K, c["width"], c["height"], deg
+            )
+            rgb = (img[0, ..., :3].clamp(0, 1) * 255 + 0.5).byte().cpu().numpy()
+            depth = img[0, ..., 3].cpu().numpy().astype(np.float32)
+            a = alpha[0, ..., 0].cpu().numpy().astype(np.float16)
+            buf = io.BytesIO()
+            np.savez_compressed(buf, rgb=rgb, depth=depth, alpha=a)
+            out.append({"name": c["name"], "npz": buf.getvalue()})
+    return out
+
+
+@app.function(gpu=GPU, volumes={VOLUME_ROOT: scenes_vol}, timeout=30 * 60)
+def distil_repairs(
+    scene_id: str,
+    inputs: bytes,
+    steps: int = 1500,
+    train_weight: float = 1.0,
+    long_side: int = 640,
+    min_opacity: float = 0.05,
+) -> dict:
+    """Fit new Gaussians to repaired gap views with the scanned Gaussians frozen (see
+    src/movable_reality/coverage/distil.py). Returns the new splats as PLY bytes (recon
+    frame, every splat generated = 1) and loss statistics."""
+    import io
+    import tempfile
+
+    import numpy as np
+    import torch
+
+    from movable_reality.coverage.ply import write_splats
+    from movable_reality.coverage.uncertainty import C0
+
+    scenes_vol.reload()
+    dev = torch.device("cuda")
+    t0 = time.time()
+    root = Path(VOLUME_ROOT) / "scenes" / scene_id
+    means, quats, scales, opac, sh, deg = _load_gaussians(root / "splat" / "scene.ply", dev)
+    z = np.load(io.BytesIO(inputs))
+    t = lambda a: torch.from_numpy(np.ascontiguousarray(a)).to(dev)  # noqa: E731
+    views = []
+    for i in range(int(z["n_views"])):
+        img = t(z[f"image_{i}"]).float() / 255.0
+        views.append((t(z[f"viewmat_{i}"]), t(z[f"K_{i}"]), img, t(z[f"mask_{i}"]).float()))
+    train = []
+    for cam, img in _load_views(root, long_side):
+        vm = torch.eye(4, device=dev)
+        vm[:3, :3] = torch.from_numpy(cam.R).float()
+        vm[:3, 3] = torch.from_numpy(cam.t).float()
+        train.append((vm, torch.from_numpy(cam.K).float().to(dev), torch.from_numpy(img).to(dev)))
+
+    seeds = t(z["seeds"]).float()
+    m = len(seeds)
+    if m == 0:
+        raise RuntimeError("no seed points: nothing to distil")
+    k = sh.shape[1]
+    p_means = seeds.clone().requires_grad_(True)
+    p_scales = torch.full((m, 3), float(np.log(z["seed_scale"])), device=dev).requires_grad_(True)
+    p_quats = torch.zeros((m, 4), device=dev)
+    p_quats[:, 0] = 1.0
+    p_quats.requires_grad_(True)
+    p_opac = torch.zeros((m,), device=dev).requires_grad_(True)  # sigmoid(0) = 0.5
+    p_dc = ((t(z["seed_rgb"]).float() - 0.5) / C0).requires_grad_(True)
+    extent = float((seeds.max(0).values - seeds.min(0).values).norm())
+    opt = torch.optim.Adam(
+        [
+            {"params": [p_means], "lr": 1e-3 * max(extent, 1e-3)},
+            {"params": [p_scales], "lr": 5e-3},
+            {"params": [p_quats], "lr": 1e-3},
+            {"params": [p_opac], "lr": 5e-2},
+            {"params": [p_dc], "lr": 2.5e-3},
+        ]
+    )
+    zeros_rest = torch.zeros((m, k - 1, 3), device=dev)
+
+    def scene(with_new: bool = True):
+        if not with_new:
+            return (means, quats, scales, opac, sh)
+        colors = torch.cat([p_dc[:, None, :], zeros_rest], dim=1)
+        return (
+            torch.cat([means, p_means]),
+            torch.cat([quats, p_quats / p_quats.norm(dim=-1, keepdim=True)]),
+            torch.cat([scales, torch.exp(p_scales)]),
+            torch.cat([opac, torch.sigmoid(p_opac)]),
+            torch.cat([sh, colors]),
+        )
+
+    def losses(with_new: bool = True) -> list[float]:
+        """[masked L1 on the repaired views, L1 on the training frames]."""
+        g = scene(with_new)
+        rep, tr = [], []
+        for vm, K, img, mask in views:
+            out, _, _ = _rasterize(g, vm, K, img.shape[1], img.shape[0], deg, "RGB")
+            diff = (out[0].clamp(0, 1) - img).abs().mean(-1)
+            rep.append(float((diff * mask).sum() / mask.sum().clamp_min(1)))
+        for vm, K, img in train:
+            out, _, _ = _rasterize(g, vm, K, img.shape[1], img.shape[0], deg, "RGB")
+            tr.append(float((out[0].clamp(0, 1) - img).abs().mean()))
+        return [round(float(np.mean(rep)), 4), round(float(np.mean(tr)) if tr else 0.0, 4)]
+
+    with torch.no_grad():
+        before = {"scanned_only": losses(False), "with_seeds": losses(True)}
+    rng = np.random.default_rng(0)
+    curve = []
+    for it in range(steps):
+        vm, K, img, mask = views[int(rng.integers(len(views)))]
+        out, _, _ = _rasterize(scene(), vm, K, img.shape[1], img.shape[0], deg, "RGB")
+        diff = (out[0] - img).abs().mean(-1)
+        loss = (diff * mask).sum() / mask.sum().clamp_min(1)
+        if train and train_weight > 0:
+            tvm, tK, timg = train[int(rng.integers(len(train)))]
+            tout, _, _ = _rasterize(scene(), tvm, tK, timg.shape[1], timg.shape[0], deg, "RGB")
+            loss = loss + train_weight * (tout[0] - timg).abs().mean()
+        opt.zero_grad(set_to_none=True)
+        loss.backward()
+        opt.step()
+        if it % 100 == 0 or it == steps - 1:
+            curve.append([it, round(float(loss.detach()), 5)])
+            print(f"it {it} loss {float(loss.detach()):.4f}", flush=True)
+    with torch.no_grad():
+        after = losses(True)
+        keep = torch.sigmoid(p_opac) >= min_opacity
+        rgb = (p_dc[keep] * C0 + 0.5).clamp(0, 1).cpu().numpy()
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "generated.ply"
+            write_splats(
+                path,
+                p_means[keep].cpu().numpy(),
+                rgb,
+                scales=torch.exp(p_scales[keep]).cpu().numpy(),
+                opacity=torch.sigmoid(p_opac[keep]).cpu().numpy(),
+                generated=np.ones(int(keep.sum()), np.uint8),
+                quats=p_quats[keep].cpu().numpy(),
+            )
+            ply = path.read_bytes()
+    return {
+        "ply": ply,
+        "seeds": m,
+        "kept": int(keep.sum()),
+        # Gap labels that kept at least one splat: only those gaps count as generated.
+        "kept_labels": sorted({int(v) for v in z["seed_label"][keep.cpu().numpy()]}),
+        "views": len(views),
+        "train_views": len(train),
+        "steps": steps,
+        "loss_repair_masked_l1_and_train_l1": {"before": before, "after": after},
+        "curve": curve,
+        "seconds": round(time.time() - t0, 1),
+    }
+
+
+def _upload(scene: str, local: Path) -> None:
+    if not (local / "splat" / "scene.ply").exists():
+        raise SystemExit(f"{local / 'splat' / 'scene.ply'} missing")
+    with scenes_vol.batch_upload(force=True) as batch:
+        batch.put_file(local / "splat" / "scene.ply", f"/scenes/{scene}/splat/scene.ply")
+        batch.put_directory(local / "recon", f"/scenes/{scene}/recon")
+        sparse = local / "recon_full" / "sparse"
+        if sparse.is_dir():
+            batch.put_directory(sparse, f"/scenes/{scene}/recon_full/sparse")
+        if (local / "frames").is_dir():
+            batch.put_directory(local / "frames", f"/scenes/{scene}/frames")
+    print(f"uploaded {local}")
+
+
+def _run_render(scene: str, local: Path) -> None:
+    """coverage/repair/render_request.json (written by coverage_repair.py --gpu) ->
+    coverage/repair/<view>/render.npz."""
+    req = json.loads((local / "coverage" / "repair" / "render_request.json").read_text())
+    for item in render_views.remote(scene, req["cameras"]):
+        out = local / "coverage" / "repair" / item["name"] / "render.npz"
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_bytes(item["npz"])
+        print(f"rendered {out}")
+
+
+def _run_distil(scene: str, local: Path, steps: int) -> None:
+    import numpy as np
+
+    from movable_reality.coverage import distil
+    from movable_reality.scene import Scene
+
+    views = distil.load_views(local)
+    if not views:
+        raise SystemExit("no repaired views: run scripts/coverage_repair.py --call first")
+    grid, labels = distil.load_gap_grid(local)
+    seeds, rgb, seed_label = distil.seed_points(grid, labels, views)
+    print(f"{len(views)} repaired views, {len(seeds)} seed points")
+    W = np.asarray(Scene.load(local / "scene.json").world_from_recon)
+    inputs = distil.pack_inputs(views, seeds, rgb, grid.size, W, seed_label)
+    info = distil_repairs.remote(scene, inputs, steps=steps)
+    (local / distil.GENERATED_PLY).write_bytes(info.pop("ply"))
+    (local / "coverage" / "distil.json").write_text(json.dumps(info, indent=2))
+    filled = {g for g in {v.gap_id for v in views} if distil.gap_index(g) in info["kept_labels"]}
+    done = distil.finish(local, sorted(filled))
+    print(json.dumps({k: v for k, v in info.items() if k != "curve"}, indent=2))
+    print(f"wrote {local / distil.GENERATED_PLY}: {done.coverage.generated_splats} splats")
+
+
 @app.local_entrypoint()
 def main(
     scene: str,
+    job: str = "uncertainty",
     iters: int = 3000,
     lam: float = 0.2,
     lr: float = 0.01,
     long_side: int = 960,
+    steps: int = 1500,
     force: bool = False,
     skip_upload: bool = False,
 ):
     local = Path(__file__).resolve().parents[1] / "data" / "scenes" / scene
+    if job not in ("uncertainty", "render", "distil"):
+        raise SystemExit(f"unknown --job {job}: uncertainty, render or distil")
     if not skip_upload:
-        for sub in ("splat/scene.ply",):
-            if not (local / sub).exists():
-                raise SystemExit(f"{local / sub} missing")
-        with scenes_vol.batch_upload(force=True) as batch:
-            batch.put_file(local / "splat" / "scene.ply", f"/scenes/{scene}/splat/scene.ply")
-            batch.put_directory(local / "recon", f"/scenes/{scene}/recon")
-            if (local / "frames").is_dir():
-                batch.put_directory(local / "frames", f"/scenes/{scene}/frames")
-        print(f"uploaded {local}")
+        _upload(scene, local)
+    if job == "render":
+        return _run_render(scene, local)
+    if job == "distil":
+        return _run_distil(scene, local, steps)
     info = fit_uncertainty.remote(
         scene, iters=iters, lam=lam, lr=lr, long_side=long_side, force=force
     )
