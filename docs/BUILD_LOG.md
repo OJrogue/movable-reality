@@ -350,6 +350,53 @@ This log is the record of what was built during the hackathon (26 Oct to 4 Nov 2
 - Next: run M1 on `blender01`, download `recon/sparse` from the Modal volume, then run
   `blender_gt_eval.py`; masks once the object stage writes label PNGs.
 
+## 2026-10-30 (lane: ui)
+
+- New lane (D18). Everything lives in `web/src/ui/`, plus one `installUi(ctx)` call in
+  `main.ts` after `installCoverage`.
+- U1 desktop editing (`editor.ts`): a click picks the nearest object box with lane lod's
+  `pickNearest`, draws a yellow box outline on the object's pivot and a DOM label. Dragging
+  moves the object across a horizontal plane through the grab point, so the height stays
+  and the object follows the cursor. Release sends one `place` edit. Q/E rotate by 15
+  degrees, Delete or Backspace hides, R restores the newest hidden object, Ctrl/Cmd+Z undoes,
+  Escape clears the selection. The `pointerdown` and `keydown` handlers run in the capture
+  phase on `window`, so a press on an object never reaches SparkControls (no orbit), and
+  Q/E move the camera again once nothing is selected. Drags on empty space orbit as before.
+  Boxes that contain the camera are not pickable, so a large box around the viewer cannot
+  block orbiting.
+- Edit path (`index.ts`): edits go to `POST /api/scenes/{id}/edit` when `/api/health`
+  answers, one at a time in order. Without a server, `edits.ts` mirrors `Scene.apply_edit`
+  and `Scene.undo` (append-only history, undo entries with `index` and `of`, yaw modulo
+  as in Python) and the bar shows "offline: edits are local". `?server=0` forces local
+  edits. A manifest with a shorter history than the one on screen is dropped, so a late
+  poll or push never undoes a newer reply. Edit requests time out after 5 s and then fall
+  back to local edits. The WebSocket applies `scene` pushes, shows `agent` progress and
+  answers `capture_request` with `window.mrCapture()`. With a requested camera it moves to
+  that eye and target for three frames (Spark's sort catches up) before the capture. In
+  XR it answers null at once.
+- U2 command bar (`commandBar.ts`, `recorder.ts`, `audio.ts`): Enter posts the text to
+  `/command`. Holding Space records through an AudioWorklet, resamples to 16 kHz with a box
+  filter, encodes a 16-bit mono WAV and posts it to `/voice`. Keys typed in the bar no
+  longer reach WASD or other shortcuts.
+- U4 onboarding panel (`onboarding.ts`): controls, four sample commands that fill the bar,
+  a gap overlay button (dispatches key G for the coverage lane) and a placeholder
+  "show generated" toggle. `?onboarding=0` hides it, and closing it is stored in localStorage.
+- Tests: 23 new vitest cases (edit mirror including undo chains, resampling, WAV header,
+  onboarding visibility). `npm test` 105 passed, `npm run build` passes, `uv run pytest`
+  148 passed, ruff clean.
+- Manual browser check (no committed log, figures read from the page console) on a copy of `demo` (`data/scenes/uitest`), dev server on port 5174.
+  Offline: select, drag (place to x 0.215, z -2.006), Q Q E, Delete, R, then seven undos
+  restored the original transform and logged 12 history entries. An eighth undo reported
+  "nothing to undo". Online against the core lane's work-in-progress server: the drag and
+  a Q rotation were written to `scene.json`, an undo sent with curl reached the page by
+  WebSocket within 300 ms, and "remove the chair" ran through the agent with progress lines
+  in the bar. The verifier answered "no" each time, so the agent kept retrying. The
+  viewer's capture was a non-black 2048 x 1536 JPEG. That run used the one-frame capture
+  that the review replaced with the three-frame one, which was not re-run against the
+  verifier.
+  Not tested: hold-to-talk with a real microphone, any XR session.
+- Next: a controller button for hold-to-talk in VR, "show generated" once M4 flags splats,
+  the video link in the onboarding panel, U3 hosting.
 ## 2026-10-30 (Fri, evening, Mac, lane core: M1 to M3, M5 server side)
 
 - Scope change from OJ: everything runs on synthetic data first and is tested in the desktop
