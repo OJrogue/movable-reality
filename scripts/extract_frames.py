@@ -64,6 +64,12 @@ def main() -> int:
     ap.add_argument("--max-frames", type=int, default=200)
     ap.add_argument("--long-side", type=int, default=1920)
     ap.add_argument("--force", action="store_true")
+    ap.add_argument(
+        "--focal35",
+        type=float,
+        help="35 mm-equivalent focal length of the video (e.g. 26 for an iPhone main camera); "
+        "writes intrinsics.json so MapAnything gets a known camera instead of self-calibrating",
+    )
     args = ap.parse_args()
 
     out = scene_dir(args.scene)
@@ -152,7 +158,19 @@ def main() -> int:
     )
     (out / "frames.json").write_text(json.dumps({"fps": args.fps, "frames": meta}, indent=2))
     print(f"selected {len(meta)} of {len(cands)} candidates -> {out}")
+    if args.focal35:
+        w, h = Image.open(out / "frames" / "000000.jpg").size
+        k = intrinsics_from_focal35(args.focal35, w, h)
+        (out / "intrinsics.json").write_text(json.dumps(k, indent=2))
+        print(f"intrinsics.json: fx = fy = {k['fx']:.1f} px ({args.focal35} mm equivalent)")
     return 0
+
+
+def intrinsics_from_focal35(f35: float, width: int, height: int) -> dict[str, float]:
+    """Pinhole intrinsics from a 35 mm-equivalent focal length (36 mm wide sensor, long side).
+    Video stabilisation crops the sensor, so the true focal is a few percent longer."""
+    f = f35 / 36.0 * max(width, height)
+    return {"fx": f, "fy": f, "cx": width / 2, "cy": height / 2}
 
 
 if __name__ == "__main__":
