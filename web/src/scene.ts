@@ -75,6 +75,7 @@ export interface Coverage {
   gap_map: string | null;
   gaps: Gap[];
   generated_splats: number;
+  generated_ply?: string | null; // C3 repairs, every splat generated = 1, recon frame
   gap_share?: number | null; // share of VR-visible non-empty voxels (surfaces, unobserved space) in gaps
 }
 

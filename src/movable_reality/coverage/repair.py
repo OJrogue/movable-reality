@@ -17,9 +17,12 @@ Flow per gap:
 4. `repair_view`: Muse Image edit; the rendered view is the first image, the references
    follow. Cached under data/cache/muse_image/ by a hash of the model, prompt, size and
    input image bytes; reruns hit the cache and make no call.
-5. Distilling the repaired view back into splats is the next step (gsplat fine-tune of
-   the gap region on the repaired view, new splats tagged with `ply.append_generated`).
-   Not implemented yet.
+5. Distilling the repaired views back into splats: distil.py packs them with seed points
+   in the gap voxels, modal_jobs/coverage.py (--job distil) fits new Gaussians only and
+   returns them as coverage/generated.ply, every splat flagged generated = 1.
+
+The gap view comes from gsplat on Modal (modal_jobs/coverage.py --job render, alpha
+blended) when coverage_repair.py runs with --gpu, else from the CPU point preview.
 """
 
 from __future__ import annotations
@@ -81,8 +84,10 @@ def repair_camera(
     fill: float = 0.5,
     margin: float = 0.15,
     clearance: float = 0.3,
+    view_index: int = 0,
 ) -> Camera:
-    """Camera at the gap's best next view (else 1.5 m in front of the gap at eye height)
+    """Camera at the gap's next-best view number `view_index` (clamped to the views there
+    are) (else 1.5 m in front of the gap at eye height)
     looking at the gap centre.
 
     A next-best view stands close to its gap, so the gap sphere can fill the whole frame and
@@ -94,8 +99,9 @@ def repair_camera(
     eye is clamped into the bounds."""
     c = np.asarray(gap.center, dtype=np.float64)
     if gap.next_best_views:
-        eye = np.asarray(gap.next_best_views[0].eye, dtype=np.float64)
-        target = np.asarray(gap.next_best_views[0].target, dtype=np.float64)
+        nbv = gap.next_best_views[min(view_index, len(gap.next_best_views) - 1)]
+        eye = np.asarray(nbv.eye, dtype=np.float64)
+        target = np.asarray(nbv.target, dtype=np.float64)
     else:
         eye = c + np.array([0.0, 0.0, 1.5 + gap.radius])
         eye[1] = 1.6
@@ -242,6 +248,61 @@ def cache_path(req: RepairRequest) -> Path:
     return CACHE_DIR / "muse_image" / f"edit_{_cache_key(req)}.webp"
 
 
+MAX_ALIGNMENT_L1 = 0.08
+
+
+def alignment_error(view: Path, repaired: Path, mask: Path) -> float:
+    """Mean absolute difference (0..1) between the rendered view and its repair over the
+    pixels Muse Image was asked to keep (outside the gap mask, not empty black). With several
+    reference photos Muse Image tends to redraw the room from a reference's viewpoint
+    (covtest, 30 Oct: 3 references moved the camera, 1 kept it); such a repair is not
+    aligned with the camera and must not be distilled."""
+    a = np.asarray(Image.open(view).convert("RGB"), np.float32) / 255.0
+    b = Image.open(repaired).convert("RGB")
+    b = np.asarray(b.resize((a.shape[1], a.shape[0]), Image.LANCZOS), np.float32) / 255.0
+    m = np.asarray(Image.open(mask).convert("L")) > 127
+    keep = ~m & (a.max(axis=-1) > 0.02)
+    if not keep.any():
+        return 1.0
+    return float(np.abs(a - b).mean(axis=-1)[keep].mean())
+
+
+def write_check(out_dir: Path, max_l1: float = MAX_ALIGNMENT_L1) -> dict:
+    """coverage/repair/<view>/check.json: alignment error and whether distil may use it."""
+    err = alignment_error(out_dir / "view.png", out_dir / "repaired.webp", out_dir / "mask.png")
+    check = {"alignment_l1": round(err, 4), "max_l1": max_l1, "accepted": err <= max_l1}
+    (out_dir / "check.json").write_text(json.dumps(check, indent=2))
+    return check
+
+
+def edit_files(files: list[Any]) -> list[tuple[str, Any]]:
+    """Multipart parts for the image list. The Meta Model API wants `image[0]`,
+    `image[1]`, ... and rejects the `image[]` keys the OpenAI SDK sends for a list (400,
+    30 Oct), so the request is built here."""
+    parts = []
+    for i, f in enumerate(files):
+        name = Path(getattr(f, "name", f"image_{i}.png")).name
+        mime = "image/png" if name.lower().endswith(".png") else "image/jpeg"
+        parts.append((f"image[{i}]", (name, f, mime)))
+    return parts
+
+
+def images_edit(client: Any, files: list[Any], prompt: str, size: str) -> Any:
+    """POST /images/edits with indexed image parts through the OpenAI client (auth, retries,
+    base URL). A client without `post` (a test double) gets the SDK-style call."""
+    if not hasattr(client, "post"):
+        return client.images.edit(model=Models.IMAGE, image=files, prompt=prompt, n=1, size=size)
+    from openai.types import ImagesResponse
+
+    return client.post(
+        "/images/edits",
+        body={"model": Models.IMAGE, "prompt": prompt, "n": 1, "size": size},
+        files=edit_files(files),
+        options={"headers": {"Content-Type": "multipart/form-data"}},
+        cast_to=ImagesResponse,
+    )
+
+
 def repair_view(
     req: RepairRequest, out: Path, client: Any | None = None, force: bool = False
 ) -> RepairResult:
@@ -260,9 +321,7 @@ def repair_view(
         client = meta_client()
     files = [open(p, "rb") for p in (req.view, *req.references)]  # noqa: SIM115
     try:
-        resp = client.images.edit(
-            model=Models.IMAGE, image=files, prompt=req.prompt, n=1, size=req.size
-        )
+        resp = images_edit(client, files, req.prompt, req.size)
     finally:
         for f in files:
             f.close()
@@ -285,26 +344,88 @@ def _usage(resp: Any) -> Any:
     return dump() if callable(dump) else str(usage)
 
 
+def view_dir(folder: Path, gap_id: str, view_index: int = 0) -> Path:
+    """coverage/repair/<gap_id>/ for a gap's first view, <gap_id>_v<k>/ for view k."""
+    name = gap_id if view_index == 0 else f"{gap_id}_v{view_index}"
+    return Path(folder) / "coverage" / "repair" / name
+
+
+def plan_camera(
+    gap: Gap,
+    splats_world: tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray],
+    view_index: int = 0,
+) -> Camera:
+    """The repair camera of one gap view (see repair_camera), world frame."""
+    means, _, _, opacity, generated = splats_world
+    real = np.ones(len(means), bool) if generated is None else np.asarray(generated) == 0
+    solid = real & (np.asarray(opacity) >= 0.3)
+    bounds = room_bounds(means[real], opacity[real]) if real.any() else None
+    return repair_camera(gap, bounds=bounds, obstacles=means[solid], view_index=view_index)
+
+
+def view_from_render(
+    cam: Camera, gap: Gap, rgb: np.ndarray, depth: np.ndarray, alpha: np.ndarray
+) -> tuple[np.ndarray, np.ndarray]:
+    """Gap view from a gsplat render (uint8 RGB, expected depth, accumulated alpha): pixels
+    with alpha below 0.5 count as empty, then the same mask rule as the CPU preview."""
+    d = np.where(alpha >= 0.5, depth, np.inf).astype(np.float32)
+    mask = gap_mask(cam, gap, d)
+    out = np.array(rgb, dtype=np.uint8, copy=True)
+    out[mask] = MASK_COLOR
+    return out, mask
+
+
+def camera_dict(cam: Camera) -> dict:
+    """World frame, OpenCV convention: x_cam = R @ x_world + t."""
+    return {
+        "eye": cam.center.tolist(),
+        "forward": cam.forward.tolist(),
+        "width": cam.width,
+        "height": cam.height,
+        "K": cam.K.tolist(),
+        "R": cam.R.tolist(),
+        "t": cam.t.tolist(),
+    }
+
+
+def camera_from_dict(d: dict, name: str = "") -> Camera:
+    return Camera(
+        name=name,
+        width=int(d["width"]),
+        height=int(d["height"]),
+        K=np.asarray(d["K"], np.float64),
+        R=np.asarray(d["R"], np.float64),
+        t=np.asarray(d["t"], np.float64),
+    )
+
+
 def prepare_request(
     folder: Path,
     gap: Gap,
     cameras: list[Camera],
     splats_world: tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray],
     k_refs: int = 3,
+    view_index: int = 0,
+    cam: Camera | None = None,
+    render: tuple[np.ndarray, np.ndarray, np.ndarray] | None = None,
 ) -> RepairRequest:
-    """Render the gap view and pick reference frames for one gap; files go under
-    coverage/repair/<gap_id>/ in the scene folder."""
+    """Render one gap view and pick reference frames; files go under view_dir(). `render`
+    is a gsplat render (rgb, depth, alpha) of `cam`; without it the CPU preview is used."""
     folder = Path(folder)
     means, rgb, scales, opacity, generated = splats_world
-    real = np.ones(len(means), bool) if generated is None else np.asarray(generated) == 0
-    solid = real & (np.asarray(opacity) >= 0.3)
-    bounds = room_bounds(means[real], opacity[real]) if real.any() else None
-    cam = repair_camera(gap, bounds=bounds, obstacles=means[solid])
-    img, mask = render_gap_view(cam, gap, means, rgb, scales, opacity, generated)
-    out = folder / "coverage" / "repair" / gap.id
+    if cam is None:
+        cam = plan_camera(gap, splats_world, view_index)
+    if render is not None:
+        img, mask = view_from_render(cam, gap, *render)
+    else:
+        img, mask = render_gap_view(cam, gap, means, rgb, scales, opacity, generated)
+    out = view_dir(folder, gap.id, view_index)
     out.mkdir(parents=True, exist_ok=True)
     view = out / "view.png"
+    old = view.read_bytes() if view.exists() else None
     Image.fromarray(img).save(view)
+    if old != view.read_bytes():  # a repair of another view must not reach the distil step
+        (out / "repaired.webp").unlink(missing_ok=True)
     Image.fromarray((mask * 255).astype(np.uint8)).save(out / "mask.png")
     refs = []
     for i in nearest_frames(cameras, cam, k_refs, focus=np.asarray(gap.center)):
@@ -315,7 +436,9 @@ def prepare_request(
         json.dumps(
             {
                 "gap_id": gap.id,
-                "camera": {"eye": cam.center.tolist(), "forward": cam.forward.tolist()},
+                "view_index": view_index,
+                "renderer": "gsplat" if render is not None else "cpu-preview",
+                "camera": camera_dict(cam),
                 "references": [p.relative_to(folder).as_posix() for p in refs],
                 "mask_pixels": int(mask.sum()),
             },

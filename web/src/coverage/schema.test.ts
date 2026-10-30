@@ -16,7 +16,8 @@ const fromPython = {
       next_best_views: [{ eye: [1, 1.6, 0.5], target: [0, 0.3, -1.8], visible: 120, gain: 0.4 }],
     },
   ],
-  generated_splats: 0,
+  generated_splats: 1200,
+  generated_ply: "coverage/generated.ply",
   gap_share: 0.12,
 } satisfies Coverage;
 
