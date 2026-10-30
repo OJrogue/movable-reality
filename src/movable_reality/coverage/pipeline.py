@@ -40,6 +40,7 @@ from .geometry import DepthParams, compute_coverage, geometric_score
 from .nbv import NbvParams, WalkParams, exposure, eyes_at, gap_targets, rank_views
 from .nbv import walkable_positions as walkable
 from .ply import Splats, count_generated, read_splats
+from .uncertainty import seen_uncertainty
 from .voxels import VoxelGrid, occupancy, room_bounds
 
 
@@ -131,7 +132,8 @@ def score_scene(folder: Path, params: ScoreParams | None = None) -> ScoreResult:
     scale, _ = similarity_parts(world_from_recon)
     means = transform_points(world_from_recon, splats.means)
     scales = splats.scales * np.float32(scale)
-    cams = [c.in_frame(world_from_recon) for c in read_model(recon_dir(folder))]
+    recon_cams = read_model(recon_dir(folder))
+    cams = [c.in_frame(world_from_recon) for c in recon_cams]
     t["load_s"] = time.perf_counter() - t0
 
     lo, hi = room_bounds(means, splats.opacity, min_opacity=p.min_opacity)
@@ -156,7 +158,11 @@ def score_scene(folder: Path, params: ScoreParams | None = None) -> ScoreResult:
     used_uncertainty = False
     gauss_cov = geo
     if unc_path.exists():
-        u = np.load(unc_path)["u_mean"].astype(np.float32)
+        unc = np.load(unc_path)
+        if "coeffs" in unc and len(unc["coeffs"]) == len(geo):
+            u = seen_uncertainty(unc["coeffs"], splats.means, recon_cams)
+        else:
+            u = unc["u_mean"].astype(np.float32)
         if len(u) == len(geo):
             gauss_cov = geo * (1.0 - np.clip(u / p.uncertainty_ref, 0.0, 1.0))
             used_uncertainty = True

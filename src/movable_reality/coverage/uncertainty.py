@@ -106,6 +106,36 @@ def eval_uncertainty(coeffs: np.ndarray, dirs: np.ndarray) -> np.ndarray:
     return np.einsum("ks,kqs->kq", coeffs, Y)
 
 
+def seen_uncertainty(
+    coeffs: np.ndarray, means: np.ndarray, cameras: list, b: float = 1.0, chunk: int = 200_000
+) -> np.ndarray:
+    """Mean of u_k(d) over the training cameras whose frustum holds Gaussian k, d = mean -
+    camera centre (the direction the fit used), normalised by b and clipped to [0, 1]; b
+    (the prior) where no camera sees it. Means and cameras in the frame of the fit (recon).
+
+    The spherical mean stays near the prior for any capture that covers a narrow arc,
+    because the fit only lowers u in observed directions. Directions the capture missed are
+    the geometric score's job (view count, angle spread); this term adds how badly the
+    Gaussian renders where it was observed."""
+    coeffs = np.asarray(coeffs, np.float32)
+    means = np.asarray(means, np.float32)
+    total = np.zeros(len(means), np.float64)
+    count = np.zeros(len(means), np.int32)
+    for cam in cameras:
+        for s in range(0, len(means), chunk):
+            m = means[s : s + chunk]
+            vis = np.nonzero(cam.in_frustum(m))[0]
+            if vis.size == 0:
+                continue
+            d = m[vis] - cam.center.astype(np.float32)
+            d /= np.maximum(np.linalg.norm(d, axis=1, keepdims=True), 1e-8)
+            total[s + vis] += eval_uncertainty(coeffs[s + vis], d)
+            count[s + vis] += 1
+    with np.errstate(invalid="ignore", divide="ignore"):
+        u = np.where(count > 0, total / np.maximum(count, 1), b)
+    return np.clip(u / b, 0.0, 1.0).astype(np.float32)
+
+
 # ---------------------------------------------------------------- sphere quadrature
 
 

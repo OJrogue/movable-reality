@@ -128,3 +128,18 @@ def test_normalised_summaries():
     s = U.normalised_uncertainty(c)
     assert s["u_mean"] == pytest.approx([1.0, 0.2])
     assert s["u_max"][1] > s["u_mean"][1]
+
+
+def test_seen_uncertainty_averages_observed_directions_only():
+    from movable_reality.coverage.cameras import look_at
+
+    # Gaussian 0 at the origin, seen by one camera on +Z; Gaussian 1 behind that camera.
+    cam = look_at(np.array([0.0, 0.0, 2.0]), np.zeros(3), 64, 48)
+    means = np.array([[0.0, 0.0, 0.0], [0.0, 0.0, 5.0]])
+    coeffs = np.zeros((2, 16))
+    coeffs[:, 0] = 1.0 / U.C0  # u = 1 everywhere
+    # A degree-1 term lowers u towards -Z (the direction from the camera to Gaussian 0).
+    coeffs[0, 2] = 0.6 / U.C1  # Y_2 = C1 * z, d = (0, 0, -1) -> u = 1 - 0.6
+    u = U.seen_uncertainty(coeffs, means, [cam])
+    assert u[0] == pytest.approx(0.4, abs=1e-5)
+    assert u[1] == 1.0  # no camera sees it: the prior
