@@ -35,24 +35,27 @@ class Sam3DResult:
         return so.sam3d_cam_from_local(self.rotation, self.translation, self.scale)
 
 
-def _key(image: bytes, mask: bytes, seed: int) -> str:
+def _key(image: bytes, mask: bytes, seed: int, dense: bool) -> str:
     h = hashlib.sha256()
-    for part in (Models.SAM3D_OBJECTS.encode(), image, mask, str(seed).encode()):
+    for part in (Models.SAM3D_OBJECTS.encode(), image, mask, f"{seed}:{dense}".encode()):
         h.update(hashlib.sha256(part).digest())
     return h.hexdigest()[:24]
 
 
-def run_sam3d(image: bytes, mask_png: bytes, seed: int = 42, force: bool = False) -> Sam3DResult:
-    """Image (PNG/JPEG bytes) + mask (PNG, white = object) -> Gaussians and pose."""
+def run_sam3d(
+    image: bytes, mask_png: bytes, seed: int = 42, dense: bool = False, force: bool = False
+) -> Sam3DResult:
+    """Image (PNG/JPEG bytes) + mask (PNG, white = object) -> Gaussians and pose.
+    dense=True: 32 splats per voxel (about 1M for a stool) instead of 4 (about 120k)."""
     cache = CACHE_DIR / "sam3d"
-    key = _key(image, mask_png, seed)
+    key = _key(image, mask_png, seed, dense)
     ply_path, meta_path = cache / f"{key}.ply", cache / f"{key}.json"
     if not (ply_path.exists() and meta_path.exists()) or force:
         import modal  # noqa: PLC0415 - only needed on a cache miss
 
         try:
             cls = modal.Cls.from_name(APP_NAME, "Sam3D")
-            res = cls().run.remote(image, mask_png, seed)
+            res = cls().run.remote(image, mask_png, seed, dense)
         except modal.exception.NotFoundError as exc:
             raise Sam3DUnavailable(
                 f"Modal app '{APP_NAME}' not deployed: uv run modal deploy modal_jobs/sam3d.py"

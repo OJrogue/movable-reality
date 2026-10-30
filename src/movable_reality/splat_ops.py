@@ -202,13 +202,14 @@ def robust_bounds(
 
 
 def upright_rotation(
-    cam_from_local: np.ndarray, snap_deg: float = 25.0
+    cam_from_local: np.ndarray, snap_deg: float = 40.0
 ) -> tuple[np.ndarray, float]:
     """Rotation world_from_local for an object seen by a roughly level camera.
 
     World up (+Y) is taken as camera up (OpenCV -Y) expressed in the local frame. When a
     local axis lies within `snap_deg` of it, that axis is used instead, since SAM 3D Objects'
-    canonical frame is axis-aligned for upright objects. World +Z points from the object
+    canonical frame is axis-aligned for upright objects (local +Z up in the first live run,
+    seen from 25 degrees above, 30 Oct). World +Z points from the object
     towards the camera (horizontally), so the object faces the default viewer.
     Returns (R, angle in degrees between camera up and the chosen up axis)."""
     A = np.asarray(cam_from_local, dtype=np.float64)

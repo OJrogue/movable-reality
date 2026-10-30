@@ -137,7 +137,6 @@ image = (
             "CUDA_HOME": "/usr/local/cuda",
             "HF_HOME": f"{CACHE}/hf",
             "TORCH_HOME": f"{CACHE}/torch",
-            "HF_HUB_ENABLE_HF_TRANSFER": "1",
             "PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:True",
         }
     )
@@ -191,7 +190,8 @@ class Sam3D:
         t0 = time.time()
         config = OmegaConf.load(f"{CKPT_DIR}/pipeline.yaml")
         config.depth_model = None  # no MoGe network: the pointmap comes from MapAnything
-        config.decode_formats = ["gaussian"]  # no mesh decode, no texture baking
+        # Both Gaussian decoders (32 or 4 splats per voxel); no mesh decode, no texture bake.
+        config.decode_formats = ["gaussian", "gaussian_4"]
         config.rendering_engine = "pytorch3d"
         config.compile_model = False
         config.workspace_dir = CKPT_DIR
@@ -217,15 +217,21 @@ class Sam3D:
             views = load_images([path], resize_mode="fixed_size", size=_fixed_size(w, h))
         pred = self.mapanything.infer(
             views, memory_efficient_inference=False, use_amp=True, amp_dtype="bf16",
-            apply_mask=True, mask_edges=False,
+            apply_mask=False, mask_edges=False,
         )[0]  # fmt: skip
-        pts = pred["pts3d_cam"][0].float()  # (h', w', 3) OpenCV: x right, y down, z forward
+        pts = pred["pts3d_cam"][0].float().clone()  # (h', w', 3) OpenCV: x right, y down, z forward
+        # Invalid points as NaN, not 0: SAM 3D's focal solver skips non-finite points but
+        # divides by z = 0 (crash on the first run, 30 Oct).
+        bad = ~torch.isfinite(pts).all(-1) | (pts[..., 2] <= 1e-4)
+        pts[bad] = float("nan")
         pts = pts * torch.tensor([-1.0, -1.0, 1.0], device=pts.device)  # to PyTorch3D camera
         K = pred["intrinsics"][0].float().cpu().numpy().tolist()
         return pts, K, tuple(pts.shape[:2])
 
     @modal.method()
-    def run(self, image_bytes: bytes, mask_png: bytes, seed: int = 42) -> dict:
+    def run(self, image_bytes: bytes, mask_png: bytes, seed: int = 42, dense: bool = False) -> dict:
+        """dense=False returns the 4-splats-per-voxel decode (about 120k splats for a stool,
+        8x fewer than dense), which suits the headset budget."""
         import numpy as np  # noqa: PLC0415
         import torch  # noqa: PLC0415
         from PIL import Image  # noqa: PLC0415
@@ -249,7 +255,7 @@ class Sam3D:
         )  # fmt: skip
         t_gen = time.time() - t1
 
-        gs = out["gaussian"][0]
+        gs = out["gaussian" if dense else "gaussian_4"][0]
         with __import__("tempfile").NamedTemporaryFile(suffix=".ply") as f:
             gs.save_ply(f.name)
             ply = Path(f.name).read_bytes()
@@ -278,11 +284,11 @@ class Sam3D:
 
 
 @app.local_entrypoint()
-def main(image: str, mask: str, out: str = "sam3d_out.ply", seed: int = 42):
+def main(image: str, mask: str, out: str = "sam3d_out.ply", seed: int = 42, dense: bool = False):
     import json
 
     t0 = time.time()
-    res = Sam3D().run.remote(Path(image).read_bytes(), Path(mask).read_bytes(), seed)
+    res = Sam3D().run.remote(Path(image).read_bytes(), Path(mask).read_bytes(), seed, dense)
     Path(out).write_bytes(res.pop("ply"))
     Path(out).with_suffix(".json").write_text(json.dumps(res, indent=2))
     print(json.dumps(res, indent=2), f"\nwall {time.time() - t0:.0f} s -> {out}")

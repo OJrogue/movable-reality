@@ -147,9 +147,11 @@ def test_upright_rotation_snaps_to_local_axis_and_faces_camera():
 
 
 def test_upright_rotation_keeps_camera_up_when_no_axis_is_close():
-    A = rot("x", -40) @ rot("z", 40)  # no local axis within 25 degrees of camera up
+    u = np.ones(3) / math.sqrt(3)  # local up direction, 54.7 degrees from every axis
+    x = np.array([1.0, -1.0, 0.0]) / math.sqrt(2)
+    A = np.stack([x, -u, np.cross(x, -u)])  # rows: camera axes in local coordinates
     R, tilt = so.upright_rotation(A)
-    assert tilt > 25
+    assert tilt > 40
     np.testing.assert_allclose(R @ (A.T @ [0, -1, 0]), [0, 1, 0], atol=1e-9)
 
 
