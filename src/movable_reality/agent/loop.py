@@ -142,13 +142,14 @@ async def run_command(
         try:
             verdict = await verify_edit(text, summarise(result.steps), before, after)
         except Exception as exc:  # noqa: BLE001 - a verifier outage must not lose the edit
-            verdict = Verdict(ok=False, reason=f"verifier unavailable: {exc}")
+            verdict = Verdict(ok=None, reason=f"verifier unavailable: {exc}")
             result.verdicts.append(verdict.reason)
             break
         result.verdicts.append(verdict.reason)
         result.verified = verdict.ok
-        await emit({"stage": "verify", "text": ("ok: " if verdict.ok else "no: ") + verdict.reason})
-        if verdict.ok or attempt == retries:
+        word = {True: "ok: ", False: "no: ", None: "unverified: "}[verdict.ok]
+        await emit({"stage": "verify", "text": word + verdict.reason})
+        if verdict.ok is not False or attempt == retries:
             break
         messages.append(
             {

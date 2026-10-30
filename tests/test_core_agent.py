@@ -146,3 +146,8 @@ def test_server_edit_endpoint(tmp_path, monkeypatch):
     assert c.post("/api/scenes/t/edit", json={"op": "move", "object_id": "x#1"}).status_code == 400
     with c.websocket_connect("/ws/scenes/t") as ws:
         assert ws.receive_json()["type"] == "scene"
+
+
+def test_parse_verdict_empty_is_unverified():
+    assert parse_verdict("").ok is None
+    assert parse_verdict("Maybe.").ok is None

@@ -21,13 +21,18 @@ PROMPT = (
 
 @dataclass
 class Verdict:
-    ok: bool
+    ok: bool | None  # None: no usable answer, so the edit stays unverified
     reason: str
 
 
 def parse_verdict(text: str) -> Verdict:
     first = text.strip().splitlines()[0] if text.strip() else ""
-    ok = bool(re.match(r"^\W*yes\b", first, re.IGNORECASE))
+    if re.match(r"^\W*yes\b", first, re.IGNORECASE):
+        ok: bool | None = True
+    elif re.match(r"^\W*no\b", first, re.IGNORECASE):
+        ok = False
+    else:
+        ok = None
     rest = text.strip()[len(first) :].strip() or first
     return Verdict(ok, rest[:300])
 
@@ -54,6 +59,10 @@ async def verify_edit(
                 ],
             }
         ],
-        max_tokens=200,
+        max_tokens=2000,  # a reasoning model: its thinking counts against this
     )
-    return parse_verdict(resp["choices"][0]["message"].get("content") or "")
+    msg = resp["choices"][0]["message"]
+    verdict = parse_verdict(msg.get("content") or "")
+    if verdict.ok is None and not verdict.reason:
+        verdict.reason = f"no answer ({resp['choices'][0].get('finish_reason')})"
+    return verdict
