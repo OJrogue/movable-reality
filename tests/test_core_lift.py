@@ -1,6 +1,6 @@
 import numpy as np
 
-from movable_reality.coverage.cameras import look_at
+from movable_reality.coverage.cameras import Camera, look_at
 from movable_reality.lift import (
     LiftParams,
     assign,
@@ -90,3 +90,21 @@ def test_support_merges_items_and_loose_splats():
     out, merged = support(world, ids, [0, 1, 2], LiftParams())
     assert merged == {1: 0}
     assert (out[2000:2400] == 0).all() and (out[2400:] == 2).all()
+
+
+def test_full_res_camera_inverts_mapanything_crop():
+    from movable_reality.recon import full_res_camera
+
+    full = look_at(np.array([0, 1.5, 3.0]), np.array([0, 0.5, 0]), 1920, 1080, name="a")
+    # what MapAnything's preprocessing does to the frame: scale, floor, centre-crop to 518x294
+    s = max(518 / 1920, 294 / 1080) + 1e-8
+    rw, rh = int(1920 * s), int(1080 * s)
+    left, top = (rw - 518) // 2, (rh - 294) // 2
+    K = full.K.copy()
+    K[0, 0] *= rw / 1920
+    K[1, 1] *= rh / 1080
+    K[0, 2] = (full.K[0, 2] + 0.5) * rw / 1920 - 0.5 - left
+    K[1, 2] = (full.K[1, 2] + 0.5) * rh / 1080 - 0.5 - top
+    small = Camera(name="a", width=518, height=294, K=K, R=full.R, t=full.t)
+    back = full_res_camera(small, 1920, 1080)
+    assert np.allclose(back.K, full.K, atol=1e-6)

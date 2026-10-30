@@ -36,6 +36,7 @@ from movable_reality.lift import (
     vote,
 )
 from movable_reality.lod.split import write_split
+from movable_reality.recon import full_res_camera
 from movable_reality.sam import paste_mask, segment_video
 from movable_reality.scene import Scene, SceneObject
 
@@ -94,7 +95,7 @@ def main() -> int:
     )
 
     # Vote in the reconstruction frame.
-    cams = read_model(root / "recon")
+    cams = [full_res_camera(c, w, h) for c in read_model(root / "recon")]
     frame_of = [int(c.name.rsplit("/", 1)[-1].split(".")[0]) for c in cams]
     v = PlyData.read(str(root / "splat" / "scene.ply"), mmap=False)["vertex"]
     xyz = np.stack([v["x"], v["y"], v["z"]], axis=1).astype(np.float32)

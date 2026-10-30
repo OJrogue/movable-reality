@@ -7,8 +7,8 @@ Prerequisite: `uv run python scripts/extract_frames.py <video> --scene room01`.
 Uploads data/scenes/<scene>/frames to the Modal volume, runs on one L40S, downloads
 splat/scene.ply and the gsplat stats back into data/scenes/<scene>/.
 
-STATUS: first version, not yet run. The image build is the most likely thing to need fixes
-(torch / CUDA / gsplat example requirements). Fix it here, then log the fix in BUILD_LOG.
+Trains on the full-resolution frames: recon_full/ holds MapAnything's cameras rescaled from
+model input resolution (src/movable_reality/recon.py) with images/ linked to frames/.
 """
 
 from __future__ import annotations
@@ -73,6 +73,9 @@ image = (
         gpu=GPU,
     )
     .env({"PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:True", "HF_HOME": "/cache/hf"})
+    # Our camera helpers (numpy only), for the full-resolution COLMAP model. Added last so
+    # code changes never rebuild the gsplat layer.
+    .add_local_python_source("movable_reality", copy=False)
 )
 
 app = modal.App(APP_NAME, image=image)
@@ -86,6 +89,24 @@ def _frames_hash(frames: Path) -> str:
     for f in sorted(frames.glob("*.jpg")):
         h.update(f"{f.name}:{f.stat().st_size}\n".encode())
     return h.hexdigest()[:16]
+
+
+def _full_res_model(recon: Path, frames: Path, full: Path) -> float:
+    from PIL import Image  # noqa: PLC0415 - container only
+
+    from movable_reality.coverage.colmap import find_sparse_dir, read_model, write_model
+    from movable_reality.recon import full_res_camera
+
+    t0 = time.time()
+    shutil.rmtree(full, ignore_errors=True)
+    sparse = full / "sparse" / "0"
+    cams = read_model(recon)
+    w, h = Image.open(frames / cams[0].name).size
+    write_model(sparse, [full_res_camera(c, w, h) for c in cams])
+    shutil.copyfile(find_sparse_dir(recon) / "points3D.bin", sparse / "points3D.bin")
+    (full / "images").symlink_to(frames)
+    print(f"full-res model: {len(cams)} cameras at {w}x{h}")
+    return round(time.time() - t0, 1)
 
 
 def _run(cmd: list[str], cwd: str | None = None) -> float:
@@ -126,8 +147,12 @@ def reconstruct(scene_id: str, max_steps: int = 15_000, force: bool = False) -> 
             ]
         )
         stamp.write_text(fhash)
-        # TODO(day 2): replace recon/images (model input resolution, ~518 px) with full-res
-        # frames and rescale intrinsics in sparse/cameras.bin before training.
+
+    # 1b. MapAnything's model stores ~518 px images and intrinsics. Train on the full-res
+    # frames instead: recon_full/ = frames as images/ plus the cameras rescaled to them.
+    full = root / "recon_full"
+    if force or not (full / "sparse" / "0" / "cameras.bin").exists():
+        timings["full_res_s"] = _full_res_model(recon, frames, full)
 
     # 2. gsplat: keep the metric frame (no world-space normalisation), export PLY.
     if force or not (result / "ply").exists():
@@ -138,7 +163,7 @@ def reconstruct(scene_id: str, max_steps: int = 15_000, force: bool = False) -> 
                 "simple_trainer.py",
                 "default",
                 "--data_dir",
-                str(recon),
+                str(full),
                 "--data_factor",
                 "1",
                 "--result_dir",
@@ -186,6 +211,17 @@ def main(scene: str, max_steps: int = 15_000, force: bool = False, skip_upload: 
         with open(local / "splat" / name, "wb") as f:
             for chunk in scenes_vol.read_file(f"/scenes/{scene}/splat/{name}"):
                 f.write(chunk)
+    # Cameras: MapAnything's model (recon/) and the full-res copy, for lift_ids and coverage.
+    for model in ("recon", "recon_full"):
+        for entry in scenes_vol.listdir(f"/scenes/{scene}/{model}", recursive=True):
+            rel = entry.path.split(f"/scenes/{scene}/", 1)[-1]
+            if not rel.endswith((".bin", ".txt", ".ply")) or "/images/" in rel:
+                continue
+            dest = local / rel
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            with open(dest, "wb") as f:
+                for chunk in scenes_vol.read_file(entry.path):
+                    f.write(chunk)
     stats_dir = local / "gsplat_stats"  # PSNR/SSIM/LPIPS, written at gsplat eval steps
     stats_dir.mkdir(exist_ok=True)
     try:
