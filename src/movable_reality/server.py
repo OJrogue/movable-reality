@@ -245,7 +245,10 @@ async def _command(h: SceneHub, text: str, camera: dict | None, verify: bool) ->
 
 
 def _inserter(h: SceneHub):
-    """M4 insert path, when its dependencies are importable on this machine."""
+    """M4 insert path, when its dependencies are importable on this machine. Off in hosted
+    mode: it writes PLYs into the shared scene folder, which visitors' copies must not touch."""
+    if HOSTED:
+        return None
     try:
         from .insert import insert_object  # noqa: PLC0415 - optional, heavy
     except ImportError:

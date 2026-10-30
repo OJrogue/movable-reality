@@ -247,7 +247,12 @@ def run_tool(
         if name == "insert_object":
             if inserter is None:
                 return {"error": "insert is not available on this server"}
-            return inserter(scene, args["prompt"], float(args["x"]), float(args["z"]), instruction)
+            try:
+                return inserter(
+                    scene, args["prompt"], float(args["x"]), float(args["z"]), instruction
+                )
+            except Exception as exc:  # noqa: BLE001 - API, Modal or SAM failures go to the model
+                return {"error": f"insert failed: {exc}"}
         op = {
             "move_object": "move",
             "place_object": "place",

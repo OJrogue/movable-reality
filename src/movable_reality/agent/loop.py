@@ -3,6 +3,7 @@ Muse Spark Open verdict -> one retry when the verifier says no (ARCHITECTURE sta
 
 from __future__ import annotations
 
+import asyncio
 import json
 import math
 from collections.abc import Awaitable, Callable
@@ -121,7 +122,12 @@ async def run_command(
                     args = json.loads(call["function"].get("arguments") or "{}")
                 except json.JSONDecodeError:
                     args = {}
-                out = run_tool(scene, name, args, bounds, instruction=text, inserter=inserter)
+                if name == "insert_object":  # about a minute on Modal: keep the server live
+                    out = await asyncio.to_thread(
+                        run_tool, scene, name, args, bounds, text, inserter
+                    )
+                else:
+                    out = run_tool(scene, name, args, bounds, instruction=text, inserter=inserter)
                 step = {"tool": name, "args": args, "result": out}
                 result.steps.append(step)
                 if name in EDIT_TOOLS and "error" not in out:

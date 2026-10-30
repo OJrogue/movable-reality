@@ -516,3 +516,59 @@ This log is the record of what was built during the hackathon (26 Oct to 4 Nov 2
   finer yaw search, NaN edits rejected, undo restores the previous visibility, depth buffer
   padding, box-local masks in `lift_ids` (memory), saved state rebroadcast after an agent error.
 - Next: M1 + M2 on the full `blender01` walk, pose ATE and mask IoU against ground truth.
+
+## 2026-10-30 (lane: core, M4)
+
+- `modal_jobs/sam3d.py`: SAM 3D Objects (commit f91db41, gated `facebook/sam-3d-objects`,
+  SAM License) as a deployed Modal class on one L40S. Its default pipeline estimates the
+  pointmap with MoGe, a Microsoft model, which rule 2 forbids. The job sets
+  `depth_model: null` and passes a MapAnything pointmap (`facebook/map-anything-apache`)
+  through the pipeline's own `pointmap=` argument. The MoGe package stays installed for its
+  geometry helpers only (no weights are loaded). DINOv2 encoders (Meta) load through
+  torch.hub. HF_TOKEN reaches Modal as a secret built from `.env` at deploy time.
+- Image: CUDA 12.1, Python 3.11, torch 2.5.1, the upstream requirements minus training and
+  notebook packages, kaolin wheel, gsplat without its CUDA build, PyTorch3D built CPU-only
+  (only transforms and structures are used, 124 s on the 1-CPU builder). First build and
+  deploy took 511 s. Weights (13 GB) download once to the `movable-reality-cache` volume
+  in about 60 s.
+- Sources of the figures below. Timings, memory and decoder sizes come from the Modal container
+  logs and the result JSONs under `data/cache/sam3d/` (gitignored), build times from the
+  `modal deploy` output, the cost from `modal billing report --for today`, the splat count
+  from the viewer's console, and "upright" from a viewer screenshot that is not committed.
+- Measured on the L40S. Cold start 44 to 51 s to load both models (16.1 GiB), MapAnything
+  pointmap 0.9 s, SAM 3D generation 11.8 to 12.4 s, peak 20.2 GiB. The dense decoder gives
+  985,440 splats (67 MB) for a stool. The 4-splats-per-voxel decoder gives 123,180 splats
+  (8.4 MB) and is now the default (`dense=False`).
+- `src/movable_reality/insert.py`: Muse Spark gives noun and typical size (0.30 x
+  0.40 x 0.30 m for the stool), Muse Image draws one object on a plain background (1600 x 1600
+  returned), SAM 3.1 masks it, SAM 3D Objects lifts it. The object is turned upright
+  (camera up, snapped to the nearest canonical axis within 40 degrees, and the stool's
+  canonical +Z was 25.3 degrees from camera up), scaled, stood on y = 0 at (x, z), written in the
+  recon frame as `objects/gen_<n>.ply` with `generated` = 1, and logged as op "insert".
+  The agent tool now returns insert failures to the model as an error.
+- Live test on `m4test`, a copy of `demo`. "small wooden stool" became `gen#1`, 0.34 x 0.36
+  x 0.35 m, 86 s end to end with a cold container (82 s of it Modal). The viewer loads the
+  PLY (Spark logs 123180 splats) and shows an upright stool on the floor between the chair
+  and the table.
+- `scripts/complete_objects.py` with `src/movable_reality/completion.py`: best frame per
+  object (largest mask, half weight when it touches the border), SAM 3D on frame + mask,
+  first guess from the pose and the frame's camera, scale from the boxes, then trimmed
+  similarity ICP from 10 starts (pose guess, plus box centre, min face or max face in x and
+  z), best RMS wins. Not run on a real scene yet, because no scene has `ids/masks` so far. Unit tests
+  cover it on a synthetic partial scan (error under 3 cm).
+- `src/movable_reality/splat_ops.py`: PLY layout, quaternion and similarity transforms of
+  splats, SAM 3D pose conversion, floor placement, Umeyama and ICP. 18 CPU tests in
+  `tests/test_core_m4.py`.
+- Modal spend for M4 was $0.60 (billing report for 30 Oct, all build and GPU time of
+  `movable-reality-sam3d`), including about ten short crash loops before two startup fixes
+  (`hf_transfer` env without the package, zero-depth points in the pointmap).
+- Review fixes (reviewer agent). The scan is filtered by opacity and a MAD floater test
+  before registration, the box scale falls back to the metric pose guess when the two differ
+  by more than 25 %, ICP ranks starts by trimmed RMS and keeps its best step (a synthetic
+  scan with 7 % floaters, 3 mm noise and a 15 degree yaw error now registers within 6 cm),
+  generated objects use SAM 3D's canonical +Z as up, the agent runs an insert in a worker
+  thread so the server stays live, hosted mode has no insert (visitors would overwrite each
+  other's `gen_<n>.ply`), and the deploy stops when HF_TOKEN is missing. The insert no
+  longer touches `coverage.generated_splats`, which stays with the coverage lane.
+- Next: run `complete_objects.py` once `lift_ids.py` has written masks for a real scene,
+  then the viewer swap to `completed_ply` (lod lane, L1).
