@@ -25,6 +25,7 @@ import argparse
 import json
 import struct
 import sys
+from functools import lru_cache
 from pathlib import Path
 
 import numpy as np
@@ -148,6 +149,7 @@ def gt_index(source_time_s: float, n_gt: int, fps: float = GT_FPS) -> int:
     return int(min(max(round(source_time_s * fps), 0), n_gt - 1))
 
 
+@lru_cache(maxsize=64)  # neighbouring pipeline frames share GT candidates
 def small_gray(path: Path, size: tuple[int, int] = (240, 135)) -> np.ndarray:
     return np.asarray(Image.open(path).convert("L").resize(size), dtype=np.float32)
 
@@ -293,6 +295,8 @@ def main() -> int:
             g = load_label(gt / args.walk / "masks" / f"{j:06d}.png")
             accumulate_overlap([(load_label(p, g.shape), g)], counts)
             used += 1
+        if used == 0:
+            raise SystemExit(f"no label PNG in {args.labels} matches a frame in frames.json")
         gt_ids = {o["index"]: o for o in objects}
         match = match_objects(counts, set(gt_ids))
         per = {

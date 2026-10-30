@@ -16,7 +16,9 @@ Outputs (out = data/raw/blender01):
   <out>_gt/<walk>/cameras.json          K and cam_to_world per frame (OpenCV camera)
   <out>_gt/<walk>/depth/000000.png      uint16 z-depth in mm (0 = no hit)
   <out>_gt/<walk>/masks/000000.png      uint8 object index (0 none, 101-103 floor, wall, ceiling)
-Frame i of each video is GT frame i (time i / 30 s).
+Frame i of each video is GT frame i (time i / 30 s). cameras.json holds the shutter-centre
+pose; Cycles writes depth and index from one sample per pixel, at a random time within the
+0.3-frame shutter, so GT edges can be off by ~1-2 px and depth by ~2 mm on fast motion.
 
 World frame: metres, +Y up, floor at y = 0 (the scene contract). Blender is +Z up, so
 world_from_blender maps (x, y, z) -> (x, z, -y), the same axes glTF uses.
@@ -134,7 +136,8 @@ def smoothstep(u: float) -> float:
 
 class Shake:
     """Handheld motion: sums of sines with fixed random frequencies and phases, plus a
-    walking bob. Positions in metres, angles in radians, in the camera frame."""
+    a 1.8 Hz step surge of 12 mm along the view axis (camera +Z; the blender01 renders were
+    made with it there). Positions in metres, angles in radians, in the camera frame."""
 
     def __init__(self, seed: int):
         rng = np.random.default_rng(seed)
@@ -260,7 +263,7 @@ def _bpy():
     return bpy
 
 
-def setup_render(samples: int, device: str) -> None:
+def setup_render(samples: int, device: str, denoise: bool = True) -> None:
     bpy = _bpy()
     scene = bpy.context.scene
     scene.render.engine = "CYCLES"
@@ -284,7 +287,9 @@ def setup_render(samples: int, device: str) -> None:
     c.samples = samples
     c.use_adaptive_sampling = True
     c.adaptive_threshold = 0.03
-    c.use_denoising = True
+    # OpenImageDenoise is a learned network, but it runs here, offline, to make test data;
+    # no product stage calls it. --samples 128 --no-denoise renders without it.
+    c.use_denoising = denoise
     c.denoiser = "OPENIMAGEDENOISE"
     c.denoising_use_gpu = used != "CPU"
     c.max_bounces, c.diffuse_bounces, c.glossy_bounces = 6, 3, 2
@@ -656,7 +661,8 @@ def render_walk(out: Path, gt: Path, walk: str, frames: range, force: bool) -> f
         "fps": FPS,
         "K": K.tolist(),
         "convention": "cam_to_world, OpenCV camera (+X right, +Y down, +Z forward), "
-        "world +Y up with floor at y = 0, metres; K has pixel centres at integers",
+        "world +Y up with floor at y = 0, metres; K has pixel centres at integers "
+        "(add 0.5 to cx, cy for COLMAP)",
         "world_from_blender": WORLD_FROM_BLENDER.tolist(),
         "frames": [
             {
@@ -729,6 +735,7 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--frames", default=None, help="frame range a:b[:step] (default: whole walk)")
     ap.add_argument("--samples", type=int, default=32)
     ap.add_argument("--device", default="AUTO", choices=["AUTO", "OPTIX", "CUDA", "CPU"])
+    ap.add_argument("--no-denoise", action="store_true", help="skip OpenImageDenoise")
     ap.add_argument("--keep-exr", action="store_true")
     ap.add_argument("--force", action="store_true", help="re-render frames that exist")
     args = ap.parse_args(argv)
@@ -741,7 +748,7 @@ def main(argv: list[str]) -> int:
 
     if stages & {"build", "render"}:
         build_scene(args.assets.resolve(), gt)
-        setup_render(args.samples, args.device)
+        setup_render(args.samples, args.device, not args.no_denoise)
         _bpy().ops.wm.save_as_mainfile(filepath=str(out / f"{SCENE_ID}.blend"))
     for walk in walks:
         if "render" in stages:

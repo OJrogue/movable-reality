@@ -49,7 +49,7 @@ def poses_on_path(rng, n=40):
     for i in range(n):
         m = np.eye(4)
         m[:3, :3] = random_rotation(rng)
-        m[:3, 3] = [np.cos(i / 6), 1.5, np.sin(i / 5) * 2]
+        m[:3, 3] = [np.cos(i / 6), 1.5 + 0.4 * np.sin(i / 3), np.sin(i / 5) * 2]
         out.append(m)
     return out
 
@@ -68,6 +68,28 @@ def test_pose_errors_zero_after_similarity_and_scale_reported():
     assert r["ate_rmse_m"] < 1e-9
     assert r["rot_err_max_deg"] < 1e-5
     assert r["sim3_scale"] == pytest.approx(s)
+
+
+def test_pose_errors_report_a_rotation_offset():
+    rng = np.random.default_rng(7)
+    gt = poses_on_path(rng)
+    off = ev.qvec_to_rotmat([np.cos(np.radians(1.0)), 0.0, np.sin(np.radians(1.0)), 0.0])  # 2 deg
+    pred = [m.copy() for m in gt]
+    for p in pred:
+        p[:3, :3] = p[:3, :3] @ off  # each camera turned 2 deg about its own Y axis
+    r = ev.pose_errors(pred, gt)
+    assert r["ate_rmse_m"] < 1e-9
+    assert r["rot_err_median_deg"] == pytest.approx(2.0, abs=1e-6)
+
+
+def test_mirrored_reconstruction_is_not_aligned_away():
+    rng = np.random.default_rng(8)
+    gt = poses_on_path(rng)
+    flip = np.diag([-1.0, 1.0, 1.0])
+    pred = [m.copy() for m in gt]
+    for p in pred:
+        p[:3, 3] = flip @ p[:3, 3]  # a reflection is not a similarity
+    assert ev.pose_errors(pred, gt)["ate_rmse_m"] > 0.1
 
 
 def test_pose_errors_measure_noise():

@@ -24,4 +24,6 @@ and the camera paths are built in `scripts/blender_room.py` during the event.
 | [Beige Wall 001](https://polyhaven.com/a/beige_wall_001) | texture (2k) | Dimitrios Savva, Rico Cilliers | CC0 | walls |
 
 Tool: Blender 4.5 LTS (GPL-3.0) renders the room. It is a tool only; nothing from Blender
-ships with the project.
+ships with the project. Cycles' denoiser, Intel OpenImageDenoise (Apache-2.0), is a
+learned network. It cleans the offline renders that make the test video; no product
+stage calls it. `--samples 128 --no-denoise` renders without it if that is preferred.
