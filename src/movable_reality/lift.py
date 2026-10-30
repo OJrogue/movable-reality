@@ -178,6 +178,7 @@ def dominant_yaw(xz: np.ndarray, bins: int = 90) -> float:
     pts = xz - xz.mean(axis=0)
     if len(pts) > 20000:
         pts = pts[np.random.default_rng(0).choice(len(pts), 20000, replace=False)]
+
     def area(a: float) -> float:
         c, s = np.cos(a), np.sin(a)
         r = pts @ np.array([[c, -s], [s, c]])
