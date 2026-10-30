@@ -12,8 +12,14 @@ scenes from `/scenes` and applies edits locally (they are lost on reload).
 | `GET /api/health` | none | `{"ok": true, "models": {...}}` |
 | `GET /api/scenes/{id}` | none | the manifest (`scene.json`) |
 | `POST /api/scenes/{id}/edit` | `{"op", "object_id", "args", "instruction"?}` | `{"ok": true, "scene": manifest}` or HTTP 400 `{"detail"}` |
-| `POST /api/scenes/{id}/command` | `{"text"}` | `{"reply", "steps": [...], "verified", "scene"}` |
-| `POST /api/scenes/{id}/voice` | multipart `audio` = WAV, mono, 16-bit, 16 kHz | `{"transcript", "reply", "steps", "verified", "scene"}` |
+| `POST /api/scenes/{id}/command` | `{"text", "camera"?, "verify"?}` | `{"reply", "steps": [...], "verified", "verdicts", "scene"}` |
+| `POST /api/scenes/{id}/voice` | multipart `audio` = WAV, mono, 16-bit, 16 kHz, optional query `?camera=<json>` | `{"transcript", "reply", "steps", "verified", "scene"}` |
+| `GET /scenes/{id}/scene.json` | none | the manifest (the visitor's copy in hosted mode) |
+
+`camera` in a command is the viewer's pose, `{"eye": [x, y, z], "forward": [x, y, z]}` in world
+coordinates, so "left" and "towards me" mean the user's left and the user's position. `verify`
+(default true) turns the screenshot check off. `verified` is true, false, or null when no
+viewer was connected or the verifier gave no usable answer.
 
 Edit ops (same as `Scene.apply_edit` in `scene.py`):
 
@@ -38,3 +44,12 @@ Server to viewer:
 
 Viewer to server:
 - `{"type": "capture", "id": n, "jpeg": "data:image/jpeg;base64,..."}` answers a capture request.
+
+## Hosted mode (U3)
+
+`MR_SESSIONS=1` gives each visitor a cookie (`mr_session`) and a private copy of `scene.json`
+under `data/sessions/<session>/<scene>/`, so edits stay local to that visitor. Paid calls are
+capped with `MR_MAX_COMMANDS` per visitor (default 20) and `MR_DAILY_COMMANDS` for all
+visitors per UTC day (default 300); past a cap the server answers HTTP 429. Voice is limited to
+`MR_MAX_VOICE_S` seconds (default 15). `MR_CACHE_ONLY=1` answers commands only from cached
+replies and turns voice off, for a deployment without keys.

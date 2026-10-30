@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import os
 import wave
 
 import httpx
@@ -41,6 +42,8 @@ async def transcribe(data: bytes) -> str:
     path = VOICE_CACHE / f"{key}.json"
     if path.exists():
         return json.loads(path.read_text())["transcript"]
+    if os.environ.get("MR_CACHE_ONLY", "") == "1":
+        raise ValueError("voice is off in this demo (no API key); type the command instead")
     request = {"model": Models.TRANSCRIBE, "audioEncoding": "WAV", "mode": "PUSH_TO_TALK"}
     async with httpx.AsyncClient(timeout=60) as http:
         r = await http.post(

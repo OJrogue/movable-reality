@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 from movable_reality.coverage.cameras import Camera, look_at
 from movable_reality.lift import (
@@ -108,3 +109,22 @@ def test_full_res_camera_inverts_mapanything_crop():
     small = Camera(name="a", width=518, height=294, K=K, R=full.R, t=full.t)
     back = full_res_camera(small, 1920, 1080)
     assert np.allclose(back.K, full.K, atol=1e-6)
+
+
+@pytest.mark.parametrize("yaw_deg", [10, 25, 40])
+@pytest.mark.parametrize("opencv", [False, True])
+def test_floor_alignment_squares_rotated_room(yaw_deg, opencv):
+    rng = np.random.default_rng(5)
+    floor = np.c_[rng.uniform(-2, 2, 6000), np.zeros(6000), rng.uniform(-1, 1, 6000)]
+    a = np.radians(yaw_deg)
+    R = np.array([[np.cos(a), 0, np.sin(a)], [0, 1, 0], [-np.sin(a), 0, np.cos(a)]])
+    if opencv:  # +Y down, as MapAnything's frame: flip about x
+        R = np.diag([1.0, -1.0, -1.0]) @ R
+    pts = floor @ R.T
+    cams = np.array([[0.0, 1.5, 0.0]]) @ R.T
+    M = floor_alignment(pts, cams)
+    world = pts @ M[:3, :3].T + M[:3, 3]
+    assert np.abs(world[:, 1]).max() < 0.01
+    lo, hi = world.min(axis=0), world.max(axis=0)
+    area = (hi[0] - lo[0]) * (hi[2] - lo[2])
+    assert area < 8.0 * 1.03  # axis-aligned 4 x 2 m, not a rotated box

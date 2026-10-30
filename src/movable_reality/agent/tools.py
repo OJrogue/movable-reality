@@ -1,7 +1,7 @@
 """Agent tools: pure functions on a Scene (ARCHITECTURE stage 7).
 
 Each tool takes the scene plus JSON arguments and returns a JSON-able result. Edits go through
-Scene.apply_edit, the same path the viewer UI and scripts/edit_scene.py use. Tools never touch
+Scene.apply_edit, the same path the server's edit endpoint (viewer UI) uses. Tools never touch
 PLY files. Sizes and positions are world metres, +Y up, floor at y = 0.
 """
 
