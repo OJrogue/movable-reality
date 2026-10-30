@@ -316,7 +316,7 @@ def prepare_request(
             {
                 "gap_id": gap.id,
                 "camera": {"eye": cam.center.tolist(), "forward": cam.forward.tolist()},
-                "references": [str(p.relative_to(folder)) for p in refs],
+                "references": [p.relative_to(folder).as_posix() for p in refs],
                 "mask_pixels": int(mask.sum()),
             },
             indent=2,

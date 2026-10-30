@@ -266,3 +266,55 @@ This log is the record of what was built during the hackathon (26 Oct to 4 Nov 2
   with no Meta equivalent (LPIPS) are allowed; the build order follows the headset days
   (`docs/PLAN.md`, "Build order"); C2 builds a full reconstruction rerun first and the
   fast fine-tune path second. The Muse Code notes in README and AGENTS.md are shorter.
+
+## 2026-10-30 (Fri, Windows PC setup, all lanes)
+
+- Set up the Windows PC (RTX 3060 Laptop 6 GB, 16 GB RAM): `uv sync`, `npm ci`, ffmpeg via
+  winget, `build_lod.py --setup` (Spark v2.4.0 `build-lod.exe`). The keys file had been saved
+  as `env`, which `.gitignore` does not cover; renamed to `.env`.
+- Windows fixes (7 tests failed before, all real or test-only Windows issues):
+  - `plyfile` memory-maps binary PLYs by default; on Windows a mapped file cannot be
+    replaced, so `write_generated` and the bench writer failed. All reads use `mmap=False`.
+  - Manifest paths were built with `str(Path)`, giving `objects\background_baked.ply` in
+    `scene.json` on Windows; now `as_posix()` (bake, coverage repair references).
+  - `build-lod` lookup adds `.exe` on Windows. The four lod tests whose fake `build-lod` is a
+    `/bin/sh` script skip on Windows; the test with the real binary runs and passes.
+  - Now: pytest 117 passed, 5 skipped; ruff clean; vitest 82 passed; `npm run build` OK.
+- Live key checks (about $0.03 in total):
+  - Meta Model API: 9 models listed, including every ID in `config.py`; Muse Wonder replies.
+  - Muse Image `images.generate` made a living-room photo; SAM 3.1 found and masked the
+    chair in it (`data/smoke/sam_chair.png`).
+  - Muse Voice Transcribe: 404 on the OpenAI audio path; works on `POST /v1/asr/transcribe`
+    (multipart, 16 kHz mono WAV). Transcript of a test sentence came back right. Details
+    in HANDOFF section 7.
+  - Baseten Muse Spark Open replies. Fireworks key valid. HF token valid; the gated
+    `facebook/sam-3d-objects` checkpoints download with it (401 without).
+  - Modal: no token on this PC yet.
+- Steam Frame over `ssh frame`: SteamOS aarch64, SteamVR running, Chrome XR installed. A
+  reverse SSH tunnel serves the PC's dev server at the Frame's `http://localhost:5173`
+  (checked with curl on the Frame). `?scene=demo` with LOD trees renders in the PC browser.
+  Not yet opened in the headset itself.
+- Scope change (D18): the viewer becomes a full desktop-browser product too (mouse and
+  keyboard editing, command bar, hold-to-talk). New lane `ui`, tasks U1-U4 in HANDOFF.
+- Analysed a Blender ground-truth room as a second demo scene (recommendation in the
+  session; waiting for OJ's decision, listed as open in HANDOFF).
+- Next: Modal token and the first M1 run; filming; R0 on the Frame through the tunnel; U1.
+
+## 2026-10-30 (Fri, afternoon, core: first Modal run of reconstruct.py)
+
+- Test video (private, never published) at `data/raw/`, scene `testroom`: 89 s, 1080p30;
+  `extract_frames.py` picked 200 frames (the cap). Frames show strong motion blur: the real
+  capture must be slower, ideally 60 fps with locked exposure.
+- Modal image for `modal_jobs/reconstruct.py` now builds (41 min once, then cached):
+  - The first build compiled gsplat for four GPU architectures and showed no progress for
+    2 h; stopped. Modal's image builder has **1 CPU**, so `MAX_JOBS` does not help.
+    `CUDA_ARCHS` is now `8.9` (L40S only), and pip runs with `-v` so nvcc progress shows.
+  - The link failed with `clang++: No such file or directory`: `add_python`'s interpreter
+    was built with clang, so setuptools defaults to clang++. The step now sets
+    `CC`/`CXX`/`LDSHARED`/`LDCXXSHARED` to gcc/g++, and an import check of
+    `gsplat.cuda._backend._C` runs right after the build.
+  - The job then stopped before running: Modal needs a payment method on the account for
+    L40S functions (OJ to add). `coverage.py` and `bake.py` build gsplat the same way and
+    need the same two fixes before their first run.
+- Next: rerun `modal run modal_jobs/reconstruct.py --scene testroom --max-steps 7000`
+  once billing is set; the image is cached, so it starts on the GPU directly.
