@@ -12,10 +12,18 @@ export interface LodChoice {
   options: Partial<SplatMeshOptions>;
 }
 
-/** Path of the .RAD tree for an object (null = background), if the manifest has one. */
-export function radPath(m: SceneManifest, objectId: string | null): string | null {
+/**
+ * Path of the .RAD tree for an object (null = background), if the manifest has one. `ply`
+ * is the PLY the mesh shows: the object's completed_ply selects completed_lod (the viewer
+ * swaps to the completed object once it has been edited, see SceneView), anything else
+ * selects lod.
+ */
+export function radPath(m: SceneManifest, objectId: string | null, ply?: string): string | null {
   if (objectId === null) return m.background_lod ?? null;
-  return m.objects.find((o) => o.id === objectId)?.lod ?? null;
+  const o = m.objects.find((x) => x.id === objectId);
+  if (!o) return null;
+  if (o.completed_ply && ply === o.completed_ply) return o.completed_lod ?? null;
+  return o.lod ?? null;
 }
 
 /**
@@ -32,7 +40,7 @@ export function lodChoice(
   lodScale: number,
   paged = false,
 ): LodChoice {
-  const rad = radPath(m, objectId);
+  const rad = radPath(m, objectId, ply);
   if (rad) {
     const options: Partial<SplatMeshOptions> = { url: `${sceneBase}/${rad}`, lodScale };
     // Paged: chunks stream into Spark's shared page pool (needs HTTP Range or chunked .RAD).

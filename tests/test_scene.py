@@ -81,6 +81,8 @@ def test_lane_sections_roundtrip(tmp_path):
     s = make_scene()
     s.background_lod = "lod/background.rad"
     s.get("chair#1").lod = "lod/obj_chair_1.rad"
+    s.get("chair#1").completed_ply = "objects/obj_chair_1_completed.ply"
+    s.get("chair#1").completed_lod = "lod/obj_chair_1_completed.rad"
     s.planes.append(BakedPlane(id="floor", label="floor", mesh="planes/floor.glb"))
     s.coverage = Coverage(
         gaps=[Gap(id="g1", near_object="table#1", center=(2.5, 0.2, 1.0), radius=0.4, score=0.9)]
@@ -132,7 +134,9 @@ def test_manifest_without_lane_sections_still_loads(tmp_path):
         data.pop(key)
     for obj in data["objects"]:
         obj.pop("lod")
+        obj.pop("completed_lod")
     path.write_text(json.dumps(data), encoding="utf-8")
     loaded = Scene.load(path)
     assert loaded.planes == [] and loaded.coverage is None and loaded.background_lod is None
     assert loaded.plane_bake is None
+    assert all(o.completed_lod is None for o in loaded.objects)

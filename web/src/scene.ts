@@ -16,6 +16,7 @@ export interface SceneObject {
   ply: string;
   completed_ply: string | null;
   lod?: string | null; // lane lod: Spark .RAD tree for this object
+  completed_lod?: string | null; // lane lod: Spark .RAD tree for completed_ply
   bbox_min: Vec3;
   bbox_max: Vec3;
   transform: Transform;
@@ -110,9 +111,29 @@ function center(o: SceneObject): Vec3 {
   return [0, 1, 2].map((i) => (o.bbox_min[i] + o.bbox_max[i]) / 2) as Vec3;
 }
 
+/** True when the edit moves, rotates or scales the object (tolerance 1e-6). */
+export function isEdited(t: Transform): boolean {
+  const eps = 1e-6;
+  return (
+    t.translation.some((v) => Math.abs(v) > eps) ||
+    Math.abs(t.yaw_deg % 360) > eps ||
+    Math.abs(t.scale - 1) > eps
+  );
+}
+
+/**
+ * PLY an object shows: its completed version (SAM 3D Objects fills the unseen back) once it
+ * has been edited, since only then can the viewer see the missing side, and the scan
+ * otherwise. An undo back to the identity transform returns to the scan.
+ */
+export function shownPly(o: SceneObject): string {
+  return o.completed_ply && isEdited(o.transform) ? o.completed_ply : o.ply;
+}
+
 export interface ObjectNode {
   pivot: THREE.Group; // world position of the bbox centre, carries the edit
   mesh: SplatMesh;
+  ply: string; // the PLY `mesh` shows: obj.ply, or obj.completed_ply after an edit
 }
 
 /**
@@ -121,12 +142,19 @@ export interface ObjectNode {
  *      └ pivot(obj) ─ offset(-centre) ─ recon ─ SplatMesh
  * `recon` groups hold world_from_recon; `pivot` holds the object's edit about its centre.
  */
+/** Show or hide a splat mesh through its recon group (Spark skips hidden subtrees). */
+function setShown(mesh: SplatMesh, shown: boolean): void {
+  if (mesh.parent) mesh.parent.visible = shown;
+}
+
 /** Splat meshes whose load failed (404, corrupt file); they never initialise. */
 export const failedMeshes = new WeakSet<SplatMesh>();
 
 export class SceneView {
   readonly root = new THREE.Group();
   private readonly nodes = new Map<string, ObjectNode>();
+  /** Every mesh created per object, keyed by PLY (scan and completed). */
+  private readonly variants = new Map<string, Map<string, SplatMesh>>();
   private background?: SplatMesh;
   private backgroundPly?: string;
 
@@ -173,8 +201,52 @@ export class SceneView {
       node.pivot.rotation.set(0, THREE.MathUtils.degToRad(t.yaw_deg), 0);
       node.pivot.scale.setScalar(t.scale);
       node.pivot.visible = obj.visible;
-      // TODO(M4): swap to obj.completed_ply once the object has been moved or rotated.
+      const ply = shownPly(obj);
+      if (ply !== node.ply) this.swap(node, obj.id, ply, worldFromRecon, m);
     }
+  }
+
+  /**
+   * Show an object's mesh for `ply` instead of the current one (scan to completed, or back
+   * on undo). Each variant is created once and then kept hidden when unused, so swapping
+   * back is instant and Spark keeps at most two LOD trees per object (D7 keeps hidden
+   * trees in memory, so a disposed mesh would leave its tree behind in the worker). A new
+   * variant is shown in place of the old one only once it has loaded, so the object never
+   * blinks out. If it fails to load, the old one stays.
+   */
+  private swap(
+    node: ObjectNode,
+    objectId: string,
+    ply: string,
+    worldFromRecon: THREE.Matrix4,
+    m: SceneManifest,
+  ): void {
+    const old = node.mesh;
+    const variants = this.variants.get(objectId) ?? new Map<string, SplatMesh>();
+    this.variants.set(objectId, variants);
+    node.ply = ply;
+    const cached = variants.get(ply);
+    if (cached) {
+      node.mesh = cached;
+      setShown(cached, true);
+      setShown(old, false);
+      return;
+    }
+    const mesh = this.addRecon(node.pivot.children[0], ply, worldFromRecon, objectId, m);
+    variants.set(ply, mesh);
+    node.mesh = mesh;
+    mesh.initialized.then(
+      () => {
+        // The edit may have been undone while this variant was loading.
+        if (node.mesh !== mesh) return setShown(mesh, false);
+        for (const other of variants.values()) if (other !== mesh) setShown(other, false);
+      },
+      () => {
+        variants.delete(ply);
+        mesh.parent?.removeFromParent();
+        if (node.mesh === mesh) node.mesh = old;
+      },
+    );
   }
 
   private create(obj: SceneObject, worldFromRecon: THREE.Matrix4, m: SceneManifest): ObjectNode {
@@ -184,9 +256,11 @@ export class SceneView {
     const c = center(obj);
     offset.position.set(-c[0], -c[1], -c[2]);
     pivot.add(offset);
-    const mesh = this.addRecon(offset, obj.ply, worldFromRecon, obj.id, m);
+    const ply = shownPly(obj);
+    const mesh = this.addRecon(offset, ply, worldFromRecon, obj.id, m);
     this.root.add(pivot);
-    const node = { pivot, mesh };
+    const node = { pivot, mesh, ply };
+    this.variants.set(obj.id, new Map([[ply, mesh]]));
     this.nodes.set(obj.id, node);
     return node;
   }

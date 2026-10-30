@@ -157,7 +157,8 @@ def build_scene_lod(
     force: bool = False,
     log: Callable[[str], None] = print,
 ) -> list[BuildResult]:
-    """Build one .RAD per object PLY and one for the background; record paths in scene.json.
+    """Build one .RAD per object PLY, per completed PLY (SAM 3D Objects) and one for the
+    background; record the paths in scene.json (`lod`, `completed_lod`, `background_lod`).
 
     Idempotent: an existing .RAD newer than its PLY is reused unless `force`; one older than
     its PLY (object re-split or completed) is rebuilt. The manifest is reloaded right
@@ -165,24 +166,29 @@ def build_scene_lod(
     """
     root = scene_path.parent
     scene = Scene.load(scene_path)
-    jobs: list[tuple[str | None, str]] = [(None, scene.background_ply)]
-    jobs += [(o.id, o.ply) for o in scene.objects]
+    # (object id, completed?, PLY); object id None is the background.
+    jobs: list[tuple[str | None, bool, str]] = [(None, False, scene.background_ply)]
+    for o in scene.objects:
+        jobs.append((o.id, False, o.ply))
+        if o.completed_ply:
+            jobs.append((o.id, True, o.completed_ply))
     results: list[BuildResult] = []
-    paths: dict[str | None, str | None] = {}
-    for object_id, ply_rel in jobs:
+    paths: dict[tuple[str | None, bool], str | None] = {}
+    for object_id, completed, ply_rel in jobs:
         rad_rel = rad_name(ply_rel)
         ply, rad = root / ply_rel, root / rad_rel
-        name = object_id or "background"
+        name = (object_id or "background") + (" (completed)" if completed else "")
+        key = (object_id, completed)
         if not ply.is_file():
             log(f"{name}: {ply_rel} missing, no LOD")
             results.append(BuildResult(ply_rel, rad_rel, "missing"))
-            paths[object_id] = None
+            paths[key] = None
             continue
         n = _ply_vertex_count(ply)
         if n == 0:  # build-lod panics on empty input
             log(f"{name}: {ply_rel} has no splats, no LOD")
             results.append(BuildResult(ply_rel, rad_rel, "empty", 0))
-            paths[object_id] = None
+            paths[key] = None
             continue
         fresh = rad.is_file() and rad.stat().st_mtime >= ply.stat().st_mtime
         if fresh and not force:
@@ -197,12 +203,18 @@ def build_scene_lod(
             raise RuntimeError(f"{rad} has no LOD tree")
         log(f"{name}: {status} {rad_rel} ({n} splats -> {header.count} in tree)")
         results.append(BuildResult(ply_rel, rad_rel, status, n, header.count))
-        paths[object_id] = rad_rel
+        paths[key] = rad_rel
 
     scene = Scene.load(scene_path)
-    scene.background_lod = paths.get(None)
+    scene.background_lod = paths.get((None, False))
     for obj in scene.objects:
-        if obj.id in paths:
-            obj.lod = paths[obj.id]
+        if (obj.id, False) in paths:
+            obj.lod = paths[(obj.id, False)]
+        # Only touch completed_lod when this run saw the same completed PLY; a completion
+        # written while the trees were building gets its tree on the next run.
+        if (obj.id, True) in paths and obj.completed_ply:
+            obj.completed_lod = paths[(obj.id, True)]
+        elif not obj.completed_ply:
+            obj.completed_lod = None
     scene.save(scene_path)
     return results
