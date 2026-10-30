@@ -73,6 +73,9 @@ image = (
         gpu=GPU,
     )
     .env({"PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:True", "HF_HOME": "/cache/hf"})
+    # MapAnything's COLMAP export voxel-downsamples with open3d (missing on the first run,
+    # 30 Oct). Its own layer, so the gsplat layer above stays cached.
+    .pip_install("open3d==0.19.0")
     # Our camera helpers (numpy only), for the full-resolution COLMAP model. Added last so
     # code changes never rebuild the gsplat layer.
     .add_local_python_source("movable_reality", copy=False)
@@ -214,7 +217,7 @@ def main(scene: str, max_steps: int = 15_000, force: bool = False, skip_upload: 
     # Cameras: MapAnything's model (recon/) and the full-res copy, for lift_ids and coverage.
     for model in ("recon", "recon_full"):
         for entry in scenes_vol.listdir(f"/scenes/{scene}/{model}", recursive=True):
-            rel = entry.path.split(f"/scenes/{scene}/", 1)[-1]
+            rel = entry.path.lstrip("/").removeprefix(f"scenes/{scene}/")
             if not rel.endswith((".bin", ".txt", ".ply")) or "/images/" in rel:
                 continue
             dest = local / rel
