@@ -8,7 +8,7 @@ CPU side of `modal run modal_jobs/coverage.py --scene <id> --job distil`:
    resized to the camera.
 2. `seed_points`: candidate positions for the new Gaussians, jittered inside the gap's
    voxels (coverage/gaps.npz) where at least one repaired view of that gap shows them
-   inside its mask; colour from that view.
+   inside its mask, coloured from that view.
 3. `pack_inputs`: cameras and seeds moved to the reconstruction frame (the frame of
    splat/scene.ply and of gsplat's training), as one .npz for the GPU job.
 
@@ -134,7 +134,7 @@ def pack_inputs(
     world_from_recon: np.ndarray,
 ) -> bytes:
     """One .npz for the GPU job, everything in the reconstruction frame: per view K (3, 3),
-    viewmat (4, 4) cam_from_recon, image, mask; seeds, their colours and a start scale."""
+    viewmat (4, 4) cam_from_recon, image, mask, plus seeds, their colours, a start scale."""
     W = np.asarray(world_from_recon, np.float64)
     recon_from_world = np.linalg.inv(W)
     scale, _ = similarity_parts(W)
@@ -164,7 +164,7 @@ def finish(folder: Path, gap_ids: list[str]) -> Scene:
     path = folder / "scene.json"
     scene = Scene.load(path)
     if scene.coverage is None:
-        raise ValueError("scene.json has no coverage section; score the scene first")
+        raise ValueError("scene.json has no coverage section: score the scene first")
     ply = folder / GENERATED_PLY
     scene.coverage.generated_ply = GENERATED_PLY
     scene.coverage.generated_splats = int(read_generated(ply).sum())

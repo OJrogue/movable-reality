@@ -110,12 +110,12 @@ def seen_uncertainty(
     coeffs: np.ndarray, means: np.ndarray, cameras: list, b: float = 1.0, chunk: int = 200_000
 ) -> np.ndarray:
     """Mean of u_k(d) over the training cameras whose frustum holds Gaussian k, d = mean -
-    camera centre (the direction the fit used), normalised by b and clipped to [0, 1]; b
+    camera centre (the direction the fit used), normalised by b and clipped to [0, 1], b
     (the prior) where no camera sees it. Means and cameras in the frame of the fit (recon).
 
     The spherical mean stays near the prior for any capture that covers a narrow arc,
     because the fit only lowers u in observed directions. Directions the capture missed are
-    the geometric score's job (view count, angle spread); this term adds how badly the
+    the geometric score's job (view count, angle spread). This term adds how badly the
     Gaussian renders where it was observed."""
     coeffs = np.asarray(coeffs, np.float32)
     means = np.asarray(means, np.float32)

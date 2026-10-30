@@ -600,7 +600,7 @@ def _run_distil(scene: str, local: Path, steps: int) -> None:
 
     views = distil.load_views(local)
     if not views:
-        raise SystemExit("no repaired views; run scripts/coverage_repair.py --call first")
+        raise SystemExit("no repaired views: run scripts/coverage_repair.py --call first")
     grid, labels = distil.load_gap_grid(local)
     seeds, rgb, _ = distil.seed_points(grid, labels, views)
     print(f"{len(views)} repaired views, {len(seeds)} seed points")

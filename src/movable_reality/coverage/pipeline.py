@@ -215,7 +215,7 @@ def score_scene(folder: Path, params: ScoreParams | None = None) -> ScoreResult:
     exposed_solid = exposed & (state != FREE)
     gap_share = float((labels[exposed_solid] >= 0).mean()) if exposed_solid.any() else 0.0
     old = scene.coverage.gaps if scene.coverage else []
-    # Splats distilled from repairs (C3) are not scored (no camera saw them); the gaps they
+    # Splats distilled from repairs (C3) are not scored (no camera saw them). The gaps they
     # filled keep status "generated" through carry_over.
     gen = scene.coverage.generated_ply if scene.coverage else None
     gen = gen if gen and (folder / gen).exists() else None

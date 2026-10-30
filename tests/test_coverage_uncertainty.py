@@ -133,7 +133,7 @@ def test_normalised_summaries():
 def test_seen_uncertainty_averages_observed_directions_only():
     from movable_reality.coverage.cameras import look_at
 
-    # Gaussian 0 at the origin, seen by one camera on +Z; Gaussian 1 behind that camera.
+    # Gaussian 0 at the origin, seen by one camera on +Z, Gaussian 1 behind that camera.
     cam = look_at(np.array([0.0, 0.0, 2.0]), np.zeros(3), 64, 48)
     means = np.array([[0.0, 0.0, 0.0], [0.0, 0.0, 5.0]])
     coeffs = np.zeros((2, 16))

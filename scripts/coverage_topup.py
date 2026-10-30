@@ -4,7 +4,7 @@
     uv run python scripts/coverage_topup.py --scene room01 --video t.mp4 --no-recon   # frames only
 
 1. Selects sharp frames from the top-up video (same rule as extract_frames.py) and appends
-   them to data/scenes/<scene>/frames with the next free indices; frames.json records
+   them to data/scenes/<scene>/frames with the next free indices. frames.json records
    their source. Rerunning with the same video adds nothing.
 2. Rebuilds sam_input.mp4 from all frames, so SAM frame i is still frames/{i:06d}.jpg.
 3. Keeps the previous cameras (coverage/topup/prev_sparse) and reruns
@@ -110,7 +110,7 @@ def main() -> int:
         json.dumps({"source": source, "new_frames": len(new), **fit}, indent=2)
     )
 
-    # The residual uncertainty belongs to the old splats; refit it with modal_jobs/coverage.py.
+    # The residual uncertainty belongs to the old splats. Refit with modal_jobs/coverage.py.
     for name in ("uncertainty.npz", "uncertainty.json"):
         (folder / "coverage" / name).unlink(missing_ok=True)
     res = score_scene(folder)

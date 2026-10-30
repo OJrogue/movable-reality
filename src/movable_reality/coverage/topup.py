@@ -58,7 +58,7 @@ def video_source(video: Path) -> str:
 
 
 def frame_indices(frames: Path) -> list[int]:
-    """Indices of frames/{i:06d}.jpg; raises unless they are exactly 0..N-1."""
+    """Indices of frames/{i:06d}.jpg. Raises unless they are exactly 0..N-1."""
     idx = sorted(int(p.stem) for p in Path(frames).glob("*.jpg") if p.stem.isdigit())
     if idx != list(range(len(idx))):
         raise ValueError(f"{frames}: frame indices are not contiguous from 0")

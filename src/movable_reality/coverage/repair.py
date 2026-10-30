@@ -255,7 +255,7 @@ def alignment_error(view: Path, repaired: Path, mask: Path) -> float:
     """Mean absolute difference (0..1) between the rendered view and its repair over the
     pixels Muse Image was asked to keep (outside the gap mask, not empty black). With several
     reference photos Muse Image tends to redraw the room from a reference's viewpoint
-    (covtest, 30 Oct: 3 references moved the camera, 1 kept it); such a repair is not
+    (covtest, 30 Oct: 3 references moved the camera, 1 kept it). Such a repair is not
     aligned with the camera and must not be distilled."""
     a = np.asarray(Image.open(view).convert("RGB"), np.float32) / 255.0
     b = Image.open(repaired).convert("RGB")
@@ -410,7 +410,7 @@ def prepare_request(
     render: tuple[np.ndarray, np.ndarray, np.ndarray] | None = None,
 ) -> RepairRequest:
     """Render one gap view and pick reference frames; files go under view_dir(). `render`
-    is a gsplat render (rgb, depth, alpha) of `cam`; without it the CPU preview is used."""
+    is a gsplat render (rgb, depth, alpha) of `cam`. Without it the CPU preview is used."""
     folder = Path(folder)
     means, rgb, scales, opacity, generated = splats_world
     if cam is None:

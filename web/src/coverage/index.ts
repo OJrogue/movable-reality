@@ -38,7 +38,7 @@ export interface CoverageHandle {
   setVisible(on: boolean): void;
   toggle(): void;
   model(): OverlayModel;
-  /** Generated splats (C3): shown by default; the "show generated" toggle. */
+  /** Generated splats (C3), shown by default: the "show generated" toggle. */
   generatedVisible(): boolean;
   setGeneratedVisible(on: boolean): void;
   toggleGenerated(): void;

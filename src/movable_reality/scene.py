@@ -149,7 +149,7 @@ class Coverage(BaseModel):
     gaps: list[Gap] = Field(default_factory=list)
     generated_splats: int = 0  # splats with PLY property generated = 1, whole scene
     # Splats distilled from Muse Image repairs (C3), all flagged generated = 1, recon frame
-    # like the other PLYs; the viewer loads it as its own mesh so it can hide it.
+    # like the other PLYs. The viewer loads it as its own mesh so it can hide it.
     generated_ply: str | None = None
     # Share of the VR-visible non-empty voxels (surfaces and unobserved space) inside gaps.
     gap_share: float | None = None

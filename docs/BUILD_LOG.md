@@ -349,3 +349,43 @@ This log is the record of what was built during the hackathon (26 Oct to 4 Nov 2
   existing renders stay; `--no-denoise` remains as an option.
 - Next: run M1 on `blender01`, download `recon/sparse` from the Modal volume, then run
   `blender_gt_eval.py`; masks once the object stage writes label PNGs.
+
+## 2026-10-30 (lane: coverage)
+
+All runs on `covtest`, a copy of `smoke01` (32 frames, first 8 s of the Blender walk,
+gsplat 500 steps, 60k Gaussians). Spend: Modal about $0.09 (uncertainty $0.014, two
+render runs $0.011, top-up rerun $0.055, distil about $0.01), Muse Image 11 calls, $0.11.
+
+- C1 on real cameras. The first run found 0 gaps: the median phone height is 0.98 m in
+  the metric frame and the room box tops out at 1.43 m, so the fixed 1.6 m eye height left
+  no walkable position. The eye height now follows the median camera height, and scoring
+  reads `recon_full/` cameras. Result: 25 gaps, 95% of VR-visible non-empty voxels in gaps,
+  77% of voxels never observed. That fits an 8 s capture that looks one way.
+- C0. `modal_jobs/coverage.py` copies the reconstruct.py image chain byte for byte
+  (`tests/test_coverage_modal.py`), so the cached gsplat layer is reused: image built in
+  5.7 s. First uncertainty run: fit 6.5 s for 3000 iterations. The spherical mean `u_mean`
+  stayed at 0.88 to 1.0 (unseen directions keep the prior), which zeroed every coverage
+  score. Scoring now averages u over the observed directions (median 0.23).
+- C2 full rerun. `scripts/coverage_topup.py` appends top-up frames with the next indices,
+  rebuilds `sam_input.mp4`, reruns reconstruct.py, fits the new frame to the old one on
+  the shared cameras (Umeyama) and rescores. Live on `covtopup` (frames 0 to 19 as the
+  scene, frames 20 to 31 as a 3 s top-up video): MapAnything 38 s, gsplat 2000 steps 34 s,
+  alignment scale 1.0006, RMS 2.5 mm, 127 s wall in total. The top-up re-adds frames from
+  the same walk, so it checks the plumbing, not a quality gain.
+- Viewer: the view to film first is a yellow phone frustum with a floor ring
+  (`?gapViews=0` shows only it). Screenshot of `?scene=covtest&gaps=1` checked.
+- C3. Gap views now come from gsplat on Modal (`coverage_repair.py --gpu`). Two findings
+  on Muse Image edit: the Meta API rejects the SDK's `image[]` keys (400), so the request
+  sends `image[0]`, `image[1]`, ... itself, and with three reference frames Muse Image
+  redrew the room from a reference's viewpoint. With one reference it kept the camera.
+  Every repair gets an alignment check (L1 outside the gap mask, at most 0.08): 0.007
+  accepted, 0.150 and 0.213 rejected. `modal_jobs/coverage.py --job distil` fits new
+  Gaussians only, scanned ones frozen, against the accepted repairs and all 32 training
+  frames: 246 seeds, 138 kept, masked repair L1 0.049 to 0.011, training L1 0.0254 to
+  0.0256, 15 s. Output `coverage/generated.ply` (every splat `generated = 1`), recorded as
+  `coverage.generated_ply` in scene.json and the viewer. Key T, `?generated=0` and
+  `window.mrCoverage.toggleGenerated()` hide it.
+- Not verified: repair quality on a full capture (one accepted view on covtest), the top-up
+  loop with a real second video, the generated mesh with the lod lane's per-object trees.
+- Next: run C1 to C3 on `blender01` once M1 has produced it, with
+  `modal_jobs/coverage.py` first so the uncertainty term is in.

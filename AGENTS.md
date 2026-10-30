@@ -173,9 +173,13 @@ ssh -N -R 5173:localhost:5173 frame            # Steam Frame: its localhost:5173
 uv run python scripts/bench_report.py          # renderer: benchmarks/raw/*.json -> benchmarks/RESULTS.md (see docs/DEVICES.md)
 uv run python scripts/coverage_synthetic.py   # coverage: synthetic capture with ground truth -> data/scenes/cov_synth
 uv run python scripts/score_coverage.py --scene cov_synth   # coverage: gap map, next-best views -> scene.json coverage (--force, --voxel)
-uv run modal run modal_jobs/coverage.py --scene room01      # coverage: per-Gaussian uncertainty on Modal (not yet run)
+uv run modal run modal_jobs/coverage.py --scene room01      # coverage: per-Gaussian uncertainty on Modal (L40S, ~1 min), then score_coverage.py --force
 uv run python scripts/coverage_repair.py --scene cov_synth  # coverage: gap views + references, dry run; --call = Muse Image ($0.01/image, cached)
-# coverage viewer: ?gaps=1 shows the gap overlay, key G or XR squeeze toggles it, ?gapViews=<n>
+uv run python scripts/coverage_repair.py --scene room01 --gpu --call   # coverage: gsplat gap views (Modal --job render), repair, alignment check
+uv run modal run modal_jobs/coverage.py --scene room01 --job distil    # coverage: accepted repairs -> coverage/generated.ply (generated = 1)
+uv run python scripts/coverage_topup.py --scene room01 --video topup.mp4   # coverage: C2 top-up frames, full reconstruct rerun, re-align, rescore (--no-recon)
+# coverage viewer: ?gaps=1 shows the gap overlay, key G or XR squeeze toggles it, ?gapViews=<n> (0 = best view only)
+# coverage viewer: generated splats key T, ?generated=0, window.mrCoverage.toggleGenerated()
 uv run python scripts/blender_assets.py        # blender: CC0 Poly Haven assets -> data/assets/ (docs/ASSETS.md)
 blender -b -P scripts/blender_room.py -- --out data/raw/blender01 --samples 16   # blender: synthetic room, both walks, GT, mp4 (~70 min on the RTX 3060)
 # blender: quick look with --walk test --frames 0:600:100 --stage build,render; Blender 4.5 LTS (winget BlenderFoundation.Blender.LTS.4.5)
