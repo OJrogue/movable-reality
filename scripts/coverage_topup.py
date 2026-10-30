@@ -11,10 +11,11 @@
    `modal run modal_jobs/reconstruct.py --force` on all frames (MapAnything + gsplat, GPU).
 4. Fits the new reconstruction frame to the old one on the shared cameras (Umeyama) and
    updates world_from_recon, so floor, object boxes and old gaps keep their place.
-5. Rescores coverage (as score_coverage.py --force).
-
-Objects are not recomputed: the per-object PLYs still come from the old splats until
-`scripts/lift_ids.py --scene <scene> --force` runs (paid SAM calls for the new frames).
+5. Drops what belongs to the old splats (residual uncertainty, repairs, generated splats),
+   reruns `scripts/lift_ids.py --force` (per-object PLYs and floor alignment, SAM calls
+   for the new frames are paid, the rest is cached; --no-lift skips it and warns) and
+   rescores coverage (as score_coverage.py --force). LOD trees and baked planes need their
+   own rerun afterwards.
 """
 
 from __future__ import annotations
@@ -72,6 +73,7 @@ def main() -> int:
     ap.add_argument("--long-side", type=int, default=1920)
     ap.add_argument("--max-steps", type=int, default=15_000, help="gsplat steps of the rerun")
     ap.add_argument("--no-recon", action="store_true", help="merge frames only, no GPU run")
+    ap.add_argument("--no-lift", action="store_true", help="do not rerun lift_ids.py (SAM)")
     args = ap.parse_args()
 
     folder = scene_dir(args.scene)
@@ -110,13 +112,32 @@ def main() -> int:
         json.dumps({"source": source, "new_frames": len(new), **fit}, indent=2)
     )
 
-    # The residual uncertainty belongs to the old splats. Refit with modal_jobs/coverage.py.
-    for name in ("uncertainty.npz", "uncertainty.json"):
+    # Everything derived from the old splats is in the old frame or describes old Gaussians:
+    # the residual uncertainty, repairs and generated splats go (refit, repair again).
+    for name in ("uncertainty.npz", "uncertainty.json", "generated.ply", "distil.json"):
         (folder / "coverage" / name).unlink(missing_ok=True)
+    shutil.rmtree(folder / "coverage" / "repair", ignore_errors=True)
+    scene = Scene.load(folder / "scene.json")
+    if scene.coverage is not None:
+        scene.coverage.generated_ply = None
+        scene.save(folder / "scene.json")
+
+    # Per-object PLYs are cut from the old splats in the old frame: recut them (SAM calls are
+    # cached, the new frames are paid), which also refits the floor alignment.
+    stale = True
+    if not args.no_lift:
+        lift = [sys.executable, "scripts/lift_ids.py", "--scene", args.scene, "--force"]
+        print("$", " ".join(lift), flush=True)
+        stale = subprocess.run(lift, cwd=REPO_ROOT).returncode != 0
+    if stale:
+        print(
+            "WARNING: objects/*.ply still come from the old splats and sit off by the frame "
+            f"change. Run: uv run python scripts/lift_ids.py --scene {args.scene} --force"
+        )
     res = score_scene(folder)
     write_outputs(folder, res)
     print(json.dumps({k: res.report[k] for k in ("views", "gaps", "gap_share")}, indent=2))
-    print(f"next: uv run python scripts/lift_ids.py --scene {args.scene} --force")
+    print("then rebuild per-object LOD trees and baked planes (build_lod.py, bake_planes.py)")
     return 0
 
 

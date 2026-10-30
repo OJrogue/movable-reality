@@ -30,6 +30,7 @@ from movable_reality.coverage.cameras import similarity_parts, transform_points
 from movable_reality.coverage.colmap import read_model
 from movable_reality.coverage.pipeline import load_splats, recon_dir
 from movable_reality.coverage.repair import (
+    load_render,
     plan_camera,
     prepare_request,
     repair_view,
@@ -109,8 +110,7 @@ def main() -> int:
     for g, k, _ in jobs:
         npz = view_dir(folder, g.id, k) / "render.npz"
         if npz.parent.name in have and npz.exists():
-            z = np.load(npz)
-            renders[f"{g.id}/{k}"] = (z["rgb"], z["depth"], z["alpha"].astype(np.float32))
+            renders[f"{g.id}/{k}"] = load_render(npz, scale)
 
     for g, k, cam in jobs:
         req = prepare_request(

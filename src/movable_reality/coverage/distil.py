@@ -33,7 +33,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
-from ..scene import Scene
+from ..scene import Gap, Scene
 from .cameras import Camera, similarity_parts, transform_points
 from .ply import read_generated
 from .repair import camera_from_dict
@@ -51,7 +51,21 @@ class RepairView:
     mask: np.ndarray  # (H, W) bool, pixels Muse Image was asked to fill
 
 
+def same_gap(req: dict, gap: Gap | None) -> bool:
+    """A repair belongs to `gap` (the current gap with the request's id) when the gap's
+    centre moved by at most a quarter of its radius and its radius by at most a quarter.
+    build_gaps renumbers gaps on every rescore, so an old folder may name another gap."""
+    if gap is None or "gap_center" not in req:
+        return False
+    moved = float(np.linalg.norm(np.subtract(gap.center, req["gap_center"])))
+    r = float(req["gap_radius"])
+    return moved <= 0.25 * r and abs(gap.radius - r) <= 0.25 * r
+
+
 def load_views(folder: Path) -> list[RepairView]:
+    """Accepted repairs whose gap still exists in scene.json with the same centre."""
+    scene = Scene.load(Path(folder) / "scene.json")
+    gaps = {g.id: g for g in (scene.coverage.gaps if scene.coverage else [])}
     out = []
     for req_path in sorted((Path(folder) / "coverage" / "repair").glob("*/request.json")):
         d = req_path.parent
@@ -62,6 +76,9 @@ def load_views(folder: Path) -> list[RepairView]:
         if not check.exists() or not json.loads(check.read_text()).get("accepted", False):
             continue
         req = json.loads(req_path.read_text())
+        if not same_gap(req, gaps.get(req["gap_id"])):
+            print(f"skip {d.name}: its gap changed since the repair (rescored)")
+            continue
         cam = camera_from_dict(req["camera"], name=d.name)
         img = Image.open(repaired).convert("RGB")
         if img.size != (cam.width, cam.height):
@@ -132,6 +149,7 @@ def pack_inputs(
     seed_rgb: np.ndarray,
     voxel: float,
     world_from_recon: np.ndarray,
+    seed_label: np.ndarray | None = None,
 ) -> bytes:
     """One .npz for the GPU job, everything in the reconstruction frame: per view K (3, 3),
     viewmat (4, 4) cam_from_recon, image, mask, plus seeds, their colours, a start scale."""
@@ -142,6 +160,9 @@ def pack_inputs(
         "seeds": transform_points(recon_from_world, seeds).astype(np.float32),
         "seed_rgb": np.asarray(seed_rgb, np.float32),
         "seed_scale": np.float32(0.5 * voxel / scale),
+        "seed_label": np.asarray(
+            np.zeros(len(seeds)) if seed_label is None else seed_label, np.int32
+        ),
         "n_views": np.int32(len(views)),
     }
     for i, v in enumerate(views):

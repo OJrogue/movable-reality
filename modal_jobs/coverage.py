@@ -558,6 +558,8 @@ def distil_repairs(
         "ply": ply,
         "seeds": m,
         "kept": int(keep.sum()),
+        # Gap labels that kept at least one splat: only those gaps count as generated.
+        "kept_labels": sorted({int(v) for v in z["seed_label"][keep.cpu().numpy()]}),
         "views": len(views),
         "train_views": len(train),
         "steps": steps,
@@ -602,14 +604,15 @@ def _run_distil(scene: str, local: Path, steps: int) -> None:
     if not views:
         raise SystemExit("no repaired views: run scripts/coverage_repair.py --call first")
     grid, labels = distil.load_gap_grid(local)
-    seeds, rgb, _ = distil.seed_points(grid, labels, views)
+    seeds, rgb, seed_label = distil.seed_points(grid, labels, views)
     print(f"{len(views)} repaired views, {len(seeds)} seed points")
     W = np.asarray(Scene.load(local / "scene.json").world_from_recon)
-    inputs = distil.pack_inputs(views, seeds, rgb, grid.size, W)
+    inputs = distil.pack_inputs(views, seeds, rgb, grid.size, W, seed_label)
     info = distil_repairs.remote(scene, inputs, steps=steps)
     (local / distil.GENERATED_PLY).write_bytes(info.pop("ply"))
     (local / "coverage" / "distil.json").write_text(json.dumps(info, indent=2))
-    done = distil.finish(local, sorted({v.gap_id for v in views}))
+    filled = {g for g in {v.gap_id for v in views} if distil.gap_index(g) in info["kept_labels"]}
+    done = distil.finish(local, sorted(filled))
     print(json.dumps({k: v for k, v in info.items() if k != "curve"}, indent=2))
     print(f"wrote {local / distil.GENERATED_PLY}: {done.coverage.generated_splats} splats")
 

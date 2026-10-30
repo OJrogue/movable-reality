@@ -72,8 +72,11 @@ def make_view(tmp_path, accepted=True):
     cam = look_at(np.array([0.0, 0.5, 3.0]), np.array([0.0, 0.5, 0.0]), 40, 30, 60.0)
     d = tmp_path / "coverage" / "repair" / "gap_002"
     d.mkdir(parents=True)
-    req = {"gap_id": "gap_002", "camera": repair.camera_dict(cam), "mask_pixels": 0}
+    req = {"gap_id": "gap_002", "gap_center": [0, 0.5, 0], "gap_radius": 0.3}
+    req |= {"camera": repair.camera_dict(cam), "mask_pixels": 0}
     (d / "request.json").write_text(json.dumps(req))
+    gap = Gap(id="gap_002", center=(0, 0.5, 0), radius=0.3, score=1.0)
+    Scene(scene_id="t", coverage=Coverage(gaps=[gap])).save(tmp_path / "scene.json")
     mask = np.zeros((30, 40), np.uint8)
     mask[8:22, 12:28] = 255
     save(d / "mask.png", mask)
@@ -152,3 +155,37 @@ def test_finish_records_the_ply_and_marks_gaps_generated(tmp_path):
     assert s.coverage.generated_splats == 7
     assert [g.status for g in s.coverage.gaps] == ["generated", "open"]
     assert read_generated(tmp_path / distil.GENERATED_PLY).tolist() == [1] * 7
+
+
+def test_load_views_skips_repairs_of_a_renumbered_gap(tmp_path):
+    make_view(tmp_path)
+    # A rescore gave id gap_002 to a gap elsewhere: the old repair must not seed it.
+    moved = Gap(id="gap_002", center=(1.5, 0.5, 0), radius=0.3, score=1.0)
+    Scene(scene_id="t", coverage=Coverage(gaps=[moved])).save(tmp_path / "scene.json")
+    assert distil.load_views(tmp_path) == []
+    Scene(scene_id="t", coverage=Coverage(gaps=[])).save(tmp_path / "scene.json")
+    assert distil.load_views(tmp_path) == []
+
+
+def test_pack_inputs_carries_the_seed_gap_labels(tmp_path):
+    make_view(tmp_path)
+    views = distil.load_views(tmp_path)
+    pts = np.zeros((3, 3))
+    packed = distil.pack_inputs(views, pts, pts, 0.1, np.eye(4), np.array([2, 2, 5]))
+    z = np.load(io.BytesIO(packed))
+    assert z["seed_label"].tolist() == [2, 2, 5]
+
+
+def test_render_depth_is_scaled_to_metres_before_masking(tmp_path):
+    # Recon frame = world / 2: gsplat reports half the metric depth.
+    cam = look_at(np.array([0.0, 0.5, 3.0]), np.array([0.0, 0.5, 0.0]), 40, 30, 60.0)
+    gap = Gap(id="g", center=(0, 0.5, 0), radius=0.3, score=1.0)
+    depth_m = np.full((30, 40), 3.0, np.float32)  # a wall through the gap centre
+    np.savez(tmp_path / "r.npz", rgb=np.zeros((30, 40, 3), np.uint8), depth=depth_m / 2,
+             alpha=np.ones((30, 40), np.float16))  # fmt: skip
+    rgb, depth, alpha = repair.load_render(tmp_path / "r.npz", 2.0)
+    assert np.allclose(depth, depth_m)
+    _, mask = repair.view_from_render(cam, gap, rgb, depth, alpha)
+    assert mask.sum() > 0  # the wall lies inside the gap sphere
+    _, wrong = repair.view_from_render(cam, gap, rgb, depth_m / 2, alpha)
+    assert wrong.sum() == 0  # unscaled, the wall would sit 1.5 m in front of the gap

@@ -363,6 +363,15 @@ def plan_camera(
     return repair_camera(gap, bounds=bounds, obstacles=means[solid], view_index=view_index)
 
 
+def load_render(path: Path, world_scale: float) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """(rgb, depth in metres, alpha) from render.npz (modal_jobs/coverage.py --job render).
+    gsplat renders in the reconstruction frame, so its depth is in recon units: multiply by
+    the scale of world_from_recon before comparing it with world-frame rays."""
+    z = np.load(path)
+    depth = z["depth"].astype(np.float32) * np.float32(world_scale)
+    return z["rgb"], depth, z["alpha"].astype(np.float32)
+
+
 def view_from_render(
     cam: Camera, gap: Gap, rgb: np.ndarray, depth: np.ndarray, alpha: np.ndarray
 ) -> tuple[np.ndarray, np.ndarray]:
@@ -436,6 +445,9 @@ def prepare_request(
         json.dumps(
             {
                 "gap_id": gap.id,
+                # Gap ids are renumbered on every rescore; distil checks the gap still matches.
+                "gap_center": list(gap.center),
+                "gap_radius": gap.radius,
                 "view_index": view_index,
                 "renderer": "gsplat" if render is not None else "cpu-preview",
                 "camera": camera_dict(cam),

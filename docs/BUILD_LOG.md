@@ -362,16 +362,20 @@ render runs $0.011, top-up rerun $0.055, distil about $0.01), Muse Image 11 call
   reads `recon_full/` cameras. Result: 25 gaps, 95% of VR-visible non-empty voxels in gaps,
   77% of voxels never observed. That fits an 8 s capture that looks one way.
 - C0. `modal_jobs/coverage.py` copies the reconstruct.py image chain byte for byte
-  (`tests/test_coverage_modal.py`), so the cached gsplat layer is reused: image built in
-  5.7 s. First uncertainty run: fit 6.5 s for 3000 iterations. The spherical mean `u_mean`
+  (`tests/test_coverage_modal.py`), so the cached gsplat layer is reused (Modal log of the first run:
+  "Built image ... in 5.69s"). First uncertainty run: fit 6.5 s for 3000 iterations. The spherical mean `u_mean`
   stayed at 0.88 to 1.0 (unseen directions keep the prior), which zeroed every coverage
   score. Scoring now averages u over the observed directions (median 0.23).
 - C2 full rerun. `scripts/coverage_topup.py` appends top-up frames with the next indices,
   rebuilds `sam_input.mp4`, reruns reconstruct.py, fits the new frame to the old one on
   the shared cameras (Umeyama) and rescores. Live on `covtopup` (frames 0 to 19 as the
   scene, frames 20 to 31 as a 3 s top-up video): MapAnything 38 s, gsplat 2000 steps 34 s,
-  alignment scale 1.0006, RMS 2.5 mm, 127 s wall in total. The top-up re-adds frames from
-  the same walk, so it checks the plumbing, not a quality gain.
+  alignment scale 1.0006, RMS 2.5 mm, 127 s wall in total. This checks the plumbing only.
+  The top-up re-adds frames from the same walk, and the previous model was the 32-frame
+  smoke01 reconstruction, so all 32 cameras were shared and the RMS compares the same
+  frames solved twice. After review, `align_world` also rejects cameras on a line and
+  orientations that disagree by more than 5 degrees, and the script drops repairs and
+  generated splats of the old frame and reruns `lift_ids.py` (not run live).
 - Viewer: the view to film first is a yellow phone frustum with a floor ring
   (`?gapViews=0` shows only it). Screenshot of `?scene=covtest&gaps=1` checked.
 - C3. Gap views now come from gsplat on Modal (`coverage_repair.py --gpu`). Two findings

@@ -153,7 +153,11 @@ def umeyama(src: np.ndarray, dst: np.ndarray) -> tuple[float, np.ndarray, np.nda
 
 
 def align_world(
-    prev: list[Camera], new: list[Camera], world_from_prev: np.ndarray
+    prev: list[Camera],
+    new: list[Camera],
+    world_from_prev: np.ndarray,
+    max_line_ratio: float = 0.05,
+    max_rot_deg: float = 5.0,
 ) -> tuple[np.ndarray, dict]:
     """world_from_recon for the new reconstruction: world_from_prev @ prev_from_new, with
     prev_from_new fitted to the centres of the cameras both models share (by image name).
@@ -164,10 +168,25 @@ def align_world(
         raise ValueError(f"only {len(pairs)} cameras shared with the previous model")
     p = np.array([a for a, _ in pairs])
     q = np.array([b for _, b in pairs])
+    # Centres along a near-straight path leave the roll about that path free.
+    sv = np.linalg.svd(p - p.mean(0), compute_uv=False)
+    if sv[1] < max_line_ratio * sv[0]:
+        raise ValueError(f"shared cameras lie nearly on a line (spread {sv.round(3).tolist()})")
     s, R, t = umeyama(q, p)
     prev_from_new = np.eye(4)
     prev_from_new[:3, :3] = s * R
     prev_from_new[:3, 3] = t
     rms = float(np.sqrt(((p - (s * q @ R.T + t)) ** 2).sum(1).mean()))
+    # The fit uses centres only. The orientations check it: each shared camera moved into the
+    # old frame must look the way it did there.
+    new_by_name = {c.name: c for c in new}
+    rot = []
+    for name, c_prev in by_name.items():
+        if name in new_by_name:
+            Rd = new_by_name[name].in_frame(prev_from_new).R @ c_prev.R.T
+            rot.append(np.degrees(np.arccos(np.clip((np.trace(Rd) - 1) / 2, -1.0, 1.0))))
+    rot_deg = float(np.median(rot))
+    if rot_deg > max_rot_deg:
+        raise ValueError(f"camera orientations disagree by {rot_deg:.1f} deg after the fit")
     W = np.asarray(world_from_prev, np.float64) @ prev_from_new
-    return W, {"pairs": len(pairs), "scale": s, "rms": rms}
+    return W, {"pairs": len(pairs), "scale": s, "rms": rms, "rot_deg": rot_deg}

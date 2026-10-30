@@ -125,3 +125,22 @@ def test_align_world_maps_the_new_frame_onto_the_old_one():
     c_old = prev[3].in_frame(world_from_prev).center
     c_new = new[3].in_frame(W).center
     assert np.allclose(c_old, c_new)
+
+
+def test_align_world_rejects_cameras_on_a_line():
+    prev = [
+        look_at(np.array([x, 1.5, 0.0]), np.array([x, 1.0, -2.0]), 64, 48, name=f"{i:06d}.jpg")
+        for i, x in enumerate(np.linspace(0, 3, 6))
+    ]
+    with pytest.raises(ValueError, match="line"):
+        align_world(prev, prev, np.eye(4))
+
+
+def test_align_world_rejects_orientations_that_disagree():
+    rng = np.random.default_rng(2)
+    eyes = rng.uniform(-2, 2, size=(6, 3))
+    prev = [look_at(e, np.zeros(3), 64, 48, name=f"{i:06d}.jpg") for i, e in enumerate(eyes)]
+    # Same centres, but every camera now looks elsewhere: not the same capture.
+    new = [look_at(e, e + [0, 0, 1.0], 64, 48, name=f"{i:06d}.jpg") for i, e in enumerate(eyes)]
+    with pytest.raises(ValueError, match="orientations"):
+        align_world(prev, new, np.eye(4))
