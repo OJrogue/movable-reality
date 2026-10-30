@@ -59,6 +59,9 @@ const BACKGROUND = "background";
 const MAX_EVENTS = 500;
 
 export function installLod(ctx: ViewerContext): LodHandle | null {
+  // D7: keep the worker trees of hidden objects. Spark's default (3000 ms) frees a tree
+  // after 3 s off screen, and showing the object again runs initLodTree once more.
+  ctx.spark.lodCleanupTimeoutMs = Infinity;
   if (ctx.params.get("mode") === "naive") {
     console.info("[lod] ?mode=naive: LOD off, plain PLYs");
     return null;
