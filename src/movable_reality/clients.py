@@ -17,3 +17,7 @@ def meta_async_client() -> AsyncOpenAI:
 
 def baseten_client() -> OpenAI:
     return OpenAI(base_url=BASETEN_BASE_URL, api_key=require_env("BASETEN_API_KEY"))
+
+
+def baseten_async_client() -> AsyncOpenAI:
+    return AsyncOpenAI(base_url=BASETEN_BASE_URL, api_key=require_env("BASETEN_API_KEY"))

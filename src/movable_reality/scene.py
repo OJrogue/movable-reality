@@ -224,8 +224,10 @@ class Scene(BaseModel):
         self._log("rotate", object_id, {"yaw_deg": yaw_deg}, instruction)
 
     def set_visible(self, object_id: str, visible: bool, instruction: str | None = None) -> None:
-        self.get(object_id).visible = visible
-        self._log("restore" if visible else "remove", object_id, {}, instruction)
+        obj = self.get(object_id)
+        prev = obj.visible
+        obj.visible = visible
+        self._log("restore" if visible else "remove", object_id, {"prev": prev}, instruction)
 
     def place(self, object_id: str, x: float, z: float, instruction: str | None = None) -> None:
         """Move the object so its bbox centre sits at world (x, z), keeping its height."""
@@ -252,9 +254,10 @@ class Scene(BaseModel):
                 obj.transform.translation = tuple(e.args["prev"])  # type: ignore[assignment]
             elif e.op == "rotate":
                 obj.transform.yaw_deg = (obj.transform.yaw_deg - e.args["yaw_deg"]) % 360.0
-            elif e.op in ("remove", "insert"):
-                obj.visible = True if e.op == "remove" else False
-            elif e.op == "restore":
+            elif e.op in ("remove", "restore"):
+                # entries written before "prev" existed fall back to the opposite value
+                obj.visible = bool(e.args.get("prev", e.op == "remove"))
+            elif e.op == "insert":
                 obj.visible = False
             self._log("undo", e.object_id, {"index": i, "of": e.op}, instruction)
             return e
@@ -269,6 +272,9 @@ class Scene(BaseModel):
     ) -> None:
         """One entry point for the UI, the agent and the CLI, so all edit paths match."""
         a = args or {}
+        bad = [k for k, v in a.items() if isinstance(v, float) and not math.isfinite(v)]
+        if bad:
+            raise ValueError(f"non-finite value for {', '.join(bad)}")
         if op == "undo":
             self.undo(instruction)
             return

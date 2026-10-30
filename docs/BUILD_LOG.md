@@ -397,3 +397,34 @@ This log is the record of what was built during the hackathon (26 Oct to 4 Nov 2
   Not tested: hold-to-talk with a real microphone, any XR session.
 - Next: a controller button for hold-to-talk in VR, "show generated" once M4 flags splats,
   the video link in the onboarding panel, U3 hosting.
+## 2026-10-30 (Fri, evening, Mac, lane core: M1 to M3, M5 server side)
+
+- Scope change from OJ: everything runs on synthetic data first and is tested in the desktop
+  browser. Headset tests come later.
+- Modal billing works. A T4 smoke job ran, then the first full M1 run on `smoke01` (32 frames from
+  the first 8 s of the re-rendered `blender01` main walk): MapAnything 50 s, gsplat 500 steps
+  23 s on the L40S. Fixes on the way: MapAnything's COLMAP export needs `open3d` (new image
+  layer, the cached gsplat layer stays), and the recon download paths.
+- Full-resolution training: `recon.py` inverts MapAnything's preprocessing (scale by
+  max(w/W, h/H), floor, centre crop, checked against `mapanything/utils/cropping.py` at the
+  pinned SHA), and the job writes `recon_full/` (frames as images, rescaled cameras).
+- M2: `inventory.py` (Muse Wonder on the uploaded clip through the Responses API with an
+  `input_file`) and `lift_ids.py` + `lift.py` (SAM 3.1 per noun, occlusion-aware voting,
+  floor alignment with yaw, floater filter, support rule D12). On `smoke01` the inventory named
+  8 objects. SAM 3.1 took 17 to 175 s per noun on the 32-frame clip (6.5 min for 11 nouns, 3 in
+  parallel). Lift produced 4 objects. The 500-step splat is too rough to judge quality.
+- M3: `Scene.place/undo/apply_edit` (append-only undo), agent tools (`fits`, `measure`, ...),
+  Muse Wonder tool loop with the user's view direction, Muse Spark Open verifier on before and
+  after screenshots with one retry, FastAPI server with WebSocket (`docs/SERVER_API.md`). Every
+  chat, verifier and ASR call is cached under `data/cache/`. Live: "remove the chair and move
+  the lamp half a metre to the left" on a copy of `demo` gave the right three tool calls.
+- Verifier fix: Muse Spark Open is a reasoning model and used the whole 200-token limit on
+  thinking, so every verdict was empty and counted as NO. Now 2000 tokens, and an empty answer
+  means unverified (no retry).
+- M5 server side: `voice.py` (Muse Voice Transcribe). A 16 kHz WAV of "Turn the table ninety
+  degrees and bring back the chair" (macOS `say`, test only) was transcribed and executed.
+- U3 server side: hosted mode with per-visitor scene copies and command caps.
+- Review fixes: yaw sign in `floor_alignment` (a room rotated by a came out rotated by 2a),
+  finer yaw search, NaN edits rejected, undo restores the previous visibility, depth buffer
+  padding, box-local masks in `lift_ids` (memory), saved state rebroadcast after an agent error.
+- Next: M1 + M2 on the full `blender01` walk, pose ATE and mask IoU against ground truth.

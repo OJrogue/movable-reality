@@ -182,6 +182,11 @@ blender -b -P scripts/blender_room.py -- --out data/raw/blender01 --samples 16  
 uv run python scripts/blender_gt_eval.py --scene blender01   # blender: pose ATE (Sim3) vs GT; --labels <dir> adds per-object mask IoU
 # ui viewer: click an object, drag it, Q/E rotate, Delete hides, R restores, Ctrl/Cmd+Z undo; Enter sends a command, hold Space to talk
 # ui viewer: ?onboarding=0|1 (panel), ?server=0 (local edits even when the server runs); window.mrUi.manifest() in the console
+uv run python -m movable_reality.server          # core: scene server + agent on :8000 (Vite proxies /api, /ws)
+uv run python scripts/inventory.py --scene room01   # core: Muse Wonder lists objects -> inventory.json
+uv run python scripts/lift_ids.py --scene room01    # core: SAM 3.1 per noun, lift to Gaussians, floor alignment, objects/
+curl -X POST localhost:8000/api/scenes/demo/command -H 'content-type: application/json' -d '{"text":"move the chair left"}'
+MR_SESSIONS=1 uv run python -m movable_reality.server   # core: hosted mode (per-visitor scene copies, caps)
 ```
 
 Lanes add their own commands here in their PR.

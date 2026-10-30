@@ -167,3 +167,16 @@ def test_undo_walks_back_through_history():
 def test_apply_edit_rejects_unknown_op():
     with pytest.raises(ValueError):
         make_scene().apply_edit("explode", "chair#1")
+
+
+def test_undo_remove_twice_restores_previous_visibility():
+    s = make_scene()
+    s.apply_edit("remove", "chair#1")
+    s.apply_edit("remove", "chair#1")
+    s.apply_edit("undo")
+    assert not s.get("chair#1").visible
+
+
+def test_apply_edit_rejects_nan():
+    with pytest.raises(ValueError):
+        make_scene().apply_edit("move", "chair#1", {"dx": float("nan")})
