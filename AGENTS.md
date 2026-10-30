@@ -130,7 +130,7 @@ benchmarks/             committed: raw frame-time logs (JSON) and result tables
 Lanes: **renderer** (R0-R4), **lod**, **coverage** (C1-C3), **bake**, **ui** (U1-U4), and **core** (M1-M5:
 reconstruction, objects, agent, server, voice). The core lane owns `scripts/`,
 `modal_jobs/reconstruct.py`, `src/movable_reality/{sam,clients}.py` and the future
-`agent/` and `server.py`. The **blender** lane (synthetic ground-truth room `blender01`)
+`agent/` and `server.py`. The **blender** lane (synthetic ground-truth rooms `blender01`, `blender02`)
 owns `scripts/blender_*.py`, `tests/test_blender_*.py` and `docs/ASSETS.md`.
 
 Shared files and how to change them:
@@ -179,6 +179,8 @@ uv run python scripts/coverage_repair.py --scene cov_synth  # coverage: gap view
 uv run python scripts/blender_assets.py        # blender: CC0 Poly Haven assets -> data/assets/ (docs/ASSETS.md)
 blender -b -P scripts/blender_room.py -- --out data/raw/blender01 --samples 16   # blender: synthetic room, both walks, GT, mp4 (~70 min on the RTX 3060)
 # blender: quick look with --walk test --frames 0:600:100 --stage build,render; Blender 4.5 LTS (winget BlenderFoundation.Blender.LTS.4.5)
+blender -b -P scripts/blender_room.py -- --scene blender02 --samples 16   # blender: second room (L-shaped bedroom-study) -> data/raw/blender02*, both walks, GT, mp4
+uv run python scripts/blender_capture_guide.py --scene blender02   # blender: filming guide videos with the floor plan (needs the full render)
 uv run python scripts/blender_gt_eval.py --scene blender01   # blender: pose ATE (Sim3) vs GT; --labels <dir> adds per-object mask IoU
 ```
 

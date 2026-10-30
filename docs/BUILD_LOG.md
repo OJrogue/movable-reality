@@ -349,3 +349,32 @@ This log is the record of what was built during the hackathon (26 Oct to 4 Nov 2
   existing renders stay; `--no-denoise` remains as an option.
 - Next: run M1 on `blender01`, download `recon/sparse` from the Modal volume, then run
   `blender_gt_eval.py`; masks once the object stage writes label PNGs.
+
+## 2026-10-30 (lane: blender, second synthetic room `blender02`)
+
+- `scripts/blender_room.py --scene blender02` builds an L-shaped bedroom-study (D13): 4.5 x 5
+  x 2.6 m overall with the north-east 1.5 x 2 m corner cut out, so a 4.5 x 3 m study in the
+  south opens along y = 0.5 into a 3 x 2 m bed alcove in the north-west. 8 movable pieces
+  (day bed, nightstand, built floor lamp, desk, desk chair, bookshelf, armchair, potted
+  plant) and 4 items (books and succulent on the desk, vase and horse figurine on the
+  nightstand). Lamp-lit with two ceiling panels, no mirrors or glass. The default scene
+  stays `blender01`. Its camera matrices for all 1740 frames are bit-identical to the
+  previous version of the script, and its objects, walks and seeds are unchanged.
+- Walks for `blender02`: main 40 s (25 s chest-height loop at 1.5 m along the L, 9.6 m,
+  looking across at the far side of the loop, 2 s crouch, 13 s knee-height loop at 0.6 m in
+  the study) and test 20 s (a loop at 1.2 m through the study and the alcove, looking at a
+  point that circles the furniture ring clockwise). Paths are corner-cut (Chaikin) polygons.
+  Every frame keeps at least 0.35 m from walls and furniture footprints (unit test, checked
+  against the built `objects.json` bboxes too). Turn rate stays under 40 deg/s.
+- Outputs follow the scene id: `data/raw/blender02/`, `blender02_gt/`, `blender02.mp4`,
+  `blender02_test.mp4`. `objects.json` gains `room_outline_xz` (world x, z) for the L.
+  Floor and ceiling are one quad per band of the outline, with UVs from a shared origin so
+  the laminate has no seam.
+- `scripts/blender_capture_guide.py --scene blender02` draws the L outline from
+  `room_outline_xz` (falls back to the `room_size_m` box for `blender01`) and has its own
+  instructions for the new walks.
+- 9 new CC0 Poly Haven models in `blender_assets.py` and `docs/ASSETS.md`.
+- Check on the Mac (Blender 5.2.1, Metal): 6 frames of the main walk (every 200th) at 8
+  samples took 109 s including the scene build. GT conversion of those frames gives masks
+  with the expected indices and depth of 1.2 to 4.8 m. The full walks are not rendered yet.
+- Next: render both walks in full (main session), then the capture guide videos.

@@ -1,17 +1,22 @@
-"""Synthetic Blender room with ground truth (scene blender01): build, render, export.
+"""Synthetic Blender rooms with ground truth (blender01, blender02): build, render, export.
 
     "C:/Program Files/Blender Foundation/Blender 4.5/blender.exe" -b -P scripts/blender_room.py \
         -- --out data/raw/blender01                       # build + render both walks + GT + mp4
     ... -- --out data/raw/blender01 --walk test --frames 0:30 --stage render,gt   # quick check
+    ... -- --scene blender02                              # the L-shaped room, data/raw/blender02
+
+Scenes: blender01 (default) is a 4 x 5 m living room. blender02 is an L-shaped
+bedroom-study, 4.5 x 5 m overall with the north-east 1.5 x 2 m corner cut out, 40 s main walk.
 
 A synthetic ground-truth scene for benchmarks and a fallback demo; the real phone capture
 stays the main demo. Assets are CC0 from Poly Haven (scripts/blender_assets.py, docs/ASSETS.md);
 the floor lamp and the room shell are built here.
 
-Outputs (out = data/raw/blender01):
-  <out>/blender01.blend, <out>/<walk>/rgb/000000.png ...    working files (noise-free renders)
-  <out>.mp4 (main walk, 38 s), <out>_test.mp4 (test walk, 20 s)   H.264 with sensor noise
+Outputs (out = data/raw/<scene>, e.g. data/raw/blender01):
+  <out>/<scene>.blend, <out>/<walk>/rgb/000000.png ...    working files (noise-free renders)
+  <out>.mp4 (main walk, 38 s / 40 s), <out>_test.mp4 (test walk, 20 s)   H.264, sensor noise
   <out>_gt/objects.json                 index -> id, noun, asset, support, world bbox
+                                        (+ room_outline_xz, world x, z, for the L-shaped room)
   <out>_gt/meshes/<name>.ply            each object's mesh in world coordinates
   <out>_gt/<walk>/cameras.json          K and cam_to_world per frame (OpenCV camera)
   <out>_gt/<walk>/depth/000000.png      uint16 z-depth in mm (0 = no hit)
@@ -71,6 +76,40 @@ OBJECTS = [
 ]
 
 WALKS = {"main": 38.0, "test": 20.0}
+
+# Scene blender02: an L-shaped bedroom-study (D13), 4.5 x 5 m overall with the north-east
+# 1.5 x 2 m corner cut out. A 4.5 x 3 m study in the south, a 3 x 2 m bed alcove in the
+# north-west, open to each other along y = 0.5. Same conventions as OBJECTS.
+ROOM2_OUTLINE = [  # Blender (x, y), counter-clockwise seen from above
+    (-2.25, -2.5), (2.25, -2.5), (2.25, 0.5), (0.75, 0.5), (0.75, 2.5), (-2.25, 2.5),
+]  # fmt: skip
+OBJECTS2 = [
+    ("bed", "bed", "vintage_day_bed", (-0.65, 2.05), 0, None),  # back to the north wall
+    ("nightstand", "nightstand", "painted_wooden_nightstand", (-1.97, 2.22), 0, None),
+    ("floor_lamp", "floor lamp", None, (0.5, 2.2), 0, None),
+    ("desk", "desk", "wooden_table_02", (-1.3, -2.12), 0, None),  # against the south wall
+    ("desk_chair", "chair", "dining_chair_02", (-1.3, -1.45), 0, None),  # faces the desk
+    ("bookshelf", "bookshelf", "wooden_bookshelf_worn", (1.94, -0.4), -90, None),  # east wall
+    ("armchair", "armchair", "modern_arm_chair_01", (1.5, -1.82), -135, None),  # SE corner
+    ("plant", "potted plant", "potted_plant_02", (-1.85, -0.5), 0, None),
+    ("books", "books", "book_encyclopedia_set_01", (-1.55, -2.3), 180, "desk"),
+    ("succulent", "succulent", "potted_plant_04", (-0.95, -2.0), 0, "desk"),
+    ("vase", "vase", "ceramic_vase_03", (-2.05, 2.26), 0, "nightstand"),
+    ("figurine", "horse figurine", "horse_statue_01", (-1.86, 2.16), 30, "nightstand"),
+]
+# Footprint (Blender x, y size at yaw 0, metres) of each blender02 furniture asset, measured
+# after import_asset; the walk clearance test uses them without Blender.
+FOOTPRINT2 = {
+    "vintage_day_bed": (1.973, 0.855),
+    "painted_wooden_nightstand": (0.505, 0.509),
+    None: (0.46, 0.46),  # floor lamp shade
+    "wooden_table_02": (1.134, 0.706),
+    "dining_chair_02": (0.434, 0.576),
+    "wooden_bookshelf_worn": (1.374, 0.581),
+    "modern_arm_chair_01": (0.820, 0.987),
+    "potted_plant_02": (0.701, 0.657),
+}
+WALKS2 = {"main": 40.0, "test": 20.0}
 
 
 # ---------------------------------------------------------------- pure helpers (no bpy)
@@ -191,10 +230,127 @@ def _test_eye_target(t: float) -> tuple[np.ndarray, np.ndarray]:
     return eye, np.array([1.5 * math.cos(a), 0.2 + 1.9 * math.sin(a), 0.45])
 
 
-def camera_matrix(walk: str, t: float) -> np.ndarray:
+def smooth_loop(points: list, iters: int = 4) -> np.ndarray:
+    """Closed polyline through the corner-cut (Chaikin) smoothing of a closed polygon. The
+    curve stays inside the polygon's corners; the last point repeats the first."""
+    p = np.asarray(points, dtype=float)
+    for _ in range(iters):
+        q = np.roll(p, -1, axis=0)
+        p = np.stack([0.75 * p + 0.25 * q, 0.25 * p + 0.75 * q], axis=1).reshape(-1, 2)
+    return np.vstack([p, p[:1]])
+
+
+def polyline_at(p: np.ndarray, s: float) -> np.ndarray:
+    """Point at arc-length fraction s (wrapped to [0, 1)) of a closed polyline."""
+    seg = np.linalg.norm(np.diff(p, axis=0), axis=1)
+    cum = np.concatenate([[0], np.cumsum(seg)])
+    d = (s % 1.0) * cum[-1]
+    i = min(int(np.searchsorted(cum, d, side="right")) - 1, len(seg) - 1)
+    u = (d - cum[i]) / seg[i]
+    return p[i] + u * (p[i + 1] - p[i])
+
+
+# blender02 paths (Blender x, y), each at least 0.35 m from walls and furniture footprints
+# (tests/test_blender_room.py checks it). The chest loop follows the L counter-clockwise:
+# study south side, past the armchair and bookshelf, up into the bed alcove, back down past
+# the plant and the desk chair. The knee loop circles the open middle of the study.
+CHEST2 = smooth_loop(
+    [(0.0, -2.0), (0.4, -1.3), (0.58, -0.72), (1.2, -0.72), (1.2, 0.05), (0.32, 0.12),
+     (0.32, 1.2), (-1.8, 1.2), (-1.8, 0.3), (-1.0, 0.15), (-0.75, -0.55), (-0.4, -1.5)]
+)  # fmt: skip
+KNEE2 = smooth_loop([(0.0, -1.55), (0.7, -0.55), (0.3, 0.6), (-0.6, 0.75), (-1.1, -0.2),
+                     (-0.5, -1.2)])  # fmt: skip
+TEST2 = smooth_loop([(-0.3, -1.9), (0.3, -1.0), (-0.2, 0.0), (-0.9, 0.9), (0.1, 1.1),
+                     (0.5, -0.05), (-0.6, -0.6)])  # fmt: skip
+# The test walk looks at a point that circles the furniture ring clockwise, once in 20 s.
+RING2 = smooth_loop([(-1.6, -1.9), (-1.7, 1.9), (0.2, 2.0), (0.5, 0.0), (1.7, -0.3),
+                     (1.6, -1.9)], iters=3)  # fmt: skip
+
+
+def _main2_eye_target(t: float) -> tuple[np.ndarray, np.ndarray]:
+    """blender02 main walk: 25 s chest-height loop (1.5 m) along the L, looking across the
+    room at the far side of the loop, 2 s crouch, 13 s knee-height loop (0.6 m) in the
+    study, looking across it and slightly down."""
+    t_loop, t_trans, t_knee = 25.0, 2.0, 13.0
+
+    def high(tt: float):
+        s = tt / t_loop
+        x, y = polyline_at(CHEST2, s)
+        far = polyline_at(CHEST2, s + 0.45)
+        wander = np.array([0.4 * math.sin(2 * np.pi * tt / 9), 0.4 * math.sin(2 * np.pi * tt / 13)])
+        d = far + wander - np.array([x, y])
+        d = 2.2 * d / np.linalg.norm(d)  # look 2.2 m ahead, down at 0.6 m: ~22 deg pitch
+        return np.array([x, y, 1.5]), np.array([x + d[0], y + d[1], 0.6])
+
+    def knee(tt: float):
+        s = tt / t_knee
+        x, y = polyline_at(KNEE2, s)
+        d = polyline_at(KNEE2, s + 0.5) - np.array([x, y])
+        d = d / max(np.linalg.norm(d), 1e-6)
+        eye = np.array([x, y, 0.6])
+        return eye, eye + np.array([2.5 * d[0], 2.5 * d[1], -0.25])
+
+    if t <= t_loop:
+        return high(t)
+    if t <= t_loop + t_trans:
+        u = smoothstep((t - t_loop) / t_trans)
+        (e0, g0), (e1, g1) = high(t), knee(0.0)
+        return (1 - u) * e0 + u * e1, (1 - u) * g0 + u * g1
+    return knee(t - t_loop - t_trans)
+
+
+def _test2_eye_target(t: float) -> tuple[np.ndarray, np.ndarray]:
+    """blender02 test walk: a loop at 1.2 m that crosses the study and enters the alcove,
+    looking at a point that circles the furniture ring clockwise once (20 s)."""
+    s = t / 20.0
+    x, y = polyline_at(TEST2, s)
+    eye = np.array([x, y, 1.2 + 0.05 * math.sin(2 * np.pi * t / 7)])
+    gx, gy = polyline_at(RING2, 0.3 - s)
+    return eye, np.array([gx, gy, 0.45])
+
+
+# Per scene: id -> objects, outline (None = the blender01 box), size, walks and shake seeds.
+SCENES = {
+    "blender01": {
+        "objects": OBJECTS,
+        "outline": None,
+        "room": (ROOM_X, ROOM_Y, ROOM_H),
+        "walks": WALKS,
+        "eye_target": {"main": _main_eye_target, "test": _test_eye_target},
+        "seeds": {"main": 7, "test": 11},
+        "panels": [(0.0, 1.0), (0.0, -1.2)],
+    },
+    "blender02": {
+        "objects": OBJECTS2,
+        "outline": ROOM2_OUTLINE,
+        "room": (4.5, 5.0, 2.6),
+        "walks": WALKS2,
+        "eye_target": {"main": _main2_eye_target, "test": _test2_eye_target},
+        "seeds": {"main": 23, "test": 29},
+        "panels": [(-0.2, -1.0), (-0.75, 1.5)],
+    },
+}
+
+
+def furniture_footprints(scene: str = "blender02") -> dict[str, tuple[float, ...]]:
+    """name -> (x0, y0, x1, y1) Blender footprint of each piece of furniture, from
+    FOOTPRINT2 rotated by its yaw (an upper bound on the mesh bbox)."""
+    out = {}
+    for name, _, asset, (x, y), yaw, support in SCENES[scene]["objects"]:
+        if support:
+            continue
+        w, d = FOOTPRINT2[asset]
+        c, s = abs(math.cos(math.radians(yaw))), abs(math.sin(math.radians(yaw)))
+        hx, hy = (c * w + s * d) / 2, (s * w + c * d) / 2
+        out[name] = (x - hx, y - hy, x + hx, y + hy)
+    return out
+
+
+def camera_matrix(walk: str, t: float, scene: str = SCENE_ID) -> np.ndarray:
     """Blender matrix_world (4x4) of the handheld camera at time t of a walk."""
-    eye, target = (_main_eye_target if walk == "main" else _test_eye_target)(t)
-    dpos, drot = Shake(seed=7 if walk == "main" else 11)(t)
+    cfg = SCENES[scene]
+    eye, target = cfg["eye_target"][walk](t)
+    dpos, drot = Shake(seed=cfg["seeds"][walk])(t)
     rot = look_at(eye, target) @ euler_xyz(*drot)
     m = np.eye(4)
     m[:3, :3] = rot
@@ -245,6 +401,13 @@ def depth_to_mm(depth_m: np.ndarray) -> np.ndarray:
     mm = np.round(d * 1000.0)
     mm[(mm <= 0) | (mm > 65535)] = 0
     return mm.astype(np.uint16)
+
+
+def scene_paths(scene: str, out: Path | None = None) -> tuple[Path, Path]:
+    """Working folder and GT folder of a scene: data/raw/<scene> and data/raw/<scene>_gt
+    unless --out names another folder. The videos go next to them (encode)."""
+    out = (out or Path("data/raw") / scene).resolve()
+    return out, out.parent / (out.name + "_gt")
 
 
 def parse_frames(spec: str | None, n: int) -> range:
@@ -349,9 +512,10 @@ def _pbr_mat(name: str, folder: Path):
     return mat
 
 
-def _quad_object(name: str, quads: list, tile: float, mat):
+def _quad_object(name: str, quads: list, tile: float, mat, origin=None):
     """Mesh object from quads (4 corner points each); UVs are metres / tile along the two
-    edges of each quad, so textures keep their real-world size."""
+    edges of each quad, so textures keep their real-world size. With origin, UVs of every
+    quad are measured from that point, so neighbouring quads tile without a seam."""
     bpy = _bpy()
     import bmesh  # noqa: PLC0415
 
@@ -364,7 +528,7 @@ def _quad_object(name: str, quads: list, tile: float, mat):
         e1, e2 = q[1] - q[0], q[3] - q[0]
         e1n, e2n = e1 / np.linalg.norm(e1), e2 / np.linalg.norm(e2)
         for loop in f.loops:
-            d = np.array(loop.vert.co) - q[0]
+            d = np.array(loop.vert.co) - (q[0] if origin is None else np.asarray(origin))
             loop[uv].uv = (float(d @ e1n) / tile, float(d @ e2n) / tile)
     bm.to_mesh(me)
     bm.free()
@@ -409,6 +573,64 @@ def build_room(assets: Path) -> dict:
         light.size, light.energy, light.color = 1.0, 160.0, (1.0, 0.95, 0.88)
         obj = bpy.data.objects.new(light.name, light)
         obj.location = (0.0, y, h - 0.02)
+        bpy.context.collection.objects.link(obj)
+    world = bpy.data.worlds.new("world")
+    world.use_nodes = True
+    world.node_tree.nodes["Background"].inputs["Strength"].default_value = 0.0
+    bpy.context.scene.world = world
+    return {"floor": floor, "wall": walls, "ceiling": ceiling}
+
+
+def outline_rects(outline: list) -> list[tuple[float, float, float, float]]:
+    """Split an axis-aligned room outline into (x0, y0, x1, y1) rectangles, one per band
+    between consecutive distinct y values (even-odd rule along each band's middle)."""
+    pts = np.asarray(outline, dtype=float)
+    ys = sorted(set(pts[:, 1].tolist()))
+    rects = []
+    for y0, y1 in zip(ys[:-1], ys[1:], strict=True):
+        ym = (y0 + y1) / 2
+        xs = sorted(
+            a[0] + (ym - a[1]) / (b[1] - a[1]) * (b[0] - a[0])
+            for a, b in zip(pts, np.roll(pts, -1, axis=0), strict=True)
+            if (a[1] - ym) * (b[1] - ym) < 0
+        )
+        rects += [(xs[i], y0, xs[i + 1], y1) for i in range(0, len(xs), 2)]
+    return rects
+
+
+def build_room_outline(assets: Path, outline: list, h: float, panels: list) -> dict:
+    """Room shell from a counter-clockwise axis-aligned outline: one wall quad per edge,
+    floor and ceiling as one quad per outline_rects band."""
+    bpy = _bpy()
+    rects = outline_rects(outline)
+    floor = _quad_object(
+        "floor",
+        [[(x0, y0, 0), (x1, y0, 0), (x1, y1, 0), (x0, y1, 0)] for x0, y0, x1, y1 in rects],
+        1.7,
+        _pbr_mat("floor", assets / "laminate_floor_02"),
+        origin=(0.0, 0.0, 0.0),
+    )
+    pts = list(outline)
+    walls = _quad_object(
+        "wall",  # edge a -> b of the outline as b, a: corners counter-clockwise from inside
+        [[(*b, 0), (*a, 0), (*a, h), (*b, h)] for a, b in zip(pts, pts[1:] + pts[:1], strict=True)],
+        3.0,
+        _pbr_mat("wall", assets / "beige_wall_001"),
+    )
+    ceiling = _quad_object(
+        "ceiling",
+        [[(x0, y0, h), (x0, y1, h), (x1, y1, h), (x1, y0, h)] for x0, y0, x1, y1 in rects],
+        3.0,
+        _new_mat("ceiling", (0.8, 0.8, 0.78), rough=0.9),
+        origin=(0.0, 0.0, h),
+    )
+    for obj, key in ((floor, "floor"), (walls, "wall"), (ceiling, "ceiling")):
+        obj.pass_index = STRUCTURE[key]
+    for i, (x, y) in enumerate(panels):
+        light = bpy.data.lights.new(f"ceiling_panel_{i}", "AREA")
+        light.size, light.energy, light.color = 1.0, 160.0, (1.0, 0.95, 0.88)
+        obj = bpy.data.objects.new(light.name, light)
+        obj.location = (x, y, h - 0.02)
         bpy.context.collection.objects.link(obj)
     world = bpy.data.worlds.new("world")
     world.use_nodes = True
@@ -499,13 +721,17 @@ def world_bbox(obj) -> tuple[np.ndarray, np.ndarray]:
     return w.min(0), w.max(0)
 
 
-def build_scene(assets: Path, gt: Path) -> None:
+def build_scene(assets: Path, gt: Path, scene: str = SCENE_ID) -> None:
     bpy = _bpy()
     bpy.ops.wm.read_factory_settings(use_empty=True)
-    structure = build_room(assets)
+    cfg = SCENES[scene]
+    if cfg["outline"] is None:
+        structure = build_room(assets)
+    else:
+        structure = build_room_outline(assets, cfg["outline"], cfg["room"][2], cfg["panels"])
     placed: dict = {}
     records = []
-    for idx, (name, noun, asset, (x, y), yaw, support) in enumerate(OBJECTS, start=1):
+    for idx, (name, noun, asset, (x, y), yaw, support) in enumerate(cfg["objects"], start=1):
         if asset is None:
             obj, bulb = build_floor_lamp()
         else:
@@ -548,16 +774,21 @@ def build_scene(assets: Path, gt: Path) -> None:
             {"index": STRUCTURE[key], "id": key, "name": key, "noun": key, "kind": "structure",
              "asset": "built in blender_room.py", "support": None, "mesh": f"meshes/{key}.ply"}
         )  # fmt: skip
+    room_x, room_y, room_h = cfg["room"]
+    extra = {}
+    if cfg["outline"] is not None:  # world (x, z) = Blender (x, -y); blender01 stays as it was
+        extra["room_outline_xz"] = [[float(x), float(-y)] for x, y in cfg["outline"]]
     (gt / "objects.json").write_text(
         json.dumps(
             {
-                "scene": SCENE_ID,
+                "scene": scene,
                 "synthetic": True,
                 "units": "m",
                 "world": "+Y up, floor at y = 0 (scene contract)",
                 "world_from_blender": WORLD_FROM_BLENDER.tolist(),
                 "background_index": 0,
-                "room_size_m": [ROOM_X, ROOM_H, ROOM_Y],
+                "room_size_m": [room_x, room_h, room_y],
+                **extra,
                 "objects": objects,
             },
             indent=2,
@@ -587,7 +818,7 @@ def _export_mesh(obj, path: Path) -> None:
     write_mesh_ply(path, verts, tris)
 
 
-def animate_camera(walk: str, n: int):
+def animate_camera(walk: str, n: int, scene: str = SCENE_ID):
     bpy = _bpy()
     from mathutils import Matrix  # noqa: PLC0415
 
@@ -600,7 +831,7 @@ def animate_camera(walk: str, n: int):
     cam.rotation_mode = "QUATERNION"
     prev = None
     for i in range(n):
-        cam.matrix_world = Matrix(camera_matrix(walk, i / FPS).tolist())
+        cam.matrix_world = Matrix(camera_matrix(walk, i / FPS, scene).tolist())
         q = cam.rotation_quaternion.copy()
         if prev is not None and q.dot(prev) < 0:
             q.negate()
@@ -657,11 +888,13 @@ def _setup_compositor_5(scene, raw: Path) -> None:
     nt.links.new(rl.outputs["Object Index"], out.inputs[1])
 
 
-def render_walk(out: Path, gt: Path, walk: str, frames: range, force: bool) -> float:
+def render_walk(
+    out: Path, gt: Path, walk: str, frames: range, force: bool, scene_id: str = SCENE_ID
+) -> float:
     bpy = _bpy()
     scene = bpy.context.scene
-    n = int(round(WALKS[walk] * FPS))
-    animate_camera(walk, n)
+    n = int(round(SCENES[scene_id]["walks"][walk] * FPS))
+    animate_camera(walk, n, scene_id)
     rgb, raw = out / walk / "rgb", out / walk / "raw"
     setup_compositor(raw)
     scene.frame_start, scene.frame_end, scene.frame_step = (
@@ -677,7 +910,7 @@ def render_walk(out: Path, gt: Path, walk: str, frames: range, force: bool) -> f
     seconds = time.time() - t0
     K = intrinsics()
     cams = {
-        "scene": SCENE_ID,
+        "scene": scene_id,
         "walk": walk,
         "synthetic": True,
         "width": WIDTH,
@@ -692,7 +925,9 @@ def render_walk(out: Path, gt: Path, walk: str, frames: range, force: bool) -> f
             {
                 "index": i,
                 "time_s": round(i / FPS, 6),
-                "cam_to_world": cam_to_world_cv(camera_matrix(walk, i / FPS)).round(7).tolist(),
+                "cam_to_world": cam_to_world_cv(camera_matrix(walk, i / FPS, scene_id))
+                .round(7)
+                .tolist(),
             }
             for i in range(n)
         ],  # fmt: skip
@@ -750,9 +985,8 @@ def encode(out: Path, walk: str) -> Path:
 
 def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
-    ap.add_argument(
-        "--out", type=Path, required=True, help="working folder, e.g. data/raw/blender01"
-    )
+    ap.add_argument("--scene", default=SCENE_ID, choices=sorted(SCENES))
+    ap.add_argument("--out", type=Path, default=None, help="default data/raw/<scene>")
     ap.add_argument("--assets", type=Path, default=Path("data/assets"))
     ap.add_argument("--walk", default="main,test", help="main, test or both (comma separated)")
     ap.add_argument("--stage", default="build,render,gt,encode")
@@ -763,26 +997,25 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--keep-exr", action="store_true")
     ap.add_argument("--force", action="store_true", help="re-render frames that exist")
     args = ap.parse_args(argv)
-    out = args.out.resolve()
-    gt = out.parent / (out.name + "_gt")
+    out, gt = scene_paths(args.scene, args.out)
+    walk_s = SCENES[args.scene]["walks"]
     stages = set(args.stage.split(","))
     walks = [w for w in args.walk.split(",") if w]
     out.mkdir(parents=True, exist_ok=True)
     gt.mkdir(parents=True, exist_ok=True)
 
     if stages & {"build", "render"}:
-        build_scene(args.assets.resolve(), gt)
+        build_scene(args.assets.resolve(), gt, args.scene)
         setup_render(args.samples, args.device, not args.no_denoise)
-        _bpy().ops.wm.save_as_mainfile(filepath=str(out / f"{SCENE_ID}.blend"))
+        _bpy().ops.wm.save_as_mainfile(filepath=str(out / f"{args.scene}.blend"))
     for walk in walks:
         if "render" in stages:
             # A fresh camera per walk; drop the previous walk's camera.
             bpy = _bpy()
             for o in [o for o in bpy.data.objects if o.type == "CAMERA"]:
                 bpy.data.objects.remove(o)
-            render_walk(
-                out, gt, walk, parse_frames(args.frames, int(WALKS[walk] * FPS)), args.force
-            )
+            frames = parse_frames(args.frames, int(walk_s[walk] * FPS))
+            render_walk(out, gt, walk, frames, args.force, args.scene)
         if "gt" in stages:
             convert_gt(out, gt, walk, args.keep_exr)
         if "encode" in stages:

@@ -2,12 +2,14 @@
 
     uv run python scripts/blender_capture_guide.py                 # both walks
     uv run python scripts/blender_capture_guide.py --walk main
+    uv run python scripts/blender_capture_guide.py --scene blender02
 
-Inputs come from scripts/blender_room.py: the rendered frames (data/raw/blender01/<walk>/rgb)
-and the ground-truth cameras and objects (data/raw/blender01_gt/). Each output frame shows
-the phone's view next to a floor plan with the path, the phone position and the direction it
-points, plus the current instruction, phone height, walking speed and turn rate.
-Writes data/raw/blender01_guide_main.mp4 (training capture) and _test.mp4 (test walk).
+Inputs come from scripts/blender_room.py: the rendered frames (data/raw/<scene>/<walk>/rgb)
+and the ground-truth cameras and objects (data/raw/<scene>_gt/). Each output frame shows
+the phone's view next to a floor plan with the room outline (room_outline_xz in objects.json,
+else the room_size_m box), the path, the phone position and the direction it points, plus
+the current instruction, phone height, walking speed and turn rate.
+Writes data/raw/<scene>_guide_main.mp4 (training capture) and _test.mp4 (test walk).
 CPU only, no API calls.
 """
 
@@ -30,9 +32,9 @@ VIDEO_W, VIDEO_H = 1280, 720
 PLAN = 640  # floor plan panel, square
 FPS = 30
 
-# Instruction per time span, seconds. Matches _main_eye_target and _test_eye_target in
-# scripts/blender_room.py.
-PHASES = {
+# Instruction per time span, seconds, per scene. Matches the walk functions in
+# scripts/blender_room.py (_main_eye_target, _test_eye_target, _main2_eye_target, ...).
+PHASES_01 = {
     "main": [
         (0.0, 25.0, "1/3  Chest-height loop",
          ["Walk slowly along the walls, about 0.5 m from them.",
@@ -55,11 +57,35 @@ PHASES = {
           "Film it right after the main capture, same light."]),
     ],
 }  # fmt: skip
+PHASES_02 = {
+    "main": [
+        (0.0, 25.0, "1/3  Chest-height loop along the L",
+         ["Walk slowly round the L, about 0.5 m from walls and furniture,",
+          "past the desk and armchair, up into the bed alcove and back.",
+          "Phone landscape at chest height (1.5 m), pointing across the room",
+          "and a little down (about 20 deg). Slow pace (0.4 m/s)."]),
+        (25.0, 27.0, "2/3  Crouch",
+         ["Lower the phone to knee height.",
+          "Keep filming, keep the phone pointed across the room."]),
+        (27.0, 40.0, "3/3  Knee-height loop",
+         ["A smaller loop in the open middle of the study at 0.6 m,",
+          "phone nearly level, aimed across the loop,",
+          "so the sides and the space under the furniture are seen."]),
+    ],
+    "test": [
+        (0.0, 20.0, "Test walk (never used for training)",
+         ["A loop at 1.2 m through the study and into the alcove.",
+          "Turn the phone slowly so it sweeps every piece of",
+          "furniture from angles the main loop did not use.",
+          "Film it right after the main capture, same light."]),
+    ],
+}  # fmt: skip
+PHASES = {"blender01": PHASES_01, "blender02": PHASES_02}
 TIPS = [
     "Before filming: lock focus and exposure (long-press on iPhone), 1080p60 or 4K30,",
     "lamps on, curtains still, no people or pets, screens off. Move slowly, no fast turns.",
 ]
-TITLES = {"main": "Training capture, 38 s", "test": "Test walk, 20 s"}
+TITLES = {"main": "Training capture", "test": "Test walk"}
 
 
 def font(size: int) -> ImageFont.ImageFont:
@@ -72,7 +98,7 @@ def font(size: int) -> ImageFont.ImageFont:
     return ImageFont.load_default(size)
 
 
-def poses(gt: Path, walk: str) -> np.ndarray:
+def poses(gt: Path, walk: str, scene: str = "blender01") -> np.ndarray:
     """(N, 4, 4) cam_to_world, OpenCV camera, world +Y up. From the GT file, or, while a
     render is still running, from the walk definition in blender_room.py."""
     path = gt / walk / "cameras.json"
@@ -82,8 +108,10 @@ def poses(gt: Path, walk: str) -> np.ndarray:
     sys.path.insert(0, str(Path(__file__).parent))
     import blender_room as br  # noqa: PLC0415 - pure helpers, no bpy needed
 
-    n = int(round(br.WALKS[walk] * br.FPS))
-    return np.array([br.cam_to_world_cv(br.camera_matrix(walk, i / br.FPS)) for i in range(n)])
+    n = int(round(br.SCENES[scene]["walks"][walk] * br.FPS))
+    return np.array(
+        [br.cam_to_world_cv(br.camera_matrix(walk, i / br.FPS, scene)) for i in range(n)]
+    )
 
 
 def motion(c2w: np.ndarray, i: int, span: int = 8) -> tuple[float, float, float, float]:
@@ -101,22 +129,36 @@ def motion(c2w: np.ndarray, i: int, span: int = 8) -> tuple[float, float, float,
     return float(c2w[i, 1, 3]), speed, math.degrees(turn) / dt, tilt
 
 
+def room_outline(objs: dict) -> list[tuple[float, float]]:
+    """Room outline in world (x, z) from objects.json: room_outline_xz if present (L-shaped
+    rooms), else the room_size_m box centred on the origin (blender01)."""
+    if "room_outline_xz" in objs:
+        return [(float(x), float(z)) for x, z in objs["room_outline_xz"]]
+    rx, rz = objs["room_size_m"][0] / 2, objs["room_size_m"][2] / 2
+    return [(-rx, -rz), (rx, -rz), (rx, rz), (-rx, rz)]
+
+
 class Plan:
     """Top-down floor plan, north (world -z) up, in a PLAN x PLAN panel."""
 
-    def __init__(self, room: tuple[float, float], objects: list[dict]):
-        self.rx, self.rz = room[0] / 2, room[1] / 2
-        self.s = (PLAN - 80) / max(room)
+    def __init__(self, outline: list[tuple[float, float]], objects: list[dict]):
+        pts = np.asarray(outline, dtype=float)
+        lo, hi = pts.min(0), pts.max(0)
+        self.centre = (lo + hi) / 2
+        self.s = (PLAN - 80) / float((hi - lo).max())
+        self.outline = [tuple(p) for p in pts]
         self.objects = objects
 
     def px(self, x: float, z: float) -> tuple[float, float]:
-        return PLAN / 2 + x * self.s, PLAN / 2 + z * self.s
+        return (PLAN / 2 + (x - self.centre[0]) * self.s,
+                PLAN / 2 + (z - self.centre[1]) * self.s)  # fmt: skip
 
     def base(self, path: np.ndarray) -> Image.Image:
         img = Image.new("RGB", (PLAN, PLAN), (24, 26, 30))
         d = ImageDraw.Draw(img)
-        d.rectangle([*self.px(-self.rx, -self.rz), *self.px(self.rx, self.rz)],
-                    fill=(52, 48, 44), outline=(220, 210, 195), width=6)  # fmt: skip
+        poly = [self.px(x, z) for x, z in self.outline]
+        d.polygon(poly, fill=(52, 48, 44))
+        d.line([*poly, poly[0]], fill=(220, 210, 195), width=6, joint="curve")
         f = font(15)
         big = [o for o in self.objects if o.get("support") is None]
         small = [o for o in self.objects if o.get("support") is not None]
@@ -169,8 +211,10 @@ def gauge(d: ImageDraw.ImageDraw, x: int, y: int, label: str, value: str, frac: 
                 fill=(255, 120, 90) if warn else (90, 180, 120))  # fmt: skip
 
 
-def render(walk: str, raw: Path, gt: Path, out: Path, limit: int | None = None) -> Path:
-    c2w = poses(gt, walk)
+def render(
+    walk: str, raw: Path, gt: Path, out: Path, limit: int | None = None, scene: str = "blender01"
+) -> Path:
+    c2w = poses(gt, walk, scene)
     path_all = c2w[:, :3, 3]
     if limit:
         c2w = c2w[:limit]
@@ -179,10 +223,9 @@ def render(walk: str, raw: Path, gt: Path, out: Path, limit: int | None = None) 
     if len(frames) < len(c2w):
         raise SystemExit(f"{rgb}: {len(frames)} of {len(c2w)} frames rendered")
     objs = json.loads((gt / "objects.json").read_text())
-    room = objs["room_size_m"]
-    plan = Plan((room[0], room[2]), [o for o in objs["objects"] if "bbox_min" in o])
+    plan = Plan(room_outline(objs), [o for o in objs["objects"] if "bbox_min" in o])
     base = plan.base(path_all)
-    phases = PHASES[walk]
+    phases = PHASES[scene][walk]
     ff = subprocess.Popen(
         ["ffmpeg", "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "rgb24",
          "-s", f"{W}x{H}", "-r", str(FPS), "-i", "-", "-c:v", "libx264", "-preset", "medium",
@@ -198,7 +241,7 @@ def render(walk: str, raw: Path, gt: Path, out: Path, limit: int | None = None) 
         canvas.paste(plan.frame(base, c2w, i), (VIDEO_W, 0))
         d = ImageDraw.Draw(canvas)
         d.rectangle([0, 0, 470, 50], fill=(0, 0, 0))
-        d.text((14, 10), f"{TITLES[walk]}   {t:5.1f} / {total:.0f} s", font=font(26),
+        d.text((14, 10), f"{TITLES[walk]}, {total:.0f} s   {t:5.1f} s", font=font(26),
                fill=(255, 255, 255))  # fmt: skip
         d.text((VIDEO_W - 14, VIDEO_H - 14), "what the phone sees", font=font(20),
                fill=(255, 255, 255), anchor="rd")  # fmt: skip
@@ -227,14 +270,16 @@ def render(walk: str, raw: Path, gt: Path, out: Path, limit: int | None = None) 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
+    ap.add_argument("--scene", default="blender01", choices=sorted(PHASES))
     ap.add_argument("--walk", default="main,test")
-    ap.add_argument("--raw", type=Path, default=DATA_DIR / "raw" / "blender01")
+    ap.add_argument("--raw", type=Path, default=None, help="default data/raw/<scene>")
     ap.add_argument("--limit", type=int, default=None, help="first N frames only (preview)")
     args = ap.parse_args()
-    gt = args.raw.parent / (args.raw.name + "_gt")
+    raw = args.raw or DATA_DIR / "raw" / args.scene
+    gt = raw.parent / (raw.name + "_gt")
     for walk in args.walk.split(","):
-        out = args.raw.parent / f"{args.raw.name}_guide_{walk}.mp4"
-        render(walk, args.raw, gt, out, args.limit)
+        out = raw.parent / f"{raw.name}_guide_{walk}.mp4"
+        render(walk, raw, gt, out, args.limit, args.scene)
     return 0
 
 
