@@ -6,7 +6,12 @@ from movable_reality.scene import Coverage, Gap, NextBestView, Scene
 def test_coverage_with_next_best_views_roundtrip(tmp_path):
     nbv = NextBestView(eye=(1.0, 1.6, 0.5), target=(0.0, 0.3, -1.8), visible=120, gain=0.4)
     gap = Gap(id="gap_000", center=(0.0, 0.3, -1.8), radius=0.5, score=0.9, next_best_views=[nbv])
-    s = Scene(scene_id="t", coverage=Coverage(gaps=[gap], gap_share=0.12, generated_splats=7))
+    s = Scene(
+        scene_id="t",
+        coverage=Coverage(
+            gaps=[gap], gap_share=0.12, generated_splats=7, generated_ply="coverage/generated.ply"
+        ),
+    )
     path = tmp_path / "scene.json"
     s.save(path)
     loaded = Scene.load(path)
@@ -29,3 +34,4 @@ def test_gap_without_next_best_views_still_loads(tmp_path):
     cov = Scene.load(path).coverage
     assert cov is not None
     assert cov.gaps[0].next_best_views == [] and cov.gap_share is None
+    assert cov.generated_ply is None

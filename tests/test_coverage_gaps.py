@@ -240,6 +240,28 @@ def test_rescore_is_idempotent_and_keeps_gap_labels(synth_scene):
     assert [g.center for g in again.gaps] == [g.center for g in s.coverage.gaps]
 
 
+def test_rescore_keeps_and_counts_generated_splats(synth_scene):
+    from movable_reality.coverage.ply import write_splats
+
+    path = synth_scene / "scene.json"
+    write_splats(
+        synth_scene / "coverage" / "generated.ply",
+        np.zeros((5, 3)),
+        np.full((5, 3), 0.5),
+        generated=np.ones(5, np.uint8),
+    )
+    s = Scene.load(path)
+    assert s.coverage is not None
+    s.coverage.generated_ply = "coverage/generated.ply"
+    s.coverage.gaps[0].status = "generated"
+    s.save(path)
+    write_outputs(synth_scene, score_scene(synth_scene, replace(ScoreParams(), exposure_dirs=3000)))
+    again = Scene.load(path).coverage
+    assert again is not None
+    assert again.generated_ply == "coverage/generated.ply" and again.generated_splats == 5
+    assert again.gaps[0].status == "generated"
+
+
 def test_coarse_subset_takes_every_other_position():
     from movable_reality.coverage.pipeline import coarse_subset
 
