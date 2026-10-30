@@ -122,9 +122,9 @@ export function isEdited(t: Transform): boolean {
 }
 
 /**
- * PLY an object shows: its completed version (SAM 3D Objects fills the unseen back) once it
- * has been edited, since only then can the viewer see the missing side, and the scan
- * otherwise. An undo back to the identity transform returns to the scan.
+ * The PLY an object shows. That is its completed version (SAM 3D Objects fills the unseen
+ * back) once it has been edited, since only then can the viewer see the missing side, and
+ * the scan otherwise. An undo back to the identity transform returns to the scan.
  */
 export function shownPly(o: SceneObject): string {
   return o.completed_ply && isEdited(o.transform) ? o.completed_ply : o.ply;

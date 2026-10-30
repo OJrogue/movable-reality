@@ -158,7 +158,7 @@ def build_scene_lod(
     log: Callable[[str], None] = print,
 ) -> list[BuildResult]:
     """Build one .RAD per object PLY, per completed PLY (SAM 3D Objects) and one for the
-    background; record the paths in scene.json (`lod`, `completed_lod`, `background_lod`).
+    background. Record the paths in scene.json (`lod`, `completed_lod`, `background_lod`).
 
     Idempotent: an existing .RAD newer than its PLY is reused unless `force`; one older than
     its PLY (object re-split or completed) is rebuilt. The manifest is reloaded right
@@ -166,7 +166,7 @@ def build_scene_lod(
     """
     root = scene_path.parent
     scene = Scene.load(scene_path)
-    # (object id, completed?, PLY); object id None is the background.
+    # (object id, completed?, PLY). Object id None is the background.
     jobs: list[tuple[str | None, bool, str]] = [(None, False, scene.background_ply)]
     for o in scene.objects:
         jobs.append((o.id, False, o.ply))
@@ -211,7 +211,7 @@ def build_scene_lod(
     for obj in scene.objects:
         if (obj.id, False) in paths:
             obj.lod = paths[(obj.id, False)]
-        # Only touch completed_lod when this run saw the same completed PLY; a completion
+        # Only touch completed_lod when this run saw the same completed PLY. A completion
         # written while the trees were building gets its tree on the next run.
         if (obj.id, True) in paths and completed_src.get(obj.id) == obj.completed_ply:
             obj.completed_lod = paths[(obj.id, True)]

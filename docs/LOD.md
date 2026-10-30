@@ -135,7 +135,7 @@ SAM 3D Objects writes `obj_<id>_completed.ply` (stage 6) with the side the video
 `build_lod.py` builds `lod/obj_<id>_completed.rad` for it and records it as
 `SceneObject.completed_lod`. The viewer (`shownPly` and `SceneView.swap` in
 `web/src/scene.ts`) shows the scan until the object's transform differs from identity, then
-the completed version; an undo back to identity shows the scan again. Each variant is
+the completed version. An undo back to identity shows the scan again. Each variant is
 created once and hidden when unused, so swapping is instant after the first time and an
 object holds at most two trees. Disposing the unused variant would leave its tree in the
 worker for good, because D7 turns Spark's cleanup off. `lodChoice` picks `completed_lod`
@@ -258,9 +258,9 @@ build survive. On Modal the same script runs on a CPU container once the image h
 - The platform budget default only recognises the Quest browser as an XR device.
 - Priority strength: 2.0 is a guess; tune on the headset with the budget controller.
 - Memory with `lodCleanupTimeoutMs = Infinity`: every object tree stays in the worker for
-  the whole session, two for completed objects. Fine for one room; revisit for big scenes.
+  the whole session, two for completed objects. That is fine for one room and needs a second look for big scenes.
 - With cleanup off, a disposed mesh keeps its worker tree. The only case today is the
   background swap after a live bake (`SceneView.apply`), which leaves the old background
   tree in the worker until reload. `cleanupLodTrees` is Spark's only path to
-  `disposeLodTree`; a fix would lower the timeout for one pass around that swap.
+  `disposeLodTree`, so a fix would lower the timeout for one pass around that swap.
 - `mrLod.sources` records the last variant created per object, not the one shown.

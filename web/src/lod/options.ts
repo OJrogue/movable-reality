@@ -14,9 +14,9 @@ export interface LodChoice {
 
 /**
  * Path of the .RAD tree for an object (null = background), if the manifest has one. `ply`
- * is the PLY the mesh shows: the object's completed_ply selects completed_lod (the viewer
- * swaps to the completed object once it has been edited, see SceneView), anything else
- * selects lod.
+ * is the PLY the mesh shows. The object's completed_ply selects completed_lod (the viewer
+ * swaps to the completed object once it has been edited, see SceneView), and anything
+ * else selects lod.
  */
 export function radPath(m: SceneManifest, objectId: string | null, ply?: string): string | null {
   if (objectId === null) return m.background_lod ?? null;
