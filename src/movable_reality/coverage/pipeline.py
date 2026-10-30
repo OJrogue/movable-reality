@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import json
 import time
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 
 import numpy as np
@@ -55,6 +55,10 @@ class ScoreParams:
     gaps: GapParams = field(default_factory=GapParams)
     walk: WalkParams = field(default_factory=WalkParams)
     nbv: NbvParams = field(default_factory=NbvParams)
+    # Eye height from the capture: the median camera height replaces walk.eye_height (and
+    # scales the crouch height), so a scene whose metric scale or phone height differs from
+    # 1.6 m still gets standing positions inside the scored room.
+    eye_from_cameras: bool = True
 
 
 @dataclass
@@ -80,6 +84,24 @@ def coarse_subset(xz: np.ndarray, spacing: float, coarse: float) -> np.ndarray:
     idx = np.rint((xz - xz.min(axis=0)) / spacing).astype(int)
     sel = (idx % k == 0).all(axis=1)
     return xz[sel] if sel.any() else xz
+
+
+def recon_dir(folder: Path) -> Path:
+    """recon_full/ (cameras rescaled to the full-resolution frames, as gsplat trains on
+    them) when present, else MapAnything's recon/ model."""
+    full = Path(folder) / "recon_full"
+    return full if (full / "sparse").is_dir() else Path(folder) / "recon"
+
+
+def walk_for_capture(walk: WalkParams, cam_heights: np.ndarray, top: float, voxel: float):
+    """WalkParams with the eye height set to the median camera height, kept half a voxel
+    below the top of the grid, and the crouch heights scaled by the same factor."""
+    if len(cam_heights) == 0:
+        return walk
+    eye = float(np.clip(np.median(cam_heights), voxel, top - 0.5 * voxel))
+    k = eye / walk.eye_height
+    heights = tuple(round(min(h * k, eye), 3) for h in walk.exposure_heights)
+    return replace(walk, eye_height=round(eye, 3), exposure_heights=heights)
 
 
 def scene_ply_paths(folder: Path, scene: Scene) -> list[Path]:
@@ -109,11 +131,15 @@ def score_scene(folder: Path, params: ScoreParams | None = None) -> ScoreResult:
     scale, _ = similarity_parts(world_from_recon)
     means = transform_points(world_from_recon, splats.means)
     scales = splats.scales * np.float32(scale)
-    cams = [c.in_frame(world_from_recon) for c in read_model(folder / "recon")]
+    cams = [c.in_frame(world_from_recon) for c in read_model(recon_dir(folder))]
     t["load_s"] = time.perf_counter() - t0
 
     lo, hi = room_bounds(means, splats.opacity, min_opacity=p.min_opacity)
     grid = VoxelGrid.from_bounds(lo, hi, p.voxel)
+    if p.eye_from_cameras:
+        top = float(grid.origin[1] + grid.dims[1] * grid.size)
+        heights = np.array([c.center[1] for c in cams])
+        p = replace(p, walk=walk_for_capture(p.walk, heights, top, grid.size))
     keep = np.all(
         (means >= grid.origin) & (means < grid.origin + np.asarray(grid.dims) * grid.size), 1
     )

@@ -21,7 +21,7 @@ import numpy as np
 from movable_reality.config import scene_dir
 from movable_reality.coverage.cameras import similarity_parts, transform_points
 from movable_reality.coverage.colmap import read_model
-from movable_reality.coverage.pipeline import load_splats
+from movable_reality.coverage.pipeline import load_splats, recon_dir
 from movable_reality.coverage.repair import prepare_request, repair_view
 from movable_reality.scene import Scene
 
@@ -60,7 +60,7 @@ def main() -> int:
         splats.opacity,
         splats.generated,
     )
-    cams = [c.in_frame(W) for c in read_model(folder / "recon")]
+    cams = [c.in_frame(W) for c in read_model(recon_dir(folder))]
     for g in gaps:
         req = prepare_request(folder, g, cams, world, k_refs=args.refs)
         line = f"{g.id}: view {req.view.relative_to(folder)}, {len(req.references)} references"
