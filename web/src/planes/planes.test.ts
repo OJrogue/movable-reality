@@ -62,6 +62,12 @@ describe("diffPlanes", () => {
     expect(d.remove.sort()).toEqual([planeKey(floor), planeKey(ceiling)].sort());
   });
 
+  it("treats a re-bake that only changes the alpha mask as a new plane", () => {
+    const masked: BakedPlane = { ...floor, transparent_fraction: 0.07 };
+    expect(planeKey(masked)).not.toBe(planeKey(floor));
+    expect(planeKey({ ...floor, transparent_fraction: 0 })).toBe(planeKey(floor));
+  });
+
   it("treats a manifest without the planes section as no planes", () => {
     expect(diffPlanes([], manifest(undefined))).toEqual({ add: [], remove: [] });
     expect(diffPlanes([planeKey(floor)], manifest(undefined)).remove).toEqual([planeKey(floor)]);
@@ -92,6 +98,17 @@ describe("makeOpaque", () => {
     expect(mat.blending).toBe(THREE.NoBlending);
     expect(mesh.renderOrder).toBe(PLANE_RENDER_ORDER);
     expect(map.anisotropy).toBe(8);
+    expect(mat.alphaTest).toBe(0);
+  });
+
+  it("keeps the alpha test of a masked plane (glTF alphaMode MASK)", () => {
+    const root = new THREE.Group();
+    const mat = new THREE.MeshBasicMaterial({ alphaTest: 0.5 });
+    root.add(new THREE.Mesh(new THREE.PlaneGeometry(), mat));
+    makeOpaque(root);
+    expect(mat.alphaTest).toBe(0.5);
+    expect(mat.transparent).toBe(false);
+    expect(mat.depthWrite).toBe(true);
   });
 });
 

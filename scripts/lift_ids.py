@@ -74,7 +74,7 @@ def main() -> int:
     results = asyncio.run(segment_all(root / "sam_input.mp4", inv["nouns"]))
     w, h = Image.open(next(iter(sorted((root / "frames").glob("*.jpg"))))).size
     names: dict[int, str] = {}
-    per_frame: dict[int, list[tuple[int, np.ndarray, float]]] = {}
+    per_frame: dict[int, list] = {}  # box-local instances; full-frame masks only per frame
     for noun, instances in results:
         for inst in instances:
             key = f"{noun}#{inst.object_id}"
@@ -82,9 +82,12 @@ def main() -> int:
             if lab is None:
                 lab = len(names)
                 names[lab] = key
-            m = paste_mask(inst, w, h)
-            per_frame.setdefault(inst.frame_index, []).append((lab, m, float(m.sum())))
-    labels_img = {i: label_image(v, (h, w)) for i, v in per_frame.items()}
+            per_frame.setdefault(inst.frame_index, []).append((lab, inst))
+    labels_img = {
+        i: label_image([(lab, paste_mask(inst, w, h), float(inst.mask.sum())) for lab, inst in v],
+                       (h, w))
+        for i, v in per_frame.items()
+    }  # fmt: skip
     (root / "ids" / "masks").mkdir(parents=True, exist_ok=True)
     for i, img in labels_img.items():  # 0 = none, value = label + 1
         Image.fromarray((img + 1).clip(0, 255).astype(np.uint8)).save(
@@ -111,7 +114,8 @@ def main() -> int:
     floor = np.isin(ids, [k for k, n in noun_of.items() if n == "floor"])
     wall = np.isin(ids, [k for k, n in noun_of.items() if n == "wall"])
     centres = np.array([c.center for c in cams])
-    if floor.sum() > 500:
+    aligned = floor.sum() > 500
+    if aligned:
         M = floor_alignment(xyz[floor].astype(np.float64), centres, xyz[wall].astype(np.float64))
     else:
         print("too few floor Gaussians; keeping the default OpenCV-to-Y-up frame")
@@ -126,7 +130,9 @@ def main() -> int:
         ids[m[~keep]] = -1
         if keep.sum() < MIN_SPLATS:
             ids[m] = -1
-    ids, merged = support(world, ids, [k for k in objects if (ids == k).sum()], p)
+    merged: dict[int, int] = {}
+    if aligned:  # the support rule assumes the floor at y = 0
+        ids, merged = support(world, ids, [k for k in objects if (ids == k).sum()], p)
     for child, parent in merged.items():
         print(f"  {names[child]} rests on {names[parent]}: merged")
     np.save(root / "ids" / "gaussian_ids.npy", ids)

@@ -81,6 +81,8 @@ def test_lane_sections_roundtrip(tmp_path):
     s = make_scene()
     s.background_lod = "lod/background.rad"
     s.get("chair#1").lod = "lod/obj_chair_1.rad"
+    s.get("chair#1").completed_ply = "objects/obj_chair_1_completed.ply"
+    s.get("chair#1").completed_lod = "lod/obj_chair_1_completed.rad"
     s.planes.append(BakedPlane(id="floor", label="floor", mesh="planes/floor.glb"))
     s.coverage = Coverage(
         gaps=[Gap(id="g1", near_object="table#1", center=(2.5, 0.2, 1.0), radius=0.4, score=0.9)]
@@ -107,6 +109,7 @@ def test_plane_bake_section_roundtrip(tmp_path):
             texture_px=(800, 1000),
             fit_rms_m=0.003,
             filled_fraction=0.05,
+            transparent_fraction=0.07,
         )
     )
     s.plane_bake = PlaneBake(
@@ -123,6 +126,7 @@ def test_plane_bake_section_roundtrip(tmp_path):
     # The minimal plane written before these fields existed still loads.
     old = BakedPlane.model_validate({"id": "f", "label": "floor", "mesh": "planes/f.glb"})
     assert old.corners == [] and old.normal is None and old.filled_fraction == 0.0
+    assert old.transparent_fraction == 0.0
 
 
 def test_manifest_without_lane_sections_still_loads(tmp_path):
@@ -132,10 +136,12 @@ def test_manifest_without_lane_sections_still_loads(tmp_path):
         data.pop(key)
     for obj in data["objects"]:
         obj.pop("lod")
+        obj.pop("completed_lod")
     path.write_text(json.dumps(data), encoding="utf-8")
     loaded = Scene.load(path)
     assert loaded.planes == [] and loaded.coverage is None and loaded.background_lod is None
     assert loaded.plane_bake is None
+    assert all(o.completed_lod is None for o in loaded.objects)
 
 
 def test_place_sets_centre_and_undo_restores():
@@ -167,3 +173,16 @@ def test_undo_walks_back_through_history():
 def test_apply_edit_rejects_unknown_op():
     with pytest.raises(ValueError):
         make_scene().apply_edit("explode", "chair#1")
+
+
+def test_undo_remove_twice_restores_previous_visibility():
+    s = make_scene()
+    s.apply_edit("remove", "chair#1")
+    s.apply_edit("remove", "chair#1")
+    s.apply_edit("undo")
+    assert not s.get("chair#1").visible
+
+
+def test_apply_edit_rejects_nan():
+    with pytest.raises(ValueError):
+        make_scene().apply_edit("move", "chair#1", {"dx": float("nan")})

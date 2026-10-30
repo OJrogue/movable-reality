@@ -393,3 +393,226 @@ render runs $0.011, top-up rerun $0.055, distil about $0.01), Muse Image 11 call
   loop with a real second video, the generated mesh with the lod lane's per-object trees.
 - Next: run C1 to C3 on `blender01` once M1 has produced it, with
   `modal_jobs/coverage.py` first so the uncertainty term is in.
+
+## 2026-10-30 (lane: blender, second synthetic room `blender02`)
+
+- `scripts/blender_room.py --scene blender02` builds an L-shaped bedroom-study (D13): 4.5 x 5
+  x 2.6 m overall with the north-east 1.5 x 2 m corner cut out, so a 4.5 x 3 m study in the
+  south opens along y = 0.5 into a 3 x 2 m bed alcove in the north-west. 8 movable pieces
+  (day bed, nightstand, built floor lamp, desk, desk chair, bookshelf, armchair, potted
+  plant) and 4 items (books and succulent on the desk, vase and horse figurine on the
+  nightstand). Lamp-lit with two ceiling panels, no mirrors or glass. The default scene
+  stays `blender01`. Its camera matrices for all 1740 frames are bit-identical to the
+  previous version of the script, and its objects, walks and seeds are unchanged.
+- Walks for `blender02`: main 40 s (25 s chest-height loop at 1.5 m along the L, 9.6 m,
+  looking across at the far side of the loop, 2 s crouch, 13 s knee-height loop at 0.6 m in
+  the study) and test 20 s (a loop at 1.2 m through the study and the alcove, looking at a
+  point that circles the furniture ring clockwise). Paths are corner-cut (Chaikin) polygons.
+  Every frame keeps at least 0.35 m from walls and furniture footprints (unit test, checked
+  against the built `objects.json` bboxes when they exist, a test skipped otherwise).
+  Turn rate stays under 40 deg/s (36 main, 39.8 test). No two furniture bboxes overlap.
+- Outputs follow the scene id: `data/raw/blender02/`, `blender02_gt/`, `blender02.mp4`,
+  `blender02_test.mp4`. `objects.json` gains `room_outline_xz` (world x, z) for the L.
+  Floor and ceiling are one quad per band of the outline, with UVs from a shared origin so
+  the laminate has no seam.
+- `scripts/blender_capture_guide.py --scene blender02` draws the L outline from
+  `room_outline_xz` (falls back to the `room_size_m` box for `blender01`) and has its own
+  instructions for the new walks.
+- 9 new CC0 Poly Haven models in `blender_assets.py` and `docs/ASSETS.md`.
+- Check on the Mac (Blender 5.2.1, Metal): 6 frames of the main walk (every 200th) at 8
+  samples took 109 s on the first run and 27 s on a rerun (Blender console output, no log
+  committed). GT conversion of those frames gives masks
+  with the expected indices and depth of 1.2 to 4.8 m. The full walks are not rendered yet.
+- Next: render both walks in full (main session), then the capture guide videos.
+## 2026-10-30 (lane: bake)
+
+- B1 alpha mask (`src/movable_reality/bake/mask.py`, decision D11). On a 5 cm grid, a cell
+  is surface when a splat covered any of its texels or, for floors, when it lies under the
+  footprint of an object standing on the plane (bbox bottom within 15 cm, structure labels
+  floor, wall and ceiling excluded). A 15 cm morphological closing bridges cracks, and
+  uncovered regions that do not reach the quad's border (under furniture) stay opaque with
+  the push-pull fill.
+- A border region is cut only when it reaches more than 15 cm from the surface and walls
+  run along at least half of its edge against the surface. Walls are background splats
+  0.2 to 1.5 m off the plane, five or more per cell, within 10 cm of the edge. An unseen
+  corner of a rectangular room therefore stays filled, and so does the strip between a
+  sofa and the wall.
+- A masked plane's texture is WebP with alpha (lossy colour at the JPEG quality, lossless
+  alpha) through the required glTF extension `EXT_texture_webp`, and its material uses
+  `alphaMode: MASK`, `alphaCutoff: 0.5`. Synthetic L floor GLB sizes are 39 KB as WebP,
+  109 KB as JPEG without a mask and 585 KB as RGBA PNG. `makeOpaque` in
+  `web/src/planes/planes.ts` keeps the alpha test GLTFLoader sets, and `planeKey` includes
+  `transparent_fraction`, so a re-bake that only changes the mask reloads the plane.
+  Planes without transparent texels stay JPEG and `OPAQUE` as before.
+- New field `BakedPlane.transparent_fraction` (scene.py, scene.ts, tests). `filled_fraction`
+  now counts only filled texels inside the outline. `modal_jobs/bake.py` takes
+  `--no-mask` (not run).
+- `make_room(shape="l")` and `bake_planes.py --synthetic --shape l`. The 1.2 x 1.3 m
+  corner at +x, +z is outside the room and the walls follow the L. The unseen floor under
+  the sofa runs to the far wall, so only the sofa's footprint keeps it opaque. At 5 mm
+  texels the floor is 7.2 % transparent and the ceiling 7.1 %. The corner is 7.8 % of the
+  4 x 5 m rectangle, and the mask extends up to one cell past the splats, behind the
+  walls. The rectangular `bakedemo` has 0 % transparent texels.
+- Browser check (dev server on port 5175, local copies of the bakes with the floor turned
+  to face the default camera, not committed, screenshots only in the session). With the
+  mask the L-shaped floor ends at the walls, the corner shows the background and the
+  floor under the sofa is filled up to the wall. With `--no-mask` the floor runs past the
+  walls into the corner. The default view inside `bakedemo_l` renders as before.
+- Not done: no real room (room01 does not exist yet), no headset run. The cost of alpha
+  test on a depth-writing full-screen quad on Adreno GPUs is unmeasured. If it shows,
+  cutting the quad geometry along the mask is the alternative.
+- Next: B2 (gsplat bake on Modal), B3 (real room seams).
+## 2026-10-30 (lane: lod)
+
+- L1: `SceneObject.completed_lod` in `scene.py` and `scene.ts`. `build_lod.py` builds
+  `lod/obj_<id>_completed.rad` for every object with a `completed_ply` on disk and records
+  it (missing completed PLYs are skipped, reruns are idempotent).
+- The viewer swaps an object to its completed PLY once its transform differs from identity
+  (`shownPly` in `web/src/scene.ts`, the former M4 TODO) and back on undo. Both variants
+  stay in the scene graph and the unused one is hidden, so a swap back is instant and the
+  swap leaks no worker tree. A completed PLY that fails to load falls back to the scan.
+  `lodChoice` loads `completed_lod` for the completed PLY. Unit tests with a stub
+  `SplatMesh` cover the load race, undo during a load and failed loads.
+- L2 (D7): `installLod` sets `spark.lodCleanupTimeoutMs = Infinity`.
+- Checked in the browser on `demo_l1` (a local copy of `demo` with a red-tinted chair as
+  the fake completion, not committed). A move turns the chair red, the undo turns it
+  blue and a rotate turns it red again. `mrLod.stats()` showed 5 trees and 4 traversed
+  meshes throughout (manual check, no log committed).
+- Known gap: With cleanup off, the old background tree stays in the worker after a live
+  bake swaps the background PLY (see docs/LOD.md, open points).
+- Next: L3 (priority tuning on the headset). Real completions arrive with M4.
+
+## 2026-10-30 (lane: ui)
+
+- New lane (D18). Everything lives in `web/src/ui/`, plus one `installUi(ctx)` call in
+  `main.ts` after `installCoverage`.
+- U1 desktop editing (`editor.ts`): a click picks the nearest object box with lane lod's
+  `pickNearest`, draws a yellow box outline on the object's pivot and a DOM label. Dragging
+  moves the object across a horizontal plane through the grab point, so the height stays
+  and the object follows the cursor. Release sends one `place` edit. Q/E rotate by 15
+  degrees, Delete or Backspace hides, R restores the newest hidden object, Ctrl/Cmd+Z undoes,
+  Escape clears the selection. The `pointerdown` and `keydown` handlers run in the capture
+  phase on `window`, so a press on an object never reaches SparkControls (no orbit), and
+  Q/E move the camera again once nothing is selected. Drags on empty space orbit as before.
+  Boxes that contain the camera are not pickable, so a large box around the viewer cannot
+  block orbiting.
+- Edit path (`index.ts`): edits go to `POST /api/scenes/{id}/edit` when `/api/health`
+  answers, one at a time in order. Without a server, `edits.ts` mirrors `Scene.apply_edit`
+  and `Scene.undo` (append-only history, undo entries with `index` and `of`, yaw modulo
+  as in Python) and the bar shows "offline: edits are local". `?server=0` forces local
+  edits. A manifest with a shorter history than the one on screen is dropped, so a late
+  poll or push never undoes a newer reply. Edit requests time out after 5 s and then fall
+  back to local edits. The WebSocket applies `scene` pushes, shows `agent` progress and
+  answers `capture_request` with `window.mrCapture()`. With a requested camera it moves to
+  that eye and target for three frames (Spark's sort catches up) before the capture. In
+  XR it answers null at once.
+- U2 command bar (`commandBar.ts`, `recorder.ts`, `audio.ts`): Enter posts the text to
+  `/command`. Holding Space records through an AudioWorklet, resamples to 16 kHz with a box
+  filter, encodes a 16-bit mono WAV and posts it to `/voice`. Keys typed in the bar no
+  longer reach WASD or other shortcuts.
+- U4 onboarding panel (`onboarding.ts`): controls, four sample commands that fill the bar,
+  a gap overlay button (dispatches key G for the coverage lane) and a placeholder
+  "show generated" toggle. `?onboarding=0` hides it, and closing it is stored in localStorage.
+- Tests: 23 new vitest cases (edit mirror including undo chains, resampling, WAV header,
+  onboarding visibility). `npm test` 105 passed, `npm run build` passes, `uv run pytest`
+  148 passed, ruff clean.
+- Manual browser check (no committed log, figures read from the page console) on a copy of `demo` (`data/scenes/uitest`), dev server on port 5174.
+  Offline: select, drag (place to x 0.215, z -2.006), Q Q E, Delete, R, then seven undos
+  restored the original transform and logged 12 history entries. An eighth undo reported
+  "nothing to undo". Online against the core lane's work-in-progress server: the drag and
+  a Q rotation were written to `scene.json`, an undo sent with curl reached the page by
+  WebSocket within 300 ms, and "remove the chair" ran through the agent with progress lines
+  in the bar. The verifier answered "no" each time, so the agent kept retrying. The
+  viewer's capture was a non-black 2048 x 1536 JPEG. That run used the one-frame capture
+  that the review replaced with the three-frame one, which was not re-run against the
+  verifier.
+  Not tested: hold-to-talk with a real microphone, any XR session.
+- Next: a controller button for hold-to-talk in VR, "show generated" once M4 flags splats,
+  the video link in the onboarding panel, U3 hosting.
+## 2026-10-30 (Fri, evening, Mac, lane core: M1 to M3, M5 server side)
+
+- Scope change from OJ: everything runs on synthetic data first and is tested in the desktop
+  browser. Headset tests come later.
+- Modal billing works. A T4 smoke job ran, then the first full M1 run on `smoke01` (32 frames from
+  the first 8 s of the re-rendered `blender01` main walk): MapAnything 50 s, gsplat 500 steps
+  23 s on the L40S. Fixes on the way: MapAnything's COLMAP export needs `open3d` (new image
+  layer, the cached gsplat layer stays), and the recon download paths.
+- Full-resolution training: `recon.py` inverts MapAnything's preprocessing (scale by
+  max(w/W, h/H), floor, centre crop, checked against `mapanything/utils/cropping.py` at the
+  pinned SHA), and the job writes `recon_full/` (frames as images, rescaled cameras).
+- M2: `inventory.py` (Muse Wonder on the uploaded clip through the Responses API with an
+  `input_file`) and `lift_ids.py` + `lift.py` (SAM 3.1 per noun, occlusion-aware voting,
+  floor alignment with yaw, floater filter, support rule D12). On `smoke01` the inventory named
+  8 objects. SAM 3.1 took 17 to 175 s per noun on the 32-frame clip (6.5 min for 11 nouns, 3 in
+  parallel). Lift produced 4 objects. The 500-step splat is too rough to judge quality.
+- M3: `Scene.place/undo/apply_edit` (append-only undo), agent tools (`fits`, `measure`, ...),
+  Muse Wonder tool loop with the user's view direction, Muse Spark Open verifier on before and
+  after screenshots with one retry, FastAPI server with WebSocket (`docs/SERVER_API.md`). Every
+  chat, verifier and ASR call is cached under `data/cache/`. Live: "remove the chair and move
+  the lamp half a metre to the left" on a copy of `demo` gave the right three tool calls.
+- Verifier fix: Muse Spark Open is a reasoning model and used the whole 200-token limit on
+  thinking, so every verdict was empty and counted as NO. Now 2000 tokens, and an empty answer
+  means unverified (no retry).
+- M5 server side: `voice.py` (Muse Voice Transcribe). A 16 kHz WAV of "Turn the table ninety
+  degrees and bring back the chair" (macOS `say`, test only) was transcribed and executed.
+- U3 server side: hosted mode with per-visitor scene copies and command caps.
+- Review fixes: yaw sign in `floor_alignment` (a room rotated by a came out rotated by 2a),
+  finer yaw search, NaN edits rejected, undo restores the previous visibility, depth buffer
+  padding, box-local masks in `lift_ids` (memory), saved state rebroadcast after an agent error.
+- Next: M1 + M2 on the full `blender01` walk, pose ATE and mask IoU against ground truth.
+
+## 2026-10-30 (lane: core, M4)
+
+- `modal_jobs/sam3d.py`: SAM 3D Objects (commit f91db41, gated `facebook/sam-3d-objects`,
+  SAM License) as a deployed Modal class on one L40S. Its default pipeline estimates the
+  pointmap with MoGe, a Microsoft model, which rule 2 forbids. The job sets
+  `depth_model: null` and passes a MapAnything pointmap (`facebook/map-anything-apache`)
+  through the pipeline's own `pointmap=` argument. The MoGe package stays installed for its
+  geometry helpers only (no weights are loaded). DINOv2 encoders (Meta) load through
+  torch.hub. HF_TOKEN reaches Modal as a secret built from `.env` at deploy time.
+- Image: CUDA 12.1, Python 3.11, torch 2.5.1, the upstream requirements minus training and
+  notebook packages, kaolin wheel, gsplat without its CUDA build, PyTorch3D built CPU-only
+  (only transforms and structures are used, 124 s on the 1-CPU builder). First build and
+  deploy took 511 s. Weights (13 GB) download once to the `movable-reality-cache` volume
+  in about 60 s.
+- Sources of the figures below. Timings, memory and decoder sizes come from the Modal container
+  logs and the result JSONs under `data/cache/sam3d/` (gitignored), build times from the
+  `modal deploy` output, the cost from `modal billing report --for today`, the splat count
+  from the viewer's console, and "upright" from a viewer screenshot that is not committed.
+- Measured on the L40S. Cold start 44 to 51 s to load both models (16.1 GiB), MapAnything
+  pointmap 0.9 s, SAM 3D generation 11.8 to 12.4 s, peak 20.2 GiB. The dense decoder gives
+  985,440 splats (67 MB) for a stool. The 4-splats-per-voxel decoder gives 123,180 splats
+  (8.4 MB) and is now the default (`dense=False`).
+- `src/movable_reality/insert.py`: Muse Spark gives noun and typical size (0.30 x
+  0.40 x 0.30 m for the stool), Muse Image draws one object on a plain background (1600 x 1600
+  returned), SAM 3.1 masks it, SAM 3D Objects lifts it. The object is turned upright
+  (camera up, snapped to the nearest canonical axis within 40 degrees, and the stool's
+  canonical +Z was 25.3 degrees from camera up), scaled, stood on y = 0 at (x, z), written in the
+  recon frame as `objects/gen_<n>.ply` with `generated` = 1, and logged as op "insert".
+  The agent tool now returns insert failures to the model as an error.
+- Live test on `m4test`, a copy of `demo`. "small wooden stool" became `gen#1`, 0.34 x 0.36
+  x 0.35 m, 86 s end to end with a cold container (82 s of it Modal). The viewer loads the
+  PLY (Spark logs 123180 splats) and shows an upright stool on the floor between the chair
+  and the table.
+- `scripts/complete_objects.py` with `src/movable_reality/completion.py`: best frame per
+  object (largest mask, half weight when it touches the border), SAM 3D on frame + mask,
+  first guess from the pose and the frame's camera, scale from the boxes, then trimmed
+  similarity ICP from 10 starts (pose guess, plus box centre, min face or max face in x and
+  z), best RMS wins. Not run on a real scene yet, because no scene has `ids/masks` so far. Unit tests
+  cover it on a synthetic partial scan (error under 3 cm).
+- `src/movable_reality/splat_ops.py`: PLY layout, quaternion and similarity transforms of
+  splats, SAM 3D pose conversion, floor placement, Umeyama and ICP. 18 CPU tests in
+  `tests/test_core_m4.py`.
+- Modal spend for M4 was $0.60 (billing report for 30 Oct, all build and GPU time of
+  `movable-reality-sam3d`), including about ten short crash loops before two startup fixes
+  (`hf_transfer` env without the package, zero-depth points in the pointmap).
+- Review fixes (reviewer agent). The scan is filtered by opacity and a MAD floater test
+  before registration, the box scale falls back to the metric pose guess when the two differ
+  by more than 25 %, ICP ranks starts by trimmed RMS and keeps its best step (a synthetic
+  scan with 7 % floaters, 3 mm noise and a 15 degree yaw error now registers within 6 cm),
+  generated objects use SAM 3D's canonical +Z as up, the agent runs an insert in a worker
+  thread so the server stays live, hosted mode has no insert (visitors would overwrite each
+  other's `gen_<n>.ply`), and the deploy stops when HF_TOKEN is missing. The insert no
+  longer touches `coverage.generated_splats`, which stays with the coverage lane.
+- Next: run `complete_objects.py` once `lift_ids.py` has written masks for a real scene,
+  then the viewer swap to `completed_ply` (lod lane, L1).

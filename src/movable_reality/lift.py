@@ -25,9 +25,10 @@ STRUCTURE = ("floor", "wall", "ceiling")  # stay in the background (D9)
 
 @dataclass
 class LiftParams:
-    depth_grid: int = 160  # long side of the occlusion depth buffer, pixels
-    depth_tol: float = 0.03  # relative depth tolerance (3 % of depth)
+    depth_grid: int = 240  # long side of the occlusion depth buffer, pixels
+    depth_tol: float = 0.05  # relative depth tolerance (5 % of depth), covers grazing floors
     depth_abs: float = 0.03  # plus an absolute slack, metres
+    depth_erode: int = 0  # min-filter radius of the depth buffer, cells
     min_share: float = 0.6
     min_views: int = 3
     opaque: float = 0.3  # opacity above which a centre may occlude others
@@ -45,10 +46,15 @@ def label_image(masks: list[tuple[int, np.ndarray, float]], shape: tuple[int, in
 
 
 def _min_filter(img: np.ndarray, r: int) -> np.ndarray:
+    """Min over a (2r+1)^2 window; the border is padded with inf, so nothing wraps around."""
+    if r <= 0:
+        return img
+    h, w = img.shape
+    pad = np.pad(img, r, constant_values=np.inf)
     out = img.copy()
-    for dy in range(-r, r + 1):
-        for dx in range(-r, r + 1):
-            out = np.minimum(out, np.roll(np.roll(img, dy, 0), dx, 1))
+    for dy in range(2 * r + 1):
+        for dx in range(2 * r + 1):
+            out = np.minimum(out, pad[dy : dy + h, dx : dx + w])
     return out
 
 
@@ -56,7 +62,7 @@ def visible_mask(
     cam: Camera, xyz: np.ndarray, opacity: np.ndarray, p: LiftParams
 ) -> tuple[np.ndarray, np.ndarray]:
     """(visible bool (N,), pixel uv (N, 2)) for one view. Occlusion: a coarse z-buffer of the
-    opaque centres, eroded by one cell so thin holes between splats do not leak."""
+    opaque centres (optionally min-filtered, p.depth_erode)."""
     uv, z = cam.project(xyz)
     inside = (z > 0.05) & (uv[:, 0] >= 0) & (uv[:, 0] < cam.width)
     inside &= (uv[:, 1] >= 0) & (uv[:, 1] < cam.height)
@@ -67,7 +73,7 @@ def visible_mask(
     zbuf = np.full(gh * gw, np.inf, dtype=np.float32)
     occ = inside & (opacity > p.opaque)
     np.minimum.at(zbuf, gy[occ] * gw + gx[occ], z[occ])
-    zbuf = _min_filter(zbuf.reshape(gh, gw), 1).ravel()
+    zbuf = _min_filter(zbuf.reshape(gh, gw), p.depth_erode).ravel()
     front = z <= zbuf[gy * gw + gx] * (1 + p.depth_tol) + p.depth_abs
     return inside & front, uv
 
@@ -157,7 +163,7 @@ def floor_alignment(
     ref = wall_xyz if wall_xyz is not None and len(wall_xyz) > 100 else floor_xyz
     xz = (ref @ R.T)[:, [0, 2]]
     yaw = dominant_yaw(xz)
-    cy, sy = np.cos(-yaw), np.sin(-yaw)
+    cy, sy = np.cos(yaw), np.sin(yaw)
     Ry = np.array([[cy, 0, sy], [0, 1, 0], [-sy, 0, cy]])
     R = Ry @ R
     M = np.eye(4)
@@ -172,14 +178,18 @@ def dominant_yaw(xz: np.ndarray, bins: int = 90) -> float:
     pts = xz - xz.mean(axis=0)
     if len(pts) > 20000:
         pts = pts[np.random.default_rng(0).choice(len(pts), 20000, replace=False)]
-    best, best_area = 0.0, np.inf
-    for a in np.linspace(0, np.pi / 2, bins, endpoint=False):
+
+    def area(a: float) -> float:
         c, s = np.cos(a), np.sin(a)
         r = pts @ np.array([[c, -s], [s, c]])
-        lo, hi = np.percentile(r, 2, axis=0), np.percentile(r, 98, axis=0)
-        area = float(np.prod(hi - lo))
-        if area < best_area:
-            best, best_area = a, area
+        # 0.5/99.5 percentiles: tight enough that a square box wins, loose enough for floaters
+        lo, hi = np.percentile(r, 0.5, axis=0), np.percentile(r, 99.5, axis=0)
+        return float(np.prod(hi - lo))
+
+    step = np.pi / 2 / bins
+    best = min(np.linspace(0, np.pi / 2, bins, endpoint=False), key=area)
+    best = min(np.linspace(best - step, best + step, 41), key=area)  # 0.05 deg refinement
+    best = best % (np.pi / 2)
     return float(best)
 
 

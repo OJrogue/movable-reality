@@ -1,7 +1,7 @@
 """Agent tools: pure functions on a Scene (ARCHITECTURE stage 7).
 
 Each tool takes the scene plus JSON arguments and returns a JSON-able result. Edits go through
-Scene.apply_edit, the same path the viewer UI and scripts/edit_scene.py use. Tools never touch
+Scene.apply_edit, the same path the server's edit endpoint (viewer UI) uses. Tools never touch
 PLY files. Sizes and positions are world metres, +Y up, floor at y = 0.
 """
 
@@ -247,7 +247,12 @@ def run_tool(
         if name == "insert_object":
             if inserter is None:
                 return {"error": "insert is not available on this server"}
-            return inserter(scene, args["prompt"], float(args["x"]), float(args["z"]), instruction)
+            try:
+                return inserter(
+                    scene, args["prompt"], float(args["x"]), float(args["z"]), instruction
+                )
+            except Exception as exc:  # noqa: BLE001 - API, Modal or SAM failures go to the model
+                return {"error": f"insert failed: {exc}"}
         op = {
             "move_object": "move",
             "place_object": "place",

@@ -130,7 +130,7 @@ benchmarks/             committed: raw frame-time logs (JSON) and result tables
 Lanes: **renderer** (R0-R4), **lod**, **coverage** (C1-C3), **bake**, **ui** (U1-U4), and **core** (M1-M5:
 reconstruction, objects, agent, server, voice). The core lane owns `scripts/`,
 `modal_jobs/reconstruct.py`, `src/movable_reality/{sam,clients}.py` and the future
-`agent/` and `server.py`. The **blender** lane (synthetic ground-truth room `blender01`)
+`agent/` and `server.py`. The **blender** lane (synthetic ground-truth rooms `blender01`, `blender02`)
 owns `scripts/blender_*.py`, `tests/test_blender_*.py` and `docs/ASSETS.md`.
 
 Shared files and how to change them:
@@ -162,6 +162,7 @@ uv run python scripts/build_lod.py --setup     # lod: build Spark's build-lod on
 uv run python scripts/build_lod.py demo        # lod: one .RAD per object -> lod/, sets lod fields (--force, --method quick)
 # viewer LOD: ?mode=naive (LOD off), ?lodPriority=2, ?lodRamp=300, ?lodPaged=1, ?lodSplatCount=<n>; see docs/LOD.md
 uv run python scripts/bake_planes.py --scene bakedemo --synthetic   # bake: synthetic room, then bake floor + ceiling
+uv run python scripts/bake_planes.py --scene bakedemo_l --synthetic --shape l   # bake: L-shaped room, the alpha mask cuts the corner (--no-mask turns it off)
 uv run python scripts/bake_planes.py --scene room01   # bake: planes/<label>.glb + reduced background (--force, --labels floor, --revert)
 uv run modal run modal_jobs/bake.py --scene room01    # bake: same stage, gsplat ortho rasterizer on an L4 (not yet run)
 # bake depth check (dev server): http://localhost:5173/src/planes/depthcheck.html?case=behind|front|both|crossing
@@ -183,7 +184,19 @@ uv run python scripts/coverage_topup.py --scene room01 --video topup.mp4   # cov
 uv run python scripts/blender_assets.py        # blender: CC0 Poly Haven assets -> data/assets/ (docs/ASSETS.md)
 blender -b -P scripts/blender_room.py -- --out data/raw/blender01 --samples 16   # blender: synthetic room, both walks, GT, mp4 (~70 min on the RTX 3060)
 # blender: quick look with --walk test --frames 0:600:100 --stage build,render; Blender 4.5 LTS (winget BlenderFoundation.Blender.LTS.4.5)
+blender -b -P scripts/blender_room.py -- --scene blender02 --samples 16   # blender: second room (L-shaped bedroom-study) -> data/raw/blender02*, both walks, GT, mp4
+uv run python scripts/blender_capture_guide.py --scene blender02   # blender: filming guide videos with the floor plan (needs the full render)
 uv run python scripts/blender_gt_eval.py --scene blender01   # blender: pose ATE (Sim3) vs GT; --labels <dir> adds per-object mask IoU
+# ui viewer: click an object, drag it, Q/E rotate, Delete hides, R restores, Ctrl/Cmd+Z undo; Enter sends a command, hold Space to talk
+# ui viewer: ?onboarding=0|1 (panel), ?server=0 (local edits even when the server runs); window.mrUi.manifest() in the console
+uv run python -m movable_reality.server          # core: scene server + agent on :8000 (Vite proxies /api, /ws)
+uv run python scripts/inventory.py --scene room01   # core: Muse Wonder lists objects -> inventory.json
+uv run python scripts/lift_ids.py --scene room01    # core: SAM 3.1 per noun, lift to Gaussians, floor alignment, objects/
+curl -X POST localhost:8000/api/scenes/demo/command -H 'content-type: application/json' -d '{"text":"move the chair left"}'
+MR_SESSIONS=1 uv run python -m movable_reality.server   # core: hosted mode (per-visitor scene copies, caps)
+uv run modal deploy modal_jobs/sam3d.py        # core M4: SAM 3D Objects (+ MapAnything pointmap) on an L40S, once per code change
+uv run python scripts/insert_object.py --scene m4test "small wooden stool" --x 0.3 --z -0.6   # core M4: gen#<n> (cached)
+uv run python scripts/complete_objects.py --scene room01   # core M4: obj_<id>_completed.ply per object (--only <id>, --force)
 ```
 
 Lanes add their own commands here in their PR.

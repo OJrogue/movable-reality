@@ -14,20 +14,37 @@ from __future__ import annotations
 import argparse
 import asyncio
 import itertools
+import json
+import os
+import secrets
+import shutil
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, Request, UploadFile, WebSocket, WebSocketDisconnect
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from .agent import RoomBounds, room_bounds, run_command
-from .config import REPO_ROOT, SCENES_DIR, Models
+from .config import DATA_DIR, REPO_ROOT, SCENES_DIR, Models
 from .scene import Scene
-from .voice import transcribe
+from .voice import check_wav, transcribe
 
 CAPTURE_TIMEOUT_S = 8.0
+
+# Hosted demo (U3). MR_SESSIONS=1 gives every visitor (cookie mr_session) a private copy of
+# scene.json, so edits never leak between visitors, and caps paid calls per visitor and per
+# day. MR_CACHE_ONLY=1 (agent/llm.py) answers only from cached replies, with no key at all.
+HOSTED = os.environ.get("MR_SESSIONS", "") == "1"
+SESSIONS_DIR = Path(os.environ.get("MR_SESSIONS_DIR", DATA_DIR / "sessions"))
+MAX_COMMANDS = int(os.environ.get("MR_MAX_COMMANDS", "20"))  # per visitor
+DAILY_COMMANDS = int(os.environ.get("MR_DAILY_COMMANDS", "300"))  # all visitors, per UTC day
+MAX_VOICE_S = float(os.environ.get("MR_MAX_VOICE_S", "15"))
+COOKIE = "mr_session"
+_usage: dict[str, int] = {}
 
 
 @dataclass
@@ -35,6 +52,7 @@ class SceneHub:
     """Per-scene server state: one lock for edits, connected viewers, pending screenshots."""
 
     scene_id: str
+    session: str | None = None
     lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     sockets: set[WebSocket] = field(default_factory=set)
     captures: dict[int, asyncio.Future] = field(default_factory=dict)
@@ -43,16 +61,27 @@ class SceneHub:
 
     @property
     def folder(self) -> Path:
+        """The scene folder (PLYs, trees, planes). Never written in hosted mode."""
         return SCENES_DIR / self.scene_id
 
+    @property
+    def manifest_path(self) -> Path:
+        if self.session is None:
+            return self.folder / "scene.json"
+        return SESSIONS_DIR / self.session / self.scene_id / "scene.json"
+
     def load(self) -> Scene:
-        path = self.folder / "scene.json"
+        path = self.manifest_path
         if not path.exists():
-            raise HTTPException(404, f"no scene '{self.scene_id}'")
+            src = self.folder / "scene.json"
+            if self.session is None or not src.exists():
+                raise HTTPException(404, f"no scene '{self.scene_id}'")
+            path.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(src, path)
         return Scene.load(path)
 
     def save(self, scene: Scene) -> None:
-        scene.save(self.folder / "scene.json")
+        scene.save(self.manifest_path)
 
     def room(self, scene: Scene) -> RoomBounds | None:
         if not self.bounds_loaded:
@@ -91,12 +120,32 @@ _ids = itertools.count(1)
 _hubs: dict[str, SceneHub] = {}
 
 
-def hub(scene_id: str) -> SceneHub:
+def hub(scene_id: str, session: str | None = None) -> SceneHub:
     if "/" in scene_id or "\\" in scene_id or scene_id.startswith("."):
         raise HTTPException(400, "bad scene id")
-    if scene_id not in _hubs:
-        _hubs[scene_id] = SceneHub(scene_id)
-    return _hubs[scene_id]
+    session = session if HOSTED else None
+    key = f"{scene_id}@{session}"
+    if key not in _hubs:
+        _hubs[key] = SceneHub(scene_id, session)
+    return _hubs[key]
+
+
+def _session(cookies) -> str | None:
+    sid = cookies.get(COOKIE)
+    return sid if sid and sid.isalnum() and len(sid) <= 64 else None
+
+
+def _charge(session: str | None) -> None:
+    """Count one paid command; HTTP 429 past the per-visitor or daily cap (hosted only)."""
+    if not HOSTED:
+        return
+    day = time.strftime("%Y-%m-%d", time.gmtime())
+    if _usage.get(f"day:{day}", 0) >= DAILY_COMMANDS:
+        raise HTTPException(429, "the demo's daily command budget is used up; try tomorrow")
+    if _usage.get(f"s:{session}", 0) >= MAX_COMMANDS:
+        raise HTTPException(429, f"limit of {MAX_COMMANDS} commands per visitor reached")
+    _usage[f"day:{day}"] = _usage.get(f"day:{day}", 0) + 1
+    _usage[f"s:{session}"] = _usage.get(f"s:{session}", 0) + 1
 
 
 class EditBody(BaseModel):
@@ -115,20 +164,44 @@ class CommandBody(BaseModel):
 app = FastAPI(title="Movable Reality scene server")
 
 
+@app.middleware("http")
+async def session_cookie(request: Request, call_next):
+    """Hosted mode: give every visitor a session cookie on their first request."""
+    response = await call_next(request)
+    if HOSTED and not _session(request.cookies):
+        response.set_cookie(COOKIE, secrets.token_hex(16), httponly=True, samesite="lax",
+                            max_age=7 * 24 * 3600)  # fmt: skip
+    return response
+
+
 @app.get("/api/health")
 async def health() -> dict[str, Any]:
-    return {"ok": True, "models": {"agent": Models.AGENT, "verifier": Models.VERIFIER_OPEN,
-                                   "transcribe": Models.TRANSCRIBE}}  # fmt: skip
+    return {"ok": True, "hosted": HOSTED,
+            "models": {"agent": Models.AGENT, "verifier": Models.VERIFIER_OPEN,
+                       "transcribe": Models.TRANSCRIBE}}  # fmt: skip
 
 
 @app.get("/api/scenes/{scene_id}")
-async def get_scene(scene_id: str) -> dict[str, Any]:
-    return hub(scene_id).load().model_dump(mode="json")
+async def get_scene(scene_id: str, request: Request) -> dict[str, Any]:
+    return hub(scene_id, _session(request.cookies)).load().model_dump(mode="json")
+
+
+@app.get("/scenes/{scene_id}/scene.json", response_model=None)
+async def scene_json(scene_id: str, request: Request):
+    """In hosted mode the viewer's poll must see the visitor's copy, not the original."""
+    h = hub(scene_id, _session(request.cookies))
+    if h.session is None:
+        path = h.folder / "scene.json"
+        if not path.exists():
+            raise HTTPException(404, "not found")
+        return FileResponse(path, media_type="application/json",
+                            headers={"Cache-Control": "no-store"})  # fmt: skip
+    return h.load().model_dump(mode="json")
 
 
 @app.post("/api/scenes/{scene_id}/edit")
-async def edit(scene_id: str, body: EditBody) -> dict[str, Any]:
-    h = hub(scene_id)
+async def edit(scene_id: str, body: EditBody, request: Request) -> dict[str, Any]:
+    h = hub(scene_id, _session(request.cookies))
     async with h.lock:
         scene = h.load()
         try:
@@ -158,9 +231,13 @@ async def _command(h: SceneHub, text: str, camera: dict | None, verify: bool) ->
                 inserter=_inserter(h), verify=verify,
             )  # fmt: skip
         except Exception as exc:  # noqa: BLE001 - report API failures to the command bar
+            # tool steps were pushed live but never saved: show the saved state again
+            await h.broadcast({"type": "scene", "scene": h.load().model_dump(mode="json")})
             await h.broadcast({"type": "agent", "stage": "done", "text": f"error: {exc}"})
             raise HTTPException(502, f"agent failed: {exc}") from exc
         h.save(live)
+        if any(st["tool"] == "insert_object" for st in res.steps):
+            h.bounds_loaded = False  # new splats may change the room box
         data = live.model_dump(mode="json")
     await h.broadcast({"type": "scene", "scene": data})
     return {"reply": res.reply, "steps": res.steps, "verified": res.verified,
@@ -168,7 +245,10 @@ async def _command(h: SceneHub, text: str, camera: dict | None, verify: bool) ->
 
 
 def _inserter(h: SceneHub):
-    """M4 insert path, when its dependencies are importable on this machine."""
+    """M4 insert path, when its dependencies are importable on this machine. Off in hosted
+    mode: it writes PLYs into the shared scene folder, which visitors' copies must not touch."""
+    if HOSTED:
+        return None
     try:
         from .insert import insert_object  # noqa: PLC0415 - optional, heavy
     except ImportError:
@@ -181,14 +261,28 @@ def _inserter(h: SceneHub):
 
 
 @app.post("/api/scenes/{scene_id}/command")
-async def command(scene_id: str, body: CommandBody) -> dict[str, Any]:
-    return await _command(hub(scene_id), body.text, body.camera, body.verify)
+async def command(scene_id: str, body: CommandBody, request: Request) -> dict[str, Any]:
+    session = _session(request.cookies)
+    h = hub(scene_id, session)
+    h.load()  # 404 before charging for an unknown scene
+    _charge(session)
+    return await _command(h, body.text[:500], body.camera, body.verify)
 
 
 @app.post("/api/scenes/{scene_id}/voice")
-async def voice(scene_id: str, audio: UploadFile, camera: str | None = None) -> dict[str, Any]:
-    h = hub(scene_id)
+async def voice(
+    scene_id: str, audio: UploadFile, request: Request, camera: str | None = None
+) -> dict[str, Any]:
+    session = _session(request.cookies)
+    h = hub(scene_id, session)
     data = await audio.read()
+    if HOSTED:
+        try:
+            if check_wav(data)[2] > MAX_VOICE_S:
+                raise HTTPException(400, f"voice commands are limited to {MAX_VOICE_S:.0f} s")
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
+    _charge(session)
     await h.broadcast({"type": "agent", "stage": "transcript", "text": "transcribing"})
     try:
         text = (await transcribe(data)).strip()
@@ -197,8 +291,6 @@ async def voice(scene_id: str, audio: UploadFile, camera: str | None = None) -> 
     await h.broadcast({"type": "agent", "stage": "transcript", "text": text})
     if not text:
         return {"transcript": "", "reply": "I did not catch that.", "steps": [], "verified": None}
-    import json  # noqa: PLC0415
-
     cam = json.loads(camera) if camera else None
     out = await _command(h, text, cam, True)
     return {"transcript": text, **out}
@@ -206,7 +298,7 @@ async def voice(scene_id: str, audio: UploadFile, camera: str | None = None) -> 
 
 @app.websocket("/ws/scenes/{scene_id}")
 async def scene_socket(ws: WebSocket, scene_id: str) -> None:
-    h = hub(scene_id)
+    h = hub(scene_id, _session(ws.cookies))
     await ws.accept()
     h.sockets.add(ws)
     try:
