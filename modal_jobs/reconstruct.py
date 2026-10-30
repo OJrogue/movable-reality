@@ -124,7 +124,9 @@ def _run(cmd: list[str], cwd: str | None = None) -> float:
     volumes={VOLUME_ROOT: scenes_vol, "/cache": cache_vol},
     timeout=60 * 60,
 )
-def reconstruct(scene_id: str, max_steps: int = 15_000, force: bool = False) -> dict:
+def reconstruct(
+    scene_id: str, max_steps: int = 15_000, force: bool = False, intrinsics: dict | None = None
+) -> dict:
     scenes_vol.reload()
     root = Path(VOLUME_ROOT) / "scenes" / scene_id
     frames, recon, result = root / "frames", root / "recon", root / "gsplat"
@@ -137,18 +139,15 @@ def reconstruct(scene_id: str, max_steps: int = 15_000, force: bool = False) -> 
         print("frames changed since the last reconstruction; redoing every stage")
         force = True
 
-    # 1. MapAnything: metric cameras + points, exported as a COLMAP model (Apache weights).
+    # 1. MapAnything: metric cameras + points with one shared camera, exported as a COLMAP
+    # model (Apache weights).
     if force or not (recon / "sparse").exists():
         shutil.rmtree(recon, ignore_errors=True)
+        k_args = [f"--{k}={intrinsics[k]}" for k in ("fx", "fy", "cx", "cy")] if intrinsics else []
         timings["mapanything_s"] = _run(
-            [
-                "python",
-                "/opt/map-anything/scripts/demo_colmap.py",
-                f"--images_dir={frames}",
-                f"--output_dir={recon}",
-                "--apache",
-            ]
-        )
+            ["python", "-m", "movable_reality.ma_colmap", f"--images_dir={frames}",
+             f"--output_dir={recon}", *k_args]
+        )  # fmt: skip
         stamp.write_text(fhash)
 
     # 1b. MapAnything's model stores ~518 px images and intrinsics. Train on the full-res
@@ -206,7 +205,11 @@ def main(scene: str, max_steps: int = 15_000, force: bool = False, skip_upload: 
             batch.put_directory(local / "frames", f"/scenes/{scene}/frames")
         print(f"uploaded {local / 'frames'}")
 
-    out = reconstruct.remote(scene, max_steps=max_steps, force=force)
+    # Known camera intrinsics in full-resolution pixels, {"fx", "fy", "cx", "cy"}; without the
+    # file MapAnything self-calibrates one shared camera (src/movable_reality/ma_colmap.py).
+    kfile = local / "intrinsics.json"
+    intrinsics = json.loads(kfile.read_text()) if kfile.exists() else None
+    out = reconstruct.remote(scene, max_steps=max_steps, force=force, intrinsics=intrinsics)
     print("remote result:", out)
 
     (local / "splat").mkdir(parents=True, exist_ok=True)
@@ -218,7 +221,7 @@ def main(scene: str, max_steps: int = 15_000, force: bool = False, skip_upload: 
     for model in ("recon", "recon_full"):
         for entry in scenes_vol.listdir(f"/scenes/{scene}/{model}", recursive=True):
             rel = entry.path.lstrip("/").removeprefix(f"scenes/{scene}/")
-            if not rel.endswith((".bin", ".txt", ".ply")) or "/images/" in rel:
+            if not rel.endswith((".bin", ".txt", ".ply", ".json")) or "/images/" in rel:
                 continue
             dest = local / rel
             dest.parent.mkdir(parents=True, exist_ok=True)
