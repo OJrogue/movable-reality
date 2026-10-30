@@ -2,7 +2,8 @@
 
 Mirror of this schema for the viewer: web/src/scene.ts. Change both together.
 Conventions: metres; world frame +Y up, floor at y = 0; `world_from_recon` maps the
-reconstruction frame (OpenCV: +Y down, +Z forward) into the world frame.
+reconstruction frame (OpenCV: +Y down, +Z forward) into the world frame. It is a similarity:
+rotation, translation and a uniform scale when lift_ids corrected MapAnything's scale.
 """
 
 from __future__ import annotations

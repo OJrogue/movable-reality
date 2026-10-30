@@ -128,3 +128,29 @@ def test_floor_alignment_squares_rotated_room(yaw_deg, opencv):
     lo, hi = world.min(axis=0), world.max(axis=0)
     area = (hi[0] - lo[0]) * (hi[2] - lo[2])
     assert area < 8.0 * 1.03  # axis-aligned 4 x 2 m, not a rotated box
+
+
+def test_ceiling_scale_puts_ceiling_at_measured_height():
+    from movable_reality.lift import ceiling_scale, scaled
+
+    rng = np.random.default_rng(0)
+    ceiling_y = 1.42 + rng.normal(0, 0.01, 500)  # recon came out 2.6 / 1.42 too small
+    s = ceiling_scale(ceiling_y, 2.6)
+    assert abs(s - 2.6 / 1.42) < 0.01
+    M = np.eye(4)
+    M[1, 3] = 0.3
+    p = np.array([1.0, 1.12, -2.0, 1.0])  # 1.42 m above the floor after M
+    out = scaled(M, s) @ p
+    assert abs(out[1] - 2.6) < 0.02
+    assert abs(out[0] - s) < 1e-9 and abs(out[2] + 2 * s) < 1e-9
+
+
+def test_ceiling_scale_rejects_too_few_or_negative():
+    import pytest
+
+    from movable_reality.lift import ceiling_scale
+
+    with pytest.raises(ValueError):
+        ceiling_scale(np.ones(10), 2.5)
+    with pytest.raises(ValueError):
+        ceiling_scale(-np.ones(200), 2.5)

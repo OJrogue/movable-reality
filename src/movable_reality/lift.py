@@ -148,7 +148,8 @@ def floor_alignment(
     floor_xyz: np.ndarray, cam_centres: np.ndarray, wall_xyz: np.ndarray | None = None
 ) -> np.ndarray:
     """4x4 world_from_recon: floor normal to +Y (towards the cameras), floor at y = 0, and a
-    yaw that lines the walls (or the floor outline) up with x and z. Scale stays 1 (metric)."""
+    yaw that lines the walls (or the floor outline) up with x and z. Scale stays 1; see
+    `ceiling_scale` for the metric correction."""
     interior = cam_centres.mean(axis=0)
     plane = fit_plane(floor_xyz, threshold=0.02, interior=interior)
     up = plane.normal / np.linalg.norm(plane.normal)
@@ -170,6 +171,24 @@ def floor_alignment(
     M[:3, :3] = R
     M[1, 3] = -plane.offset  # n . p = offset becomes y = offset, shift to 0
     return M
+
+
+def ceiling_scale(ceiling_y: np.ndarray, height: float) -> float:
+    """Metric correction from one tape measurement: the factor that puts the ceiling (world
+    y of the "ceiling" Gaussians, floor at y = 0) at `height` metres. MapAnything's scale
+    came out 1.4x to 1.8x too small on blender01 and smoke01 (31 Oct)."""
+    if len(ceiling_y) < 100:
+        raise ValueError(f"only {len(ceiling_y)} ceiling Gaussians; pass --scale instead")
+    measured = float(np.median(ceiling_y))
+    if measured <= 0:
+        raise ValueError(f"ceiling at y = {measured:.3f}, below the floor")
+    return height / measured
+
+
+def scaled(M: np.ndarray, s: float) -> np.ndarray:
+    """world_from_recon followed by a uniform scale about the world origin (floor stays y = 0)."""
+    S = np.diag([s, s, s, 1.0])
+    return S @ M
 
 
 def dominant_yaw(xz: np.ndarray, bins: int = 90) -> float:
