@@ -61,5 +61,7 @@ describe("shownPly", () => {
 
   it("treats float noise as no edit", () => {
     expect(isEdited(t([1e-9, 0, 0], 1e-9, 1 + 1e-9))).toBe(false);
+    expect(isEdited(t([0, 0, 0], 360 - 1e-9))).toBe(false);
+    expect(isEdited(t([0, 0, 0], -1e-9))).toBe(false);
   });
 });

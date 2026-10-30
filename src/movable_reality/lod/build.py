@@ -174,6 +174,7 @@ def build_scene_lod(
             jobs.append((o.id, True, o.completed_ply))
     results: list[BuildResult] = []
     paths: dict[tuple[str | None, bool], str | None] = {}
+    completed_src = {o.id: o.completed_ply for o in scene.objects if o.completed_ply}
     for object_id, completed, ply_rel in jobs:
         rad_rel = rad_name(ply_rel)
         ply, rad = root / ply_rel, root / rad_rel
@@ -212,7 +213,7 @@ def build_scene_lod(
             obj.lod = paths[(obj.id, False)]
         # Only touch completed_lod when this run saw the same completed PLY; a completion
         # written while the trees were building gets its tree on the next run.
-        if (obj.id, True) in paths and obj.completed_ply:
+        if (obj.id, True) in paths and completed_src.get(obj.id) == obj.completed_ply:
             obj.completed_lod = paths[(obj.id, True)]
         elif not obj.completed_ply:
             obj.completed_lod = None

@@ -139,7 +139,14 @@ the completed version; an undo back to identity shows the scan again. Each varia
 created once and hidden when unused, so swapping is instant after the first time and an
 object holds at most two trees. Disposing the unused variant would leave its tree in the
 worker for good, because D7 turns Spark's cleanup off. `lodChoice` picks `completed_lod`
-for the completed PLY and falls back to a load-time tree when it is missing.
+for the completed PLY and falls back to a load-time tree when it is missing. A completed
+PLY that fails to load is remembered and the scan stays (unit tests in
+`web/src/scene.swap.test.ts`).
+
+The new variant is shown and the old one hidden once `SplatMesh.initialized` resolves.
+Spark copies the tree into its worker (`initLodTree`) on the next LOD pass after that, so
+the object can be missing for a frame or two at the first swap (not observed on `demo`;
+a paged mesh would show the gap longest).
 
 Checked 30 Oct on a copy of `demo` with a red-tinted copy of the chair as its completed
 PLY: after `move chair#1 0.3 0 0` the chair turns red and loads
@@ -252,3 +259,8 @@ build survive. On Modal the same script runs on a CPU container once the image h
 - Priority strength: 2.0 is a guess; tune on the headset with the budget controller.
 - Memory with `lodCleanupTimeoutMs = Infinity`: every object tree stays in the worker for
   the whole session, two for completed objects. Fine for one room; revisit for big scenes.
+- With cleanup off, a disposed mesh keeps its worker tree. The only case today is the
+  background swap after a live bake (`SceneView.apply`), which leaves the old background
+  tree in the worker until reload. `cleanupLodTrees` is Spark's only path to
+  `disposeLodTree`; a fix would lower the timeout for one pass around that swap.
+- `mrLod.sources` records the last variant created per object, not the one shown.

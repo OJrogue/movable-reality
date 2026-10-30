@@ -357,10 +357,15 @@ This log is the record of what was built during the hackathon (26 Oct to 4 Nov 2
   it (missing completed PLYs are skipped, reruns are idempotent).
 - The viewer swaps an object to its completed PLY once its transform differs from identity
   (`shownPly` in `web/src/scene.ts`, the former M4 TODO) and back on undo. Both variants
-  stay in the scene graph and the unused one is hidden, so a swap back is instant and no
-  worker tree leaks. `lodChoice` loads `completed_lod` for the completed PLY.
+  stay in the scene graph and the unused one is hidden, so a swap back is instant and the
+  swap leaks no worker tree. A completed PLY that fails to load falls back to the scan.
+  `lodChoice` loads `completed_lod` for the completed PLY. Unit tests with a stub
+  `SplatMesh` cover the load race, undo during a load and failed loads.
 - L2 (D7): `installLod` sets `spark.lodCleanupTimeoutMs = Infinity`.
 - Checked in the browser on `demo_l1` (a local copy of `demo` with a red-tinted chair as
   the fake completion, not committed): move turns the chair red, undo turns it blue,
-  rotate red again; Spark kept 5 trees and 4 traversed meshes throughout.
+  rotate red again; `mrLod.stats()` showed 5 trees and 4 traversed meshes throughout
+  (manual check, no log committed).
+- Known gap: with cleanup off, the old background tree stays in the worker after a live
+  bake swaps the background PLY (see docs/LOD.md, open points).
 - Next: L3 (priority tuning on the headset); real completions arrive with M4.

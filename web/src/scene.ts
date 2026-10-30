@@ -116,7 +116,7 @@ export function isEdited(t: Transform): boolean {
   const eps = 1e-6;
   return (
     t.translation.some((v) => Math.abs(v) > eps) ||
-    Math.abs(t.yaw_deg % 360) > eps ||
+    Math.min(Math.abs(t.yaw_deg % 360), 360 - Math.abs(t.yaw_deg % 360)) > eps ||
     Math.abs(t.scale - 1) > eps
   );
 }
@@ -136,12 +136,6 @@ export interface ObjectNode {
   ply: string; // the PLY `mesh` shows: obj.ply, or obj.completed_ply after an edit
 }
 
-/**
- * Scene graph for one manifest:
- * root ─ recon(background) ─ SplatMesh
- *      └ pivot(obj) ─ offset(-centre) ─ recon ─ SplatMesh
- * `recon` groups hold world_from_recon; `pivot` holds the object's edit about its centre.
- */
 /** Show or hide a splat mesh through its recon group (Spark skips hidden subtrees). */
 function setShown(mesh: SplatMesh, shown: boolean): void {
   if (mesh.parent) mesh.parent.visible = shown;
@@ -150,11 +144,22 @@ function setShown(mesh: SplatMesh, shown: boolean): void {
 /** Splat meshes whose load failed (404, corrupt file); they never initialise. */
 export const failedMeshes = new WeakSet<SplatMesh>();
 
+/**
+ * Scene graph for one manifest:
+ * root ─ recon(background) ─ SplatMesh
+ *      └ pivot(obj) ─ offset(-centre) ─ recon ─ SplatMesh (one recon per variant: scan, completed)
+ * `recon` groups hold world_from_recon; `pivot` holds the object's edit about its centre.
+ */
+
 export class SceneView {
   readonly root = new THREE.Group();
   private readonly nodes = new Map<string, ObjectNode>();
-  /** Every mesh created per object, keyed by PLY (scan and completed). */
-  private readonly variants = new Map<string, Map<string, SplatMesh>>();
+  /** Every mesh created per object, keyed by PLY (scan and completed), or "failed". */
+  private readonly variants = new Map<string, Map<string, SplatMesh | "failed">>();
+  /** Variants that have finished loading. */
+  private readonly loaded = new WeakSet<SplatMesh>();
+  /** Latest manifest entry per object, for swaps that finish after a later edit. */
+  private readonly objects = new Map<string, SceneObject>();
   private background?: SplatMesh;
   private backgroundPly?: string;
 
@@ -194,6 +199,7 @@ export class SceneView {
       this.backgroundPly = m.background_ply;
     }
     for (const obj of m.objects) {
+      this.objects.set(obj.id, obj);
       const node = this.nodes.get(obj.id) ?? this.create(obj, worldFromRecon, m);
       const c = center(obj);
       const t = obj.transform;
@@ -201,52 +207,53 @@ export class SceneView {
       node.pivot.rotation.set(0, THREE.MathUtils.degToRad(t.yaw_deg), 0);
       node.pivot.scale.setScalar(t.scale);
       node.pivot.visible = obj.visible;
-      const ply = shownPly(obj);
-      if (ply !== node.ply) this.swap(node, obj.id, ply, worldFromRecon, m);
+      if (shownPly(obj) !== node.ply) this.swap(node, obj, worldFromRecon, m);
     }
   }
 
   /**
-   * Show an object's mesh for `ply` instead of the current one (scan to completed, or back
-   * on undo). Each variant is created once and then kept hidden when unused, so swapping
-   * back is instant and Spark keeps at most two LOD trees per object (D7 keeps hidden
-   * trees in memory, so a disposed mesh would leave its tree behind in the worker). A new
-   * variant is shown in place of the old one only once it has loaded, so the object never
-   * blinks out. If it fails to load, the old one stays.
+   * Show the variant `shownPly(obj)` asks for (scan to completed after an edit, back on
+   * undo). Each variant is created once and then kept hidden when unused, so swapping back
+   * is instant and Spark keeps at most two LOD trees per object (D7 keeps hidden trees in
+   * memory, so a disposed mesh would leave its tree behind in the worker). The previous
+   * variant stays drawn until the new one has loaded, so the object never blinks out. A
+   * variant that fails to load is remembered and the scan is shown in its place.
    */
-  private swap(
-    node: ObjectNode,
-    objectId: string,
-    ply: string,
-    worldFromRecon: THREE.Matrix4,
-    m: SceneManifest,
-  ): void {
-    const old = node.mesh;
-    const variants = this.variants.get(objectId) ?? new Map<string, SplatMesh>();
-    this.variants.set(objectId, variants);
-    node.ply = ply;
-    const cached = variants.get(ply);
-    if (cached) {
-      node.mesh = cached;
-      setShown(cached, true);
-      setShown(old, false);
-      return;
+  private swap(node: ObjectNode, obj: SceneObject, worldFromRecon: THREE.Matrix4, m: SceneManifest): void {
+    const variants = this.variants.get(obj.id)!;
+    node.ply = shownPly(obj);
+    // A completed PLY that failed to load falls back to the scan.
+    const ply = variants.get(node.ply) === "failed" ? obj.ply : node.ply;
+    let mesh = variants.get(ply);
+    if (mesh === "failed") {
+      for (const v of variants.values()) if (v !== "failed") setShown(v, false);
+      return; // the scan itself is broken; onLoadError has reported it
     }
-    const mesh = this.addRecon(node.pivot.children[0], ply, worldFromRecon, objectId, m);
-    variants.set(ply, mesh);
+    if (!mesh) {
+      const created = this.addRecon(node.pivot.children[0], ply, worldFromRecon, obj.id, m);
+      variants.set(ply, created);
+      // Re-run the choice with the latest manifest once the load settles: the edit may
+      // have been undone meanwhile, or the load may have failed.
+      const settle = (ok: boolean) => {
+        if (ok) this.loaded.add(created);
+        else {
+          variants.set(ply, "failed");
+          created.parent?.removeFromParent();
+        }
+        const latest = this.objects.get(obj.id);
+        if (latest) this.swap(node, latest, worldFromRecon, m);
+      };
+      created.initialized.then(
+        () => settle(true),
+        () => settle(false),
+      );
+      mesh = created;
+    }
     node.mesh = mesh;
-    mesh.initialized.then(
-      () => {
-        // The edit may have been undone while this variant was loading.
-        if (node.mesh !== mesh) return setShown(mesh, false);
-        for (const other of variants.values()) if (other !== mesh) setShown(other, false);
-      },
-      () => {
-        variants.delete(ply);
-        mesh.parent?.removeFromParent();
-        if (node.mesh === mesh) node.mesh = old;
-      },
-    );
+    setShown(mesh, true);
+    // Hide the others only once this one has loaded, so the object never blinks out.
+    if (!this.loaded.has(mesh)) return;
+    for (const v of variants.values()) if (v !== mesh && v !== "failed") setShown(v, false);
   }
 
   private create(obj: SceneObject, worldFromRecon: THREE.Matrix4, m: SceneManifest): ObjectNode {
@@ -256,11 +263,12 @@ export class SceneView {
     const c = center(obj);
     offset.position.set(-c[0], -c[1], -c[2]);
     pivot.add(offset);
-    const ply = shownPly(obj);
-    const mesh = this.addRecon(offset, ply, worldFromRecon, obj.id, m);
     this.root.add(pivot);
-    const node = { pivot, mesh, ply };
-    this.variants.set(obj.id, new Map([[ply, mesh]]));
+    this.variants.set(obj.id, new Map());
+    this.objects.set(obj.id, obj);
+    // swap() fills in mesh and ply straight away (it creates the first variant).
+    const node = { pivot, ply: "" } as ObjectNode;
+    this.swap(node, obj, worldFromRecon, m);
     this.nodes.set(obj.id, node);
     return node;
   }
