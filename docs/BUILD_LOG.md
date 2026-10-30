@@ -424,7 +424,7 @@ This log is the record of what was built during the hackathon (26 Oct to 4 Nov 2
 - `src/movable_reality/splat_ops.py`: PLY layout, quaternion and similarity transforms of
   splats, SAM 3D pose conversion, floor placement, Umeyama and ICP. 18 CPU tests in
   `tests/test_core_m4.py`.
-- Modal spend for M4 was $0.53 (billing report for the hour, all build and GPU time of
+- Modal spend for M4 was $0.60 (billing report for 30 Oct, all build and GPU time of
   `movable-reality-sam3d`), including about ten short crash loops before two startup fixes
   (`hf_transfer` env without the package, zero-depth points in the pointmap).
 - Review fixes (reviewer agent). The scan is filtered by opacity and a MAD floater test
