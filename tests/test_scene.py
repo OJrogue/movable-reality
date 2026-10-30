@@ -109,6 +109,7 @@ def test_plane_bake_section_roundtrip(tmp_path):
             texture_px=(800, 1000),
             fit_rms_m=0.003,
             filled_fraction=0.05,
+            transparent_fraction=0.07,
         )
     )
     s.plane_bake = PlaneBake(
@@ -125,6 +126,7 @@ def test_plane_bake_section_roundtrip(tmp_path):
     # The minimal plane written before these fields existed still loads.
     old = BakedPlane.model_validate({"id": "f", "label": "floor", "mesh": "planes/f.glb"})
     assert old.corners == [] and old.normal is None and old.filled_fraction == 0.0
+    assert old.transparent_fraction == 0.0
 
 
 def test_manifest_without_lane_sections_still_loads(tmp_path):

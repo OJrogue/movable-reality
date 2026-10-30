@@ -162,6 +162,7 @@ uv run python scripts/build_lod.py --setup     # lod: build Spark's build-lod on
 uv run python scripts/build_lod.py demo        # lod: one .RAD per object -> lod/, sets lod fields (--force, --method quick)
 # viewer LOD: ?mode=naive (LOD off), ?lodPriority=2, ?lodRamp=300, ?lodPaged=1, ?lodSplatCount=<n>; see docs/LOD.md
 uv run python scripts/bake_planes.py --scene bakedemo --synthetic   # bake: synthetic room, then bake floor + ceiling
+uv run python scripts/bake_planes.py --scene bakedemo_l --synthetic --shape l   # bake: L-shaped room, the alpha mask cuts the corner (--no-mask turns it off)
 uv run python scripts/bake_planes.py --scene room01   # bake: planes/<label>.glb + reduced background (--force, --labels floor, --revert)
 uv run modal run modal_jobs/bake.py --scene room01    # bake: same stage, gsplat ortho rasterizer on an L4 (not yet run)
 # bake depth check (dev server): http://localhost:5173/src/planes/depthcheck.html?case=behind|front|both|crossing

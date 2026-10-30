@@ -350,6 +350,44 @@ This log is the record of what was built during the hackathon (26 Oct to 4 Nov 2
 - Next: run M1 on `blender01`, download `recon/sparse` from the Modal volume, then run
   `blender_gt_eval.py`; masks once the object stage writes label PNGs.
 
+## 2026-10-30 (lane: bake)
+
+- B1 alpha mask (`src/movable_reality/bake/mask.py`, decision D11). On a 5 cm grid, a cell
+  is surface when a splat covered any of its texels or, for floors, when it lies under the
+  footprint of an object standing on the plane (bbox bottom within 15 cm, structure labels
+  floor, wall and ceiling excluded). A 15 cm morphological closing bridges cracks, and
+  uncovered regions that do not reach the quad's border (under furniture) stay opaque with
+  the push-pull fill.
+- A border region is cut only when it reaches more than 15 cm from the surface and walls
+  run along at least half of its edge against the surface. Walls are background splats
+  0.2 to 1.5 m off the plane, five or more per cell, within 10 cm of the edge. An unseen
+  corner of a rectangular room therefore stays filled, and so does the strip between a
+  sofa and the wall.
+- A masked plane's texture is WebP with alpha (lossy colour at the JPEG quality, lossless
+  alpha) through the required glTF extension `EXT_texture_webp`, and its material uses
+  `alphaMode: MASK`, `alphaCutoff: 0.5`. Synthetic L floor GLB sizes are 39 KB as WebP,
+  109 KB as JPEG without a mask and 585 KB as RGBA PNG. `makeOpaque` in
+  `web/src/planes/planes.ts` keeps the alpha test GLTFLoader sets, and `planeKey` includes
+  `transparent_fraction`, so a re-bake that only changes the mask reloads the plane.
+  Planes without transparent texels stay JPEG and `OPAQUE` as before.
+- New field `BakedPlane.transparent_fraction` (scene.py, scene.ts, tests). `filled_fraction`
+  now counts only filled texels inside the outline. `modal_jobs/bake.py` takes
+  `--no-mask` (not run).
+- `make_room(shape="l")` and `bake_planes.py --synthetic --shape l`. The 1.2 x 1.3 m
+  corner at +x, +z is outside the room and the walls follow the L. The unseen floor under
+  the sofa runs to the far wall, so only the sofa's footprint keeps it opaque. At 5 mm
+  texels the floor is 7.2 % transparent and the ceiling 7.1 %. The corner is 7.8 % of the
+  4 x 5 m rectangle, and the mask extends up to one cell past the splats, behind the
+  walls. The rectangular `bakedemo` has 0 % transparent texels.
+- Browser check (dev server on port 5175, local copies of the bakes with the floor turned
+  to face the default camera, not committed, screenshots only in the session). With the
+  mask the L-shaped floor ends at the walls, the corner shows the background and the
+  floor under the sofa is filled up to the wall. With `--no-mask` the floor runs past the
+  walls into the corner. The default view inside `bakedemo_l` renders as before.
+- Not done: no real room (room01 does not exist yet), no headset run. The cost of alpha
+  test on a depth-writing full-screen quad on Adreno GPUs is unmeasured. If it shows,
+  cutting the quad geometry along the mask is the alternative.
+- Next: B2 (gsplat bake on Modal), B3 (real room seams).
 ## 2026-10-30 (lane: lod)
 
 - L1: `SceneObject.completed_lod` in `scene.py` and `scene.ts`. `build_lod.py` builds
