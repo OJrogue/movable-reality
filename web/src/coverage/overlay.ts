@@ -26,6 +26,7 @@ export interface ViewMarker {
 export interface OverlayModel {
   gaps: GapMarker[];
   views: ViewMarker[];
+  best: ViewMarker | null; // the view to film first (phone frustum)
   summary: string;
 }
 
@@ -102,12 +103,12 @@ export function overlayModel(m: SceneManifest | null, perGap = 1): OverlayModel 
   const pct = share == null ? "" : `, ${(100 * share).toFixed(0)}% of visible surfaces`;
   const gen = cov && cov.generated_splats > 0 ? `, ${cov.generated_splats} generated splats` : "";
   const summary = cov ? `coverage: ${gaps.length} gaps${pct}${gen}` : "coverage: not scored";
-  return { gaps, views, summary };
+  return { gaps, views, best: bestView(cov), summary };
 }
 
 /** Stable key of what the overlay draws, so unchanged manifests do not rebuild meshes. */
 export function overlayKey(model: OverlayModel): string {
-  return JSON.stringify([model.gaps, model.views]);
+  return JSON.stringify([model.gaps, model.views, model.best]);
 }
 
 /** `?gaps=1` (or `true`, `on`) turns the overlay on at load; default off. */
@@ -124,4 +125,72 @@ export class EdgeTrigger<K extends object> {
     this.held.set(source, down);
     return down && !was;
   }
+}
+
+export const BEST_VIEW_COLOR = 0xffd21f;
+
+/**
+ * The single next view to film first: over every shown gap's views, the largest
+ * gain x score x (clamped radius)^2, so a big never-seen gap outranks a small, nearly
+ * covered one. Drawn as a phone frustum at the eye, aimed at the target. Null when no
+ * shown gap has a view.
+ */
+export function bestView(cov: Coverage | null | undefined): ViewMarker | null {
+  if (!cov) return null;
+  let best: ViewMarker | null = null;
+  let bestValue = -Infinity;
+  for (const g of cov.gaps) {
+    if (!SHOWN_STATUSES.has(g.status)) continue;
+    const r = gapRadius(g.radius);
+    const score = Number.isFinite(g.score) ? g.score : 0;
+    for (const v of viewMarkers({ ...cov, gaps: [g] }, Infinity)) {
+      const value = v.gain * score * r * r;
+      if (value > bestValue) {
+        bestValue = value;
+        best = v;
+      }
+    }
+  }
+  return best;
+}
+
+function cross(a: Vec3, b: Vec3): Vec3 {
+  return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+}
+
+function unit(a: Vec3): Vec3 {
+  const n = norm(a) || 1;
+  return [a[0] / n, a[1] / n, a[2] / n];
+}
+
+/**
+ * Far corners of a phone frustum held at `eye` and aimed along `dir` (unit), +Y up:
+ * four points `depth` metres ahead at the given horizontal FOV and landscape aspect, in
+ * the order top-left, top-right, bottom-right, bottom-left. A view straight up or down
+ * uses +Z as its up hint.
+ */
+export function frustumCorners(eye: Vec3, dir: Vec3, depth = 0.35, hfovDeg = 65, aspect = 16 / 9): Vec3[] {
+  const upHint: Vec3 = Math.abs(dir[1]) > 0.99 ? [0, 0, 1] : [0, 1, 0];
+  const right = unit(cross(dir, upHint));
+  const up = cross(right, dir);
+  const hw = depth * Math.tan(((hfovDeg / 2) * Math.PI) / 180);
+  const hh = hw / aspect;
+  const c: Vec3 = [eye[0] + dir[0] * depth, eye[1] + dir[1] * depth, eye[2] + dir[2] * depth];
+  const corners: [number, number][] = [
+    [-1, 1],
+    [1, 1],
+    [1, -1],
+    [-1, -1],
+  ];
+  return corners.map(([sx, sy]) => [
+    c[0] + sx * hw * right[0] + sy * hh * up[0],
+    c[1] + sx * hw * right[1] + sy * hh * up[1],
+    c[2] + sx * hw * right[2] + sy * hh * up[2],
+  ]);
+}
+
+/** `?generated=0` (or `false`, `off`) hides generated splats at load; default shown. */
+export function generatedParam(params: URLSearchParams): boolean {
+  const v = (params.get("generated") ?? "").toLowerCase();
+  return !(v === "0" || v === "false" || v === "off");
 }

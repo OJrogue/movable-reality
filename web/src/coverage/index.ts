@@ -7,15 +7,24 @@
 //
 // Toggle: ?gaps=1 turns it on at load; key G on desktop; the squeeze (grip) button of
 // either XR controller (xr-standard button 1, not used by Spark's or the perf lane's
-// controls). URL options: ?gapViews=<n> next views per gap (default 1).
+// controls). URL options: ?gapViews=<n> next views per gap (default 1, 0 = only the best).
+// The view to film first (bestView) is a yellow phone frustum at the eye, aimed at its gap.
+//
+// Generated splats (C3 repairs, coverage.generated_ply) load as their own mesh. Key T or
+// window.mrCoverage.toggleGenerated() shows or hides them; ?generated=0 hides them at load.
+// The ui lane's onboarding panel calls the same functions.
 // Markers are plain three.js meshes in world coordinates (scene.json frame), drawn after
 // the opaque pass with depth test on and depth write off, so they blend over the splats.
 import * as THREE from "three";
 import type { ViewerContext } from "../context";
+import { installGenerated } from "./generated";
 import {
+  BEST_VIEW_COLOR,
   EdgeTrigger,
   VIEW_COLOR,
+  frustumCorners,
   gapsParam,
+  generatedParam,
   overlayKey,
   overlayModel,
   type GapMarker,
@@ -29,6 +38,11 @@ export interface CoverageHandle {
   setVisible(on: boolean): void;
   toggle(): void;
   model(): OverlayModel;
+  /** Generated splats (C3): shown by default; the "show generated" toggle. */
+  generatedVisible(): boolean;
+  setGeneratedVisible(on: boolean): void;
+  toggleGenerated(): void;
+  generatedCount(): number;
 }
 
 const XR_TOGGLE_BUTTON = 1; // squeeze / grip
@@ -96,6 +110,31 @@ function viewNode(v: ViewMarker, mat: THREE.MeshBasicMaterial, ring: THREE.RingG
   return node;
 }
 
+function bestViewNode(v: ViewMarker, ring: THREE.RingGeometry): THREE.Group {
+  const node = new THREE.Group();
+  node.name = `nbv-best:${v.gapId}`;
+  const mat = new THREE.LineBasicMaterial({ color: BEST_VIEW_COLOR, transparent: true, opacity: 0.95 });
+  const c = frustumCorners(v.eye, v.dir);
+  const pts: number[] = [];
+  for (let i = 0; i < 4; i++) {
+    pts.push(...v.eye, ...c[i]); // edges from the eye
+    pts.push(...c[i], ...c[(i + 1) % 4]); // far rectangle
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.Float32BufferAttribute(pts, 3));
+  node.add(new THREE.LineSegments(geo, mat));
+  const floor = new THREE.Mesh(
+    ring,
+    new THREE.MeshBasicMaterial({ color: BEST_VIEW_COLOR, transparent: true, opacity: 0.9, side: THREE.DoubleSide, depthWrite: false }),
+  );
+  floor.rotation.x = -Math.PI / 2;
+  floor.scale.setScalar(1.6);
+  floor.position.set(v.floor[0], 0.012, v.floor[2]);
+  node.add(floor);
+  node.renderOrder = 12;
+  return node;
+}
+
 function disposeTree(obj: THREE.Object3D, keep: Set<THREE.BufferGeometry | THREE.Material>): void {
   obj.traverse((o) => {
     const m = o as THREE.Mesh;
@@ -112,7 +151,8 @@ export function installCoverage(ctx: ViewerContext): CoverageHandle {
   group.name = "coverage-overlay";
   group.visible = gapsParam(ctx.params);
   ctx.scene.add(group); // world frame: gaps and views are in scene.json coordinates
-  const perGap = Math.max(1, Math.floor(Number(ctx.params.get("gapViews")) || 1));
+  const rawViews = ctx.params.get("gapViews");
+  const perGap = rawViews === null ? 1 : Math.max(0, Math.floor(Number(rawViews)) || 0);
   const sphere = new THREE.SphereGeometry(1, 24, 16);
   const ring = new THREE.RingGeometry(0.18, 0.24, 32);
   const viewMat = new THREE.MeshBasicMaterial({
@@ -133,6 +173,7 @@ export function installCoverage(ctx: ViewerContext): CoverageHandle {
     }
     for (const g of model.gaps) group.add(gapMesh(g, sphere));
     for (const v of model.views) group.add(viewNode(v, viewMat, ring));
+    if (model.best) group.add(bestViewNode(model.best, ring));
   };
 
   const report = () => {
@@ -150,6 +191,8 @@ export function installCoverage(ctx: ViewerContext): CoverageHandle {
     }
   });
 
+  const generated = installGenerated(ctx, generatedParam(ctx.params));
+
   const handle: CoverageHandle = {
     group,
     visible: () => group.visible,
@@ -162,13 +205,21 @@ export function installCoverage(ctx: ViewerContext): CoverageHandle {
       handle.setVisible(!group.visible);
     },
     model: () => model,
+    generatedVisible: () => generated.visible(),
+    setGeneratedVisible: (on) => generated.setVisible(on),
+    toggleGenerated() {
+      generated.setVisible(!generated.visible());
+    },
+    generatedCount: () => generated.count(),
   };
 
   document.addEventListener("keydown", (e) => {
-    if (e.repeat || e.ctrlKey || e.metaKey || e.altKey || e.code !== "KeyG") return;
+    if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.code !== "KeyG" && e.code !== "KeyT") return;
     const target = e.target as HTMLElement | null;
     if (target && /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName)) return;
-    handle.toggle();
+    if (e.code === "KeyG") handle.toggle();
+    else handle.toggleGenerated();
   });
 
   const squeeze = new EdgeTrigger<XRInputSource>();
