@@ -46,6 +46,7 @@ synthetic data in desktop browsers (no performance meaning).
 | D16 | Build order: capture, M1, M2 and M3 first; headset work on headset days (PLAN, "Build order"). | OJ asked for the best order, 29 Oct |
 | D17 | C2 first does a full reconstruction rerun on all frames (best quality); the fast fine-tune path comes second and replaces it in the demo only if it comes close. | OJ, 29 Oct |
 | D18 | Scope: the viewer is a full product in a desktop browser too (mouse and keyboard, typed and spoken commands), not only in VR. The hosted demo link must work on a laptop with no headset. VR stays the frontier claim and the performance target. New lane **ui** (U1-U4, section 5). | OJ, 30 Oct |
+| D19 | Blender renders may use Cycles' OpenImageDenoise (offline data creation, not a runtime model) | OJ, 30 Oct |
 
 Still open, OJ decides: **feature freeze date** (suggested Mon 2 Nov 20:00, the latest that
 leaves Tue for the video), **borrowing a Quest 2** for one Meta-headset clip, **hosting** of

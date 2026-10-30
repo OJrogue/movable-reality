@@ -80,6 +80,8 @@ cd web && npm install && npm run dev   # open http://localhost:5173/?scene=room0
 | [Spark](https://sparkjs.dev) | MIT | Web splat renderer |
 | [three.js](https://threejs.org) | MIT | Web 3D |
 | [meta-sam-parser](https://pypi.org/project/meta-sam-parser/) | see package | Parsing SAM 3.1 output |
+| [Blender](https://www.blender.org) 4.5 LTS | GPL-3.0 (tool only, not shipped) | Renders the synthetic ground-truth room `blender01` |
+| [Poly Haven](https://polyhaven.com) models and textures | CC0 | Furniture, floor and wall of `blender01`; full list in [docs/ASSETS.md](docs/ASSETS.md) |
 
 ## How this was built
 
