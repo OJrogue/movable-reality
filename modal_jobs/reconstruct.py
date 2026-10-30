@@ -66,7 +66,11 @@ image = (
             "LDSHARED": "gcc -shared",
             "LDCXXSHARED": "g++ -shared",
         },
-        gpu=GPU,  # a GPU builder has more CPU and memory than the default one
+        # The GPU builder still had 1 CPU (nproc, 30 Oct), so gpu= does not speed the compile.
+        # It stays only because removing it rebuilds this cached layer (41 min). When the layer
+        # is rebuilt anyway, drop gpu= and check `import gsplat.csrc` instead of _C, since
+        # gsplat's _backend can fall back to a JIT compile and hide a broken wheel.
+        gpu=GPU,
     )
     .env({"PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:True", "HF_HOME": "/cache/hf"})
 )

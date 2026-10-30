@@ -200,7 +200,7 @@ def main() -> int:
     else:
         src = BENCH_DIR / ("headless" if args.headless else "raw")
         paths = sorted(src.glob("*.json"))
-        source = str(src.relative_to(REPO_ROOT))
+        source = src.relative_to(REPO_ROOT).as_posix()
     out = args.out or (BENCH_DIR / ("headless" if args.headless else "") / "RESULTS.md")
     rows, skipped = load_rows(paths)
     headless = args.headless or (bool(rows) and all(r.headless for r in rows))
