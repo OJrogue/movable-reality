@@ -350,6 +350,94 @@ This log is the record of what was built during the hackathon (26 Oct to 4 Nov 2
 - Next: run M1 on `blender01`, download `recon/sparse` from the Modal volume, then run
   `blender_gt_eval.py`; masks once the object stage writes label PNGs.
 
+## 2026-10-30 (lane: blender, second synthetic room `blender02`)
+
+- `scripts/blender_room.py --scene blender02` builds an L-shaped bedroom-study (D13): 4.5 x 5
+  x 2.6 m overall with the north-east 1.5 x 2 m corner cut out, so a 4.5 x 3 m study in the
+  south opens along y = 0.5 into a 3 x 2 m bed alcove in the north-west. 8 movable pieces
+  (day bed, nightstand, built floor lamp, desk, desk chair, bookshelf, armchair, potted
+  plant) and 4 items (books and succulent on the desk, vase and horse figurine on the
+  nightstand). Lamp-lit with two ceiling panels, no mirrors or glass. The default scene
+  stays `blender01`. Its camera matrices for all 1740 frames are bit-identical to the
+  previous version of the script, and its objects, walks and seeds are unchanged.
+- Walks for `blender02`: main 40 s (25 s chest-height loop at 1.5 m along the L, 9.6 m,
+  looking across at the far side of the loop, 2 s crouch, 13 s knee-height loop at 0.6 m in
+  the study) and test 20 s (a loop at 1.2 m through the study and the alcove, looking at a
+  point that circles the furniture ring clockwise). Paths are corner-cut (Chaikin) polygons.
+  Every frame keeps at least 0.35 m from walls and furniture footprints (unit test, checked
+  against the built `objects.json` bboxes when they exist, a test skipped otherwise).
+  Turn rate stays under 40 deg/s (36 main, 39.8 test). No two furniture bboxes overlap.
+- Outputs follow the scene id: `data/raw/blender02/`, `blender02_gt/`, `blender02.mp4`,
+  `blender02_test.mp4`. `objects.json` gains `room_outline_xz` (world x, z) for the L.
+  Floor and ceiling are one quad per band of the outline, with UVs from a shared origin so
+  the laminate has no seam.
+- `scripts/blender_capture_guide.py --scene blender02` draws the L outline from
+  `room_outline_xz` (falls back to the `room_size_m` box for `blender01`) and has its own
+  instructions for the new walks.
+- 9 new CC0 Poly Haven models in `blender_assets.py` and `docs/ASSETS.md`.
+- Check on the Mac (Blender 5.2.1, Metal): 6 frames of the main walk (every 200th) at 8
+  samples took 109 s on the first run and 27 s on a rerun (Blender console output, no log
+  committed). GT conversion of those frames gives masks
+  with the expected indices and depth of 1.2 to 4.8 m. The full walks are not rendered yet.
+- Next: render both walks in full (main session), then the capture guide videos.
+## 2026-10-30 (lane: bake)
+
+- B1 alpha mask (`src/movable_reality/bake/mask.py`, decision D11). On a 5 cm grid, a cell
+  is surface when a splat covered any of its texels or, for floors, when it lies under the
+  footprint of an object standing on the plane (bbox bottom within 15 cm, structure labels
+  floor, wall and ceiling excluded). A 15 cm morphological closing bridges cracks, and
+  uncovered regions that do not reach the quad's border (under furniture) stay opaque with
+  the push-pull fill.
+- A border region is cut only when it reaches more than 15 cm from the surface and walls
+  run along at least half of its edge against the surface. Walls are background splats
+  0.2 to 1.5 m off the plane, five or more per cell, within 10 cm of the edge. An unseen
+  corner of a rectangular room therefore stays filled, and so does the strip between a
+  sofa and the wall.
+- A masked plane's texture is WebP with alpha (lossy colour at the JPEG quality, lossless
+  alpha) through the required glTF extension `EXT_texture_webp`, and its material uses
+  `alphaMode: MASK`, `alphaCutoff: 0.5`. Synthetic L floor GLB sizes are 39 KB as WebP,
+  109 KB as JPEG without a mask and 585 KB as RGBA PNG. `makeOpaque` in
+  `web/src/planes/planes.ts` keeps the alpha test GLTFLoader sets, and `planeKey` includes
+  `transparent_fraction`, so a re-bake that only changes the mask reloads the plane.
+  Planes without transparent texels stay JPEG and `OPAQUE` as before.
+- New field `BakedPlane.transparent_fraction` (scene.py, scene.ts, tests). `filled_fraction`
+  now counts only filled texels inside the outline. `modal_jobs/bake.py` takes
+  `--no-mask` (not run).
+- `make_room(shape="l")` and `bake_planes.py --synthetic --shape l`. The 1.2 x 1.3 m
+  corner at +x, +z is outside the room and the walls follow the L. The unseen floor under
+  the sofa runs to the far wall, so only the sofa's footprint keeps it opaque. At 5 mm
+  texels the floor is 7.2 % transparent and the ceiling 7.1 %. The corner is 7.8 % of the
+  4 x 5 m rectangle, and the mask extends up to one cell past the splats, behind the
+  walls. The rectangular `bakedemo` has 0 % transparent texels.
+- Browser check (dev server on port 5175, local copies of the bakes with the floor turned
+  to face the default camera, not committed, screenshots only in the session). With the
+  mask the L-shaped floor ends at the walls, the corner shows the background and the
+  floor under the sofa is filled up to the wall. With `--no-mask` the floor runs past the
+  walls into the corner. The default view inside `bakedemo_l` renders as before.
+- Not done: no real room (room01 does not exist yet), no headset run. The cost of alpha
+  test on a depth-writing full-screen quad on Adreno GPUs is unmeasured. If it shows,
+  cutting the quad geometry along the mask is the alternative.
+- Next: B2 (gsplat bake on Modal), B3 (real room seams).
+## 2026-10-30 (lane: lod)
+
+- L1: `SceneObject.completed_lod` in `scene.py` and `scene.ts`. `build_lod.py` builds
+  `lod/obj_<id>_completed.rad` for every object with a `completed_ply` on disk and records
+  it (missing completed PLYs are skipped, reruns are idempotent).
+- The viewer swaps an object to its completed PLY once its transform differs from identity
+  (`shownPly` in `web/src/scene.ts`, the former M4 TODO) and back on undo. Both variants
+  stay in the scene graph and the unused one is hidden, so a swap back is instant and the
+  swap leaks no worker tree. A completed PLY that fails to load falls back to the scan.
+  `lodChoice` loads `completed_lod` for the completed PLY. Unit tests with a stub
+  `SplatMesh` cover the load race, undo during a load and failed loads.
+- L2 (D7): `installLod` sets `spark.lodCleanupTimeoutMs = Infinity`.
+- Checked in the browser on `demo_l1` (a local copy of `demo` with a red-tinted chair as
+  the fake completion, not committed). A move turns the chair red, the undo turns it
+  blue and a rotate turns it red again. `mrLod.stats()` showed 5 trees and 4 traversed
+  meshes throughout (manual check, no log committed).
+- Known gap: With cleanup off, the old background tree stays in the worker after a live
+  bake swaps the background PLY (see docs/LOD.md, open points).
+- Next: L3 (priority tuning on the headset). Real completions arrive with M4.
+
 ## 2026-10-30 (lane: ui)
 
 - New lane (D18). Everything lives in `web/src/ui/`, plus one `installUi(ctx)` call in

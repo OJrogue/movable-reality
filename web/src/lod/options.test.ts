@@ -67,3 +67,35 @@ describe("lodChoice", () => {
     expect(lodChoice("objects/background.ply", null, withBg, "/s", true, 1).source).toBe("rad");
   });
 });
+
+describe("completed objects", () => {
+  const chair = base.objects[0];
+  const withCompleted: SceneManifest = {
+    ...base,
+    objects: [
+      {
+        ...chair,
+        completed_ply: "objects/chair_1_completed.ply",
+        completed_lod: "lod/chair_1_completed.rad",
+      },
+      base.objects[1],
+    ],
+  };
+
+  it("loads completed_lod for the completed PLY and lod for the scan", () => {
+    const done = lodChoice("objects/chair_1_completed.ply", "chair#1", withCompleted, "/s", true, 1);
+    expect(done.options.url).toBe("/s/lod/chair_1_completed.rad");
+    const scan = lodChoice("objects/chair_1.ply", "chair#1", withCompleted, "/s", true, 1);
+    expect(scan.options.url).toBe("/s/lod/chair_1.rad");
+  });
+
+  it("builds the completed tree at load time when completed_lod is missing", () => {
+    const m: SceneManifest = {
+      ...withCompleted,
+      objects: [{ ...withCompleted.objects[0], completed_lod: null }, base.objects[1]],
+    };
+    const c = lodChoice("objects/chair_1_completed.ply", "chair#1", m, "/s", true, 1);
+    expect(c.source).toBe("load-time");
+    expect(c.path).toBe("objects/chair_1_completed.ply");
+  });
+});

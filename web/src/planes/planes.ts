@@ -7,7 +7,10 @@ export const PLANE_RENDER_ORDER = -100;
 
 /** Identity of a baked plane: a re-bake changes geometry or texture, so it changes the key. */
 export function planeKey(p: BakedPlane): string {
-  return JSON.stringify([p.mesh, p.corners ?? null, p.texel_m ?? null, p.texture_px ?? null, p.fit_rms_m ?? null]);
+  const key: unknown[] = [p.mesh, p.corners ?? null, p.texel_m ?? null, p.texture_px ?? null, p.fit_rms_m ?? null];
+  // The alpha mask changes the texture, not the geometry. Unmasked planes keep their old key.
+  if (p.transparent_fraction) key.push(p.transparent_fraction);
+  return JSON.stringify(key);
 }
 
 export function planeUrl(sceneBase: string, p: BakedPlane): string {
@@ -33,6 +36,11 @@ export function diffPlanes(loaded: Iterable<string>, m: SceneManifest): PlaneDif
 /**
  * Make every mesh under `root` an opaque occluder drawn first: depth test and depth write
  * on, no blending, unlit colours as baked. Returns the number of meshes changed.
+ *
+ * A plane baked with an alpha mask (glTF alphaMode MASK, which GLTFLoader turns into
+ * `alphaTest = alphaCutoff`) keeps its alpha test. Texels outside the surface's outline
+ * (the missing corner of an L-shaped floor) are discarded and write no depth, and the rest
+ * stays opaque.
  */
 export function makeOpaque(root: THREE.Object3D, maxAnisotropy = 1): number {
   let n = 0;
@@ -43,7 +51,7 @@ export function makeOpaque(root: THREE.Object3D, maxAnisotropy = 1): number {
     for (const mat of mats) {
       mat.transparent = false;
       mat.opacity = 1;
-      mat.alphaTest = 0;
+      mat.alphaTest = mat.alphaTest > 0 ? mat.alphaTest : 0;
       mat.depthTest = true;
       mat.depthWrite = true;
       mat.blending = THREE.NoBlending;
