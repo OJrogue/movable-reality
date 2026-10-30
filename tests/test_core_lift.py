@@ -1,6 +1,6 @@
 import numpy as np
 
-from movable_reality.coverage.cameras import Camera, look_at
+from movable_reality.coverage.cameras import look_at
 from movable_reality.lift import (
     LiftParams,
     assign,

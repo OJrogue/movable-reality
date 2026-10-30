@@ -24,7 +24,8 @@ from movable_reality.sam import sha256_file, upload_video
 STRUCTURE = ["floor", "wall", "ceiling"]
 PROMPT = """This video is a slow walk through one room. List every piece of furniture and
 every movable object that is clearly visible, as JSON only, no prose:
-{"objects": [{"noun": "armchair", "count": 1, "on": null}, {"noun": "vase", "count": 1, "on": "coffee table"}]}
+{"objects": [{"noun": "armchair", "count": 1, "on": null},
+             {"noun": "vase", "count": 1, "on": "coffee table"}]}
 Rules: "noun" is a short concrete name SAM can segment ("sofa", "floor lamp", "potted plant",
 "coffee table", "books"), lower case, singular, at most two words, one entry per kind of object
 with its count. "on" names the furniture it stands on, or null for the floor. Leave out walls,
