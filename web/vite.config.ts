@@ -183,6 +183,15 @@ const https = process.env.MR_HTTPS === "1";
 
 export default defineConfig({
   plugins: [serveLocalScenes(), benchEndpoint(), runMenu(), ...(https ? [basicSsl()] : [])],
-  server: { port: 5173, host: https ? true : undefined },
+  server: {
+    port: 5173,
+    host: https ? true : undefined,
+    // Core lane: the scene server (uv run python -m movable_reality.server, port 8000)
+    // holds the agent and the edit API; the viewer works without it (local edits only).
+    proxy: {
+      "/api": "http://127.0.0.1:8000",
+      "/ws": { target: "ws://127.0.0.1:8000", ws: true },
+    },
+  },
   build: { chunkSizeWarningLimit: 4000 }, // Spark bundles its WASM sorter (~3 MB)
 });

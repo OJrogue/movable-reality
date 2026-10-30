@@ -14,6 +14,7 @@ import { installLod } from "./lod";
 import { installPlanes } from "./planes";
 import { matrixFromRows, OPENCV_TO_Y_UP, SceneView, type SceneManifest } from "./scene";
 import { installPerf } from "./perf";
+import { installUi } from "./ui";
 
 const params = new URLSearchParams(location.search);
 const sceneId = params.get("scene");
@@ -64,6 +65,7 @@ const status = (msg: string) => {
 installPlanes(ctx); // lane bake
 installLod(ctx); // lane lod
 installCoverage(ctx); // lane coverage: gap overlay (?gaps=1, key G, XR squeeze)
+installUi(ctx); // lane ui: desktop editing, command bar, onboarding (?onboarding=0)
 installPerf(ctx); // lane renderer: HUD, frame log, budget controller, bench mode
 // ----------------------------------------------------------
 
