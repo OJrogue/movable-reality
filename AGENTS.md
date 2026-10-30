@@ -180,6 +180,8 @@ uv run python scripts/blender_assets.py        # blender: CC0 Poly Haven assets 
 blender -b -P scripts/blender_room.py -- --out data/raw/blender01 --samples 16   # blender: synthetic room, both walks, GT, mp4 (~70 min on the RTX 3060)
 # blender: quick look with --walk test --frames 0:600:100 --stage build,render; Blender 4.5 LTS (winget BlenderFoundation.Blender.LTS.4.5)
 uv run python scripts/blender_gt_eval.py --scene blender01   # blender: pose ATE (Sim3) vs GT; --labels <dir> adds per-object mask IoU
+# ui viewer: click an object, drag it, Q/E rotate, Delete hides, R restores, Ctrl/Cmd+Z undo; Enter sends a command, hold Space to talk
+# ui viewer: ?onboarding=0|1 (panel), ?server=0 (local edits even when the server runs); window.mrUi.manifest() in the console
 ```
 
 Lanes add their own commands here in their PR.
