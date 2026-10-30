@@ -136,3 +136,47 @@ def test_manifest_without_lane_sections_still_loads(tmp_path):
     loaded = Scene.load(path)
     assert loaded.planes == [] and loaded.coverage is None and loaded.background_lod is None
     assert loaded.plane_bake is None
+
+
+def test_place_sets_centre_and_undo_restores():
+    s = make_scene()
+    s.move("chair#1", 0.1, 0.0, 0.0)
+    s.apply_edit("place", "chair#1", {"x": 2.0, "z": -1.0})
+    mn, mx = s.get("chair#1").world_aabb()
+    assert math.isclose((mn[0] + mx[0]) / 2, 2.0)
+    assert math.isclose((mn[2] + mx[2]) / 2, -1.0)
+    s.apply_edit("undo")
+    assert s.get("chair#1").transform.translation == pytest.approx((0.1, 0.0, 0.0))
+
+
+def test_undo_walks_back_through_history():
+    s = make_scene()
+    s.apply_edit("move", "chair#1", {"dx": 1.0})
+    s.apply_edit("rotate", "table#1", {"yaw_deg": 90})
+    s.apply_edit("remove", "chair#1")
+    s.apply_edit("undo")
+    assert s.get("chair#1").visible
+    s.apply_edit("undo")
+    assert s.get("table#1").transform.yaw_deg == 0
+    s.apply_edit("undo")
+    assert s.get("chair#1").transform.translation == (0.0, 0.0, 0.0)
+    assert s.undo() is None  # nothing left
+    assert [e.op for e in s.history].count("undo") == 3
+
+
+def test_apply_edit_rejects_unknown_op():
+    with pytest.raises(ValueError):
+        make_scene().apply_edit("explode", "chair#1")
+
+
+def test_undo_remove_twice_restores_previous_visibility():
+    s = make_scene()
+    s.apply_edit("remove", "chair#1")
+    s.apply_edit("remove", "chair#1")
+    s.apply_edit("undo")
+    assert not s.get("chair#1").visible
+
+
+def test_apply_edit_rejects_nan():
+    with pytest.raises(ValueError):
+        make_scene().apply_edit("move", "chair#1", {"dx": float("nan")})
