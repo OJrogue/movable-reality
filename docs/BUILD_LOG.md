@@ -349,3 +349,18 @@ This log is the record of what was built during the hackathon (26 Oct to 4 Nov 2
   existing renders stay; `--no-denoise` remains as an option.
 - Next: run M1 on `blender01`, download `recon/sparse` from the Modal volume, then run
   `blender_gt_eval.py`; masks once the object stage writes label PNGs.
+
+## 2026-10-30 (lane: lod)
+
+- L1: `SceneObject.completed_lod` in `scene.py` and `scene.ts`. `build_lod.py` builds
+  `lod/obj_<id>_completed.rad` for every object with a `completed_ply` on disk and records
+  it (missing completed PLYs are skipped, reruns are idempotent).
+- The viewer swaps an object to its completed PLY once its transform differs from identity
+  (`shownPly` in `web/src/scene.ts`, the former M4 TODO) and back on undo. Both variants
+  stay in the scene graph and the unused one is hidden, so a swap back is instant and no
+  worker tree leaks. `lodChoice` loads `completed_lod` for the completed PLY.
+- L2 (D7): `installLod` sets `spark.lodCleanupTimeoutMs = Infinity`.
+- Checked in the browser on `demo_l1` (a local copy of `demo` with a red-tinted chair as
+  the fake completion, not committed): move turns the chair red, undo turns it blue,
+  rotate red again; Spark kept 5 trees and 4 traversed meshes throughout.
+- Next: L3 (priority tuning on the headset); real completions arrive with M4.

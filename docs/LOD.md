@@ -125,8 +125,27 @@ worker tree of a mesh that has not been rendered for 3 s (`cleanupLodTrees`, lin
 and showing it again runs `initLodTree` again. The check confirms it: `remove "floor
 lamp#1"`, wait 5 s, `restore` → `disposeLodTree` 1, `initLodTree` 5. That copies the tree
 from main-thread memory into the worker; it does not re-decode or rebuild (for a paged
-mesh it refetches pages). If remove/restore must be instant, set
-`spark.lodCleanupTimeoutMs = Infinity` (renderer lane owns the `SparkRenderer` options).
+mesh it refetches pages). Since 30 Oct (decision D7) `installLod` sets
+`spark.lodCleanupTimeoutMs = Infinity`, so hidden objects keep their worker trees and
+remove/restore needs no `initLodTree`.
+
+### Completed objects (`completed_lod`)
+
+SAM 3D Objects writes `obj_<id>_completed.ply` (stage 6) with the side the video never saw.
+`build_lod.py` builds `lod/obj_<id>_completed.rad` for it and records it as
+`SceneObject.completed_lod`. The viewer (`shownPly` and `SceneView.swap` in
+`web/src/scene.ts`) shows the scan until the object's transform differs from identity, then
+the completed version; an undo back to identity shows the scan again. Each variant is
+created once and hidden when unused, so swapping is instant after the first time and an
+object holds at most two trees. Disposing the unused variant would leave its tree in the
+worker for good, because D7 turns Spark's cleanup off. `lodChoice` picks `completed_lod`
+for the completed PLY and falls back to a load-time tree when it is missing.
+
+Checked 30 Oct on a copy of `demo` with a red-tinted copy of the chair as its completed
+PLY: after `move chair#1 0.3 0 0` the chair turns red and loads
+`lod/obj_chair_1_completed.rad`, the undo shows the blue scan, a later `rotate` shows red
+again. Spark held 5 trees (4 meshes + 1 completed) and traversed 4 meshes throughout, so
+the hidden variant takes no budget and no tree was dropped or rebuilt.
 
 ### Paging and streaming
 
@@ -231,6 +250,5 @@ build survive. On Modal the same script runs on a CPU container once the image h
   after load, so it says nothing about frame time.
 - The platform budget default only recognises the Quest browser as an XR device.
 - Priority strength: 2.0 is a guess; tune on the headset with the budget controller.
-- `lodCleanupTimeoutMs` vs remove/restore (see above).
-- `completed_ply` (stage 6): build its `.RAD` too when M4 lands; the manifest has no
-  `completed_lod` field yet (schema change, ask OJ).
+- Memory with `lodCleanupTimeoutMs = Infinity`: every object tree stays in the worker for
+  the whole session, two for completed objects. Fine for one room; revisit for big scenes.
