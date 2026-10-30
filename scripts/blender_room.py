@@ -269,7 +269,7 @@ def setup_render(samples: int, device: str, denoise: bool = True) -> None:
     scene.render.engine = "CYCLES"
     prefs = bpy.context.preferences.addons["cycles"].preferences
     used = "CPU"
-    for kind in [device] if device != "AUTO" else ["OPTIX", "CUDA"]:
+    for kind in [device] if device != "AUTO" else ["OPTIX", "CUDA", "METAL"]:
         try:
             prefs.compute_device_type = kind
             prefs.get_devices()
@@ -614,6 +614,9 @@ def animate_camera(walk: str, n: int):
 def setup_compositor(raw: Path) -> None:
     bpy = _bpy()
     scene = bpy.context.scene
+    if not hasattr(scene, "node_tree"):  # Blender 5: compositor is a node group
+        _setup_compositor_5(scene, raw)
+        return
     scene.use_nodes = True
     nt = scene.node_tree
     nt.nodes.clear()
@@ -631,6 +634,27 @@ def setup_compositor(raw: Path) -> None:
     out.file_slots.new("index/######")
     nt.links.new(rl.outputs["Depth"], out.inputs[0])
     nt.links.new(rl.outputs["IndexOB"], out.inputs[1])
+
+
+def _setup_compositor_5(scene, raw: Path) -> None:
+    """Blender 5.x API (checked on 5.2.1, Mac). Writes raw/depth/NNNN.exr, raw/index/NNNN.exr;
+    the frame number has 4 digits here, which convert_gt reads with int()."""
+    bpy = _bpy()
+    nt = bpy.data.node_groups.new("gt_passes", "CompositorNodeTree")
+    scene.compositing_node_group = nt
+    rl = nt.nodes.new("CompositorNodeRLayers")
+    out = nt.nodes.new("CompositorNodeOutputFile")
+    out.directory = str(raw)
+    out.file_name = ""
+    out.format.media_type = "IMAGE"
+    out.format.file_format = "OPEN_EXR"
+    out.format.color_depth = "32"
+    out.format.color_mode = "BW"
+    out.format.exr_codec = "ZIP"
+    out.file_output_items.new("FLOAT", "depth/")
+    out.file_output_items.new("FLOAT", "index/")
+    nt.links.new(rl.outputs["Depth"], out.inputs[0])
+    nt.links.new(rl.outputs["Object Index"], out.inputs[1])
 
 
 def render_walk(out: Path, gt: Path, walk: str, frames: range, force: bool) -> float:
@@ -734,7 +758,7 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--stage", default="build,render,gt,encode")
     ap.add_argument("--frames", default=None, help="frame range a:b[:step] (default: whole walk)")
     ap.add_argument("--samples", type=int, default=32)
-    ap.add_argument("--device", default="AUTO", choices=["AUTO", "OPTIX", "CUDA", "CPU"])
+    ap.add_argument("--device", default="AUTO", choices=["AUTO", "OPTIX", "CUDA", "METAL", "CPU"])
     ap.add_argument("--no-denoise", action="store_true", help="skip OpenImageDenoise")
     ap.add_argument("--keep-exr", action="store_true")
     ap.add_argument("--force", action="store_true", help="re-render frames that exist")
