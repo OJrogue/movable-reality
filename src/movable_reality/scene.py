@@ -71,6 +71,10 @@ class SceneObject(BaseModel):
         return mn, mx
 
 
+# Edits that undo() can revert. "insert" is logged by the insert path (M4).
+UNDOABLE_OPS = ("move", "place", "rotate", "remove", "restore", "insert")
+
+
 class HistoryEntry(BaseModel):
     ts: str
     op: str
@@ -222,6 +226,66 @@ class Scene(BaseModel):
     def set_visible(self, object_id: str, visible: bool, instruction: str | None = None) -> None:
         self.get(object_id).visible = visible
         self._log("restore" if visible else "remove", object_id, {}, instruction)
+
+    def place(self, object_id: str, x: float, z: float, instruction: str | None = None) -> None:
+        """Move the object so its bbox centre sits at world (x, z), keeping its height."""
+        obj = self.get(object_id)
+        prev = obj.transform.translation
+        cx, _, cz = obj.center
+        obj.transform.translation = (x - cx, prev[1], z - cz)
+        self._log("place", object_id, {"x": x, "z": z, "prev": list(prev)}, instruction)
+
+    def undo(self, instruction: str | None = None) -> HistoryEntry | None:
+        """Revert the newest edit that is not undone yet. Appends an "undo" entry that points at
+        it (args.index), so history stays append-only. Returns the reverted entry or None."""
+        undone = {e.args.get("index") for e in self.history if e.op == "undo"}
+        for i in range(len(self.history) - 1, -1, -1):
+            e = self.history[i]
+            if e.op not in UNDOABLE_OPS or i in undone or e.object_id is None:
+                continue
+            obj = self.get(e.object_id)
+            if e.op == "move":
+                tx, ty, tz = obj.transform.translation
+                a = e.args
+                obj.transform.translation = (tx - a["dx"], ty - a["dy"], tz - a["dz"])
+            elif e.op == "place":
+                obj.transform.translation = tuple(e.args["prev"])  # type: ignore[assignment]
+            elif e.op == "rotate":
+                obj.transform.yaw_deg = (obj.transform.yaw_deg - e.args["yaw_deg"]) % 360.0
+            elif e.op in ("remove", "insert"):
+                obj.visible = True if e.op == "remove" else False
+            elif e.op == "restore":
+                obj.visible = False
+            self._log("undo", e.object_id, {"index": i, "of": e.op}, instruction)
+            return e
+        return None
+
+    def apply_edit(
+        self,
+        op: str,
+        object_id: str | None = None,
+        args: dict[str, Any] | None = None,
+        instruction: str | None = None,
+    ) -> None:
+        """One entry point for the UI, the agent and the CLI, so all edit paths match."""
+        a = args or {}
+        if op == "undo":
+            self.undo(instruction)
+            return
+        if object_id is None:
+            raise ValueError(f"op '{op}' needs an object_id")
+        if op == "move":
+            self.move(object_id, a.get("dx", 0.0), a.get("dy", 0.0), a.get("dz", 0.0), instruction)
+        elif op == "place":
+            self.place(object_id, a["x"], a["z"], instruction)
+        elif op == "rotate":
+            self.rotate(object_id, a["yaw_deg"], instruction)
+        elif op == "remove":
+            self.set_visible(object_id, False, instruction)
+        elif op == "restore":
+            self.set_visible(object_id, True, instruction)
+        else:
+            raise ValueError(f"unknown op '{op}'")
 
     def mark_last_verified(self, verified: bool) -> None:
         if self.history:
