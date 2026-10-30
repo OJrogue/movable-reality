@@ -266,3 +266,34 @@ This log is the record of what was built during the hackathon (26 Oct to 4 Nov 2
   with no Meta equivalent (LPIPS) are allowed; the build order follows the headset days
   (`docs/PLAN.md`, "Build order"); C2 builds a full reconstruction rerun first and the
   fast fine-tune path second. The Muse Code notes in README and AGENTS.md are shorter.
+
+## 2026-10-30 (lane: blender)
+
+- New benchmark and second demo scene, labelled synthetic everywhere; the real phone
+  capture stays the main demo. Blender 4.5.10 LTS installed (winget), Cycles on the RTX
+  3060 Laptop through OptiX.
+- `scripts/blender_assets.py` downloads 12 CC0 Poly Haven assets (10 models, floor and wall
+  textures) into `data/assets/`; list with authors in `docs/ASSETS.md`.
+- `scripts/blender_room.py` builds a 4 x 5 x 2.6 m living room: 7 movable pieces (sofa,
+  coffee table, armchair, side table, procedural floor lamp, cabinet with its back to the
+  wall, plant) and 4 small items on surfaces (books, vase, succulent, bowl). Lamp-lit, no
+  mirrors or glass. Two handheld walks with shake, motion blur, sensor noise and fixed
+  exposure: main 38 s (25 s perimeter loop at 1.5 m, 11 s knee-height loop) and test 20 s
+  (figure eight at 1.2 m). Ground truth in `data/raw/blender01_gt/`: OpenCV cameras and K,
+  depth as 16-bit mm PNG, instance masks with `objects.json`, world-frame meshes.
+- Render times at 16 samples + OIDN: main 1140 frames in 2686 s (2.36 s/frame), test 600
+  frames in 1410 s (2.35 s/frame), about 70 min in total with GT conversion and encoding.
+  Both mp4s are H.264 1920x1080 at 30 fps.
+- Checks: floor pixels back-projected with the written K, poses and depth land at
+  y = 0 ± 0.2 mm. `extract_frames.py` selects 152 frames from `blender01.mp4`.
+- `scripts/blender_gt_eval.py`: pose ATE after Sim(3) alignment of the COLMAP cameras, and
+  per-object mask IoU with one-to-one matching. Pipeline frames map to GT frames through
+  `source_time_s`, refined by comparing against the renders. Sanity run on a fake model
+  (GT poses under a random Sim(3) plus 1 cm noise) gives ATE 1.7 cm and scale 2.5 as
+  expected; GT masks with permuted labels give IoU 1.0. Chamfer for completions is a stub
+  until M4.
+- Open question for OJ: Cycles' denoiser (OpenImageDenoise) is a learned network used only
+  offline to make the test video; `--samples 128 --no-denoise` avoids it at about 8x the
+  render time.
+- Next: run M1 on `blender01`, download `recon/sparse` from the Modal volume, then run
+  `blender_gt_eval.py`; masks once the object stage writes label PNGs.
