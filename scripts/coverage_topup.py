@@ -110,6 +110,9 @@ def main() -> int:
         json.dumps({"source": source, "new_frames": len(new), **fit}, indent=2)
     )
 
+    # The residual uncertainty belongs to the old splats; refit it with modal_jobs/coverage.py.
+    for name in ("uncertainty.npz", "uncertainty.json"):
+        (folder / "coverage" / name).unlink(missing_ok=True)
     res = score_scene(folder)
     write_outputs(folder, res)
     print(json.dumps({k: res.report[k] for k in ("views", "gaps", "gap_share")}, indent=2))
