@@ -292,8 +292,8 @@ This log is the record of what was built during the hackathon (26 Oct to 4 Nov 2
   (GT poses under a random Sim(3) plus 1 cm noise) gives ATE 1.7 cm and scale 2.5 as
   expected; GT masks with permuted labels give IoU 1.0. Chamfer for completions is a stub
   until M4.
-- Open question for OJ: Cycles' denoiser (OpenImageDenoise) is a learned network used only
-  offline to make the test video; `--samples 128 --no-denoise` avoids it at about 8x the
-  render time.
+- Decision D19 (OJ, 30 Oct): Cycles' denoiser (OpenImageDenoise, a learned network) is
+  allowed for the Blender renders, as offline data creation, not a runtime model. The
+  existing renders stay; `--no-denoise` remains as an option.
 - Next: run M1 on `blender01`, download `recon/sparse` from the Modal volume, then run
   `blender_gt_eval.py`; masks once the object stage writes label PNGs.
