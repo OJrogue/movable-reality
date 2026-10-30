@@ -1,6 +1,6 @@
-"""Object completion (stage 6): pick a view, register SAM 3D Objects' output to the scan.
+"""Object completion (stage 6). Pick a view and register SAM 3D Objects' output to the scan.
 
-Pure functions; scripts/complete_objects.py does the I/O and the Modal call.
+Pure functions. scripts/complete_objects.py does the I/O and the Modal call.
 """
 
 from __future__ import annotations
@@ -41,9 +41,9 @@ def coarse_scale(full: np.ndarray, scan: np.ndarray, scale_range=(0.5, 2.0)) -> 
 
 def coarse_starts(full: np.ndarray, scan: np.ndarray, s: float) -> list[np.ndarray]:
     """Candidate 4x4 similarities that put `full` (world frame, +Y up, already roughly
-    oriented) over `scan`: scale `s`, box bottoms matched in y (both stand on the floor), and
-    in x and z each of: box centres, min faces or max faces matched. A partial scan has its
-    true extent on the sides it saw, so one of the face pairings is right."""
+    oriented) over `scan`. Each uses scale `s` and matches box bottoms in y (both stand on
+    the floor), and in x and z it matches box centres, min faces or max faces. A partial scan
+    has its true extent on the sides it saw, so one of the face pairings is right."""
     flo, fhi = so.robust_bounds(full * s)
     slo, shi = so.robust_bounds(scan)
     picks = []
@@ -60,27 +60,44 @@ def coarse_starts(full: np.ndarray, scan: np.ndarray, s: float) -> list[np.ndarr
     ]
 
 
+def clean_scan(p: np.ndarray, alpha: np.ndarray | None = None, k: float = 4.0) -> np.ndarray:
+    """Opaque scan points without floaters. Per axis, it drops points more than k robust standard
+    deviations (1.4826 MAD) from the median."""
+    if alpha is not None and (alpha >= 0.5).sum() >= 100:
+        p = p[alpha >= 0.5]
+    med = np.median(p, axis=0)
+    mad = 1.4826 * np.median(np.abs(p - med), axis=0)
+    keep = (np.abs(p - med) <= k * np.maximum(mad, 1e-3)).all(axis=1)
+    return p[keep] if keep.sum() >= 50 else p
+
+
 def register(
     local: np.ndarray,
     recon_from_local: np.ndarray,
     scan_recon: np.ndarray,
     world_from_recon: np.ndarray,
     n_points: int = 2000,
+    scan_alpha: np.ndarray | None = None,
+    max_scale_change: float = 0.25,
 ) -> tuple[np.ndarray, dict]:
     """Recon-frame splats of the completed object, aligned to the scanned object.
 
-    `recon_from_local` is the first guess from SAM 3D's pose and the frame's camera; it fixes
-    orientation. Scale comes from the boxes; ICP on the splat centres (scan matched to the
-    model, trimmed, similarity) runs from the pose guess and from `coarse_starts`, and the
-    start with the lowest final RMS wins. Returns splats with `generated` = 1 and
-    a report (scale, ICP RMS before and after, metres)."""
+    `recon_from_local` is the first guess from SAM 3D's pose and the frame's camera, and it
+    fixes orientation. Scale comes from the boxes, unless it departs from the (metric) guess
+    by more than `max_scale_change`. Floaters are dropped from the scan first (`clean_scan`).
+    ICP on the splat centres (scan matched to the model, trimmed, similarity) runs from the
+    pose guess and from `coarse_starts`, and the start with the lowest trimmed RMS wins.
+    Returns splats with `generated` = 1 and a report (scale, ICP RMS before and after, m)."""
     W = np.asarray(world_from_recon, dtype=np.float64)
     W0 = W @ recon_from_local
     alpha = so.opacity(local)
     full = so.xyz(local)[alpha >= 0.5] if (alpha >= 0.5).sum() >= 100 else so.xyz(local)
     full_w = so.subsample(full @ W0[:3, :3].T + W0[:3, 3], n_points)
-    scan_w = so.subsample(scan_recon @ W[:3, :3].T + W[:3, 3], n_points, 1)
+    scan_w = clean_scan(scan_recon @ W[:3, :3].T + W[:3, 3], scan_alpha)
+    scan_w = so.subsample(scan_w, n_points, 1)
     s = coarse_scale(full_w, scan_w)
+    if abs(s - 1.0) > max_scale_change:  # boxes disagree with the metric pose guess: trust it
+        s = 1.0
     c = full_w.mean(0)  # first start: the pose guess itself, rescaled about its centroid
     starts = [so.similarity(np.eye(3), c - s * c, s), *coarse_starts(full_w, scan_w, s)]
     best = None

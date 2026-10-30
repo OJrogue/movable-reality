@@ -396,6 +396,10 @@ This log is the record of what was built during the hackathon (26 Oct to 4 Nov 2
   (only transforms and structures are used, 124 s on the 1-CPU builder). First build and
   deploy took 511 s. Weights (13 GB) download once to the `movable-reality-cache` volume
   in about 60 s.
+- Sources of the figures below. Timings, memory and decoder sizes come from the Modal container
+  logs and the result JSONs under `data/cache/sam3d/` (gitignored), build times from the
+  `modal deploy` output, the cost from `modal billing report --for today`, the splat count
+  from the viewer's console, and "upright" from a viewer screenshot that is not committed.
 - Measured on the L40S. Cold start 44 to 51 s to load both models (16.1 GiB), MapAnything
   pointmap 0.9 s, SAM 3D generation 11.8 to 12.4 s, peak 20.2 GiB. The dense decoder gives
   985,440 splats (67 MB) for a stool. The 4-splats-per-voxel decoder gives 123,180 splats
@@ -423,5 +427,13 @@ This log is the record of what was built during the hackathon (26 Oct to 4 Nov 2
 - Modal spend for M4 was $0.53 (billing report for the hour, all build and GPU time of
   `movable-reality-sam3d`), including about ten short crash loops before two startup fixes
   (`hf_transfer` env without the package, zero-depth points in the pointmap).
+- Review fixes (reviewer agent). The scan is filtered by opacity and a MAD floater test
+  before registration, the box scale falls back to the metric pose guess when the two differ
+  by more than 25 %, ICP ranks starts by trimmed RMS and keeps its best step (a synthetic
+  scan with 7 % floaters, 3 mm noise and a 15 degree yaw error now registers within 6 cm),
+  generated objects use SAM 3D's canonical +Z as up, the agent runs an insert in a worker
+  thread so the server stays live, hosted mode has no insert (visitors would overwrite each
+  other's `gen_<n>.ply`), and the deploy stops when HF_TOKEN is missing. The insert no
+  longer touches `coverage.generated_splats`, which stays with the coverage lane.
 - Next: run `complete_objects.py` once `lift_ids.py` has written masks for a real scene,
   then the viewer swap to `completed_ply` (lod lane, L1).

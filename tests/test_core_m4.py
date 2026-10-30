@@ -292,3 +292,41 @@ def test_insert_tool_reports_failures_to_the_model():
     out = run_tool(scene, "insert_object", args, None, inserter=broken)
     assert "Modal app not deployed" in out["error"]
     assert run_tool(scene, "insert_object", args, None)["error"]
+
+
+def test_register_survives_floaters_noise_and_yaw_error():
+    """Partial scan with 3 mm noise and 7 % floaters (sigma 0.6 m), a 15 degree yaw error and
+    10 % scale error in the guess."""
+    rng = np.random.default_rng(3)
+    canon = box_points((0.5, 0.9, 0.5), n=5000)
+    W = so.similarity(rot("x", 180), [0, 0, 0], 1.0)
+    world_true = canon + [0.0, 0.45, 0.0]
+    recon_true = world_true @ np.linalg.inv(W)[:3, :3].T
+    scan = recon_true[recon_true[:, 2] < 0.0]
+    scan = scan + rng.normal(0, 0.003, scan.shape)
+    floaters = scan.mean(0) + rng.normal(0, 0.6, (int(0.07 * len(scan)), 3))
+    scan = np.concatenate([scan, floaters])
+    guess = np.linalg.inv(W) @ so.similarity(rot("y", 15), [0.05, 0.45, 0.03], 0.9)
+    v, info = register(so.standard(sam3d_like(canon)), guess, scan, W)
+    assert np.abs(so.xyz(v) - recon_true).max() < 0.06
+    assert info["icp_rms_after_m"] < 0.03
+
+
+def test_clean_scan_drops_floaters_and_transparent_splats():
+    from movable_reality.completion import clean_scan
+
+    rng = np.random.default_rng(0)
+    body = rng.normal(0, 0.1, (1000, 3))
+    p = np.concatenate([body, [[5.0, 0, 0], [0, -4.0, 0]]])
+    alpha = np.ones(len(p))
+    alpha[:200] = 0.1
+    out = clean_scan(p, alpha)
+    assert len(out) == 800 and np.abs(out).max() < 1.0
+
+
+def test_upright_rotation_forced_axis():
+    level = np.array([[1.0, 0, 0], [0, 0, -1], [0, 1, 0]])
+    A = rot("x", -50) @ level  # camera pitched 50 degrees down onto a local +Z-up object
+    R, tilt = so.upright_rotation(A, up_axis=2)
+    assert tilt == pytest.approx(50, abs=1e-6)
+    np.testing.assert_allclose(R @ [0, 0, 1], [0, 1, 0], atol=1e-9)

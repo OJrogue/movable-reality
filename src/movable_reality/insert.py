@@ -57,7 +57,7 @@ def _run(coro):
 
 
 def parse_size(text: str) -> dict[str, Any]:
-    """Noun and size from Muse Spark's reply; tolerant of code fences and extra prose."""
+    """Noun and size from Muse Spark's reply. Tolerates code fences and extra prose."""
     m = re.search(r"\{.*\}", text, re.S)
     if not m:
         raise ValueError(f"no JSON in size reply: {text[:200]!r}")
@@ -120,7 +120,7 @@ def place_generated(
 ) -> tuple[np.ndarray, dict[str, Any]]:
     """Canonical SAM 3D splats -> recon-frame splats standing on the floor at (x, z).
     Returns the splats (flag `generated` = 1) and placement info (world bbox, scale)."""
-    R_up, tilt = so.upright_rotation(cam_from_local)
+    R_up, tilt = so.upright_rotation(cam_from_local, up_axis=2)
     p = so.xyz(local) @ R_up.T
     alpha = so.opacity(local)
     lo, hi = so.robust_bounds(p, alpha)
@@ -183,8 +183,6 @@ def insert_object(
         prompt=prompt,
     )
     scene.objects.append(obj)
-    if scene.coverage is not None:
-        scene.coverage.generated_splats += len(splats)
     size = [round(v, 2) for v in obj.size]
     scene._log(  # noqa: SLF001 - the insert op is logged like the other edits
         "insert",

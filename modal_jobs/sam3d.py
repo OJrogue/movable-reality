@@ -1,17 +1,17 @@
 """SAM 3D Objects on Modal: one image + one object mask -> the object as 3D Gaussians.
 
-    uv run modal deploy modal_jobs/sam3d.py      # once; insert.py and complete_objects.py call it
+    uv run modal deploy modal_jobs/sam3d.py   # once, then insert.py and complete_objects.py call it
     uv run modal run modal_jobs/sam3d.py --image data/x.png --mask data/x_mask.png --out x.ply
 
 Weights: gated `facebook/sam-3d-objects` (SAM License) on Hugging Face, cached on the
 `movable-reality-cache` volume. HF_TOKEN goes in as a Modal secret built from the local
-environment (.env) at deploy time; it is never written to the repo.
+environment (.env) at deploy time and is never written to the repo.
 
 Only Meta models run here (AGENTS.md rule 2). SAM 3D Objects' default pipeline estimates the
 pointmap of the image with MoGe (a Microsoft model). We switch that off (`depth_model: null`)
 and pass a pointmap from MapAnything (Meta, Apache-2.0 weights) instead, through the
 pipeline's own `pointmap=` argument. The MoGe *package* is installed because SAM 3D Objects
-imports its geometry helpers (plain functions, no weights); its network is never loaded.
+imports its geometry helpers (plain functions, no weights), and its network is never loaded.
 
 Output of `Sam3D.run`: the Gaussians in the object's canonical frame as a standard 3DGS PLY
 (x y z, nx ny nz, f_dc_0..2, opacity, scale_0..2, rot_0..3), plus the predicted pose that
@@ -153,6 +153,8 @@ if modal.is_local():
     from dotenv import load_dotenv
 
     load_dotenv(Path(__file__).resolve().parents[1] / ".env")
+    if not os.environ.get("HF_TOKEN"):
+        raise SystemExit("HF_TOKEN missing from .env: the SAM 3D Objects weights are gated")
 hf_secret = modal.Secret.from_dict({"HF_TOKEN": os.environ.get("HF_TOKEN", "")})
 
 

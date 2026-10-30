@@ -75,8 +75,11 @@ def main() -> int:
         A, t, s = res.cam_from_local()
         recon_from_cam = np.linalg.inv(so.similarity(cam.R, cam.t, 1.0))
         recon_from_local = recon_from_cam @ so.similarity(A, t, s)
-        scan = so.xyz(so.read_vertices(root / obj.ply))
-        splats, info = register(res.vertices, recon_from_local, scan, scene.world_from_recon)
+        scan_v = so.read_vertices(root / obj.ply)
+        splats, info = register(
+            res.vertices, recon_from_local, so.xyz(scan_v), scene.world_from_recon,
+            scan_alpha=so.opacity(scan_v),
+        )  # fmt: skip
         so.write_vertices(root / out_rel, splats)
         obj.completed_ply = out_rel
         scene.save(root / "scene.json")

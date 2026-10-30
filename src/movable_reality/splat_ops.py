@@ -6,7 +6,7 @@ scale_0..2 (log), rot_0..3 (quaternion w x y z), plus the `generated` flag (ucha
 
 A similarity transform x' = s R x + t moves the centres, multiplies the scales by s and
 left-multiplies the quaternions by the quaternion of R. Higher SH bands (f_rest) are not
-rotated; SAM 3D Objects writes degree 0 only, so generated splats have none.
+rotated. SAM 3D Objects writes degree 0 only, so generated splats have none.
 """
 
 from __future__ import annotations
@@ -36,7 +36,7 @@ def read_vertices(src: Path | bytes) -> np.ndarray:
 
 def standard(v: np.ndarray, generated: int | None = None) -> np.ndarray:
     """Copy into the standard layout (float32), dropping unknown properties. Missing normals
-    become 0. `generated` (0 or 1) sets the flag for every splat; None keeps an existing one."""
+    become 0. `generated` (0 or 1) sets the flag for every splat, and None keeps an existing one."""
     names = v.dtype.names or ()
     rest = sorted((n for n in names if n.startswith("f_rest_")), key=lambda n: int(n[7:]))
     fields = CORE + rest + TAIL
@@ -202,7 +202,7 @@ def robust_bounds(
 
 
 def upright_rotation(
-    cam_from_local: np.ndarray, snap_deg: float = 40.0
+    cam_from_local: np.ndarray, snap_deg: float = 40.0, up_axis: int | None = None
 ) -> tuple[np.ndarray, float]:
     """Rotation world_from_local for an object seen by a roughly level camera.
 
@@ -211,15 +211,17 @@ def upright_rotation(
     canonical frame is axis-aligned for upright objects (local +Z up in the first live run,
     seen from 25 degrees above, 30 Oct). World +Z points from the object
     towards the camera (horizontally), so the object faces the default viewer.
+    `up_axis` forces that local axis (sign chosen towards camera up): SAM 3D Objects'
+    canonical frame is Z-up (upstream `_fix_gaussian_alignment`), so generated objects pass 2.
     Returns (R, angle in degrees between camera up and the chosen up axis)."""
     A = np.asarray(cam_from_local, dtype=np.float64)
     up = A.T @ np.array([0.0, -1.0, 0.0])
     back = A.T @ np.array([0.0, 0.0, -1.0])
-    k = int(np.argmax(np.abs(up)))
+    k = int(np.argmax(np.abs(up))) if up_axis is None else up_axis
     axis = np.zeros(3)
-    axis[k] = np.sign(up[k])
+    axis[k] = np.sign(up[k]) or 1.0
     angle = math.degrees(math.acos(min(1.0, abs(up[k]))))
-    if angle <= snap_deg:
+    if angle <= snap_deg or up_axis is not None:
         up = axis
     up /= np.linalg.norm(up)
     f = back - up * (back @ up)
@@ -295,12 +297,19 @@ def icp(
     """Register a complete model `full` to a partial scan `partial` (both N x 3).
 
     Every scanned point is matched to its nearest model point (the scan is a subset of the
-    object's surface, so this direction has no false matches from unseen sides); the worst
-    (1 - trim) matches are dropped; a similarity is fitted. The accumulated scale stays in
-    `scale_range`. Returns (4x4 matrix M with partial ~ M full, RMS before, RMS after)."""
+    object's surface, so this direction has no false matches from unseen sides). The worst
+    (1 - trim) matches are dropped and a similarity is fitted. The accumulated scale stays in
+    `scale_range`. RMS is over the best `trim` share of the scan, so floaters do not decide
+    it. Returns (best 4x4 M with partial ~ M full, trimmed RMS before, trimmed RMS of M)."""
+
+    def trimmed_rms(pts: np.ndarray) -> float:
+        d = nearest(partial, pts)[1]
+        return float(np.sqrt(np.mean(np.sort(d)[: max(1, int(len(d) * trim))] ** 2)))
+
     M = np.eye(4)
     cur = full.copy()
-    rms0 = rms = float(np.sqrt(np.mean(nearest(partial, cur)[1] ** 2)))
+    rms0 = rms = trimmed_rms(cur)
+    best = (M.copy(), rms)
     for _ in range(iters):
         j, d = nearest(partial, cur)
         keep = d <= np.quantile(d, trim)
@@ -310,15 +319,15 @@ def icp(
         if not lo <= total <= hi:
             s = float(np.clip(total, lo, hi)) / (np.linalg.det(M[:3, :3]) ** (1 / 3))
             t = partial[keep].mean(0) - s * R @ cur[j[keep]].mean(0)
-        step = similarity(R, t, s)
-        M = step @ M
+        M = similarity(R, t, s) @ M
         cur = cur @ (s * R).T + t
-        new = float(np.sqrt(np.mean(nearest(partial, cur)[1] ** 2)))
-        done = rms - new < 1e-5
-        rms = new
-        if done:
+        new = trimmed_rms(cur)
+        if new < best[1]:
+            best = (M.copy(), new)
+        if rms - new < 1e-5:
             break
-    return M, rms0, rms
+        rms = new
+    return best[0], rms0, best[1]
 
 
 def subsample(p: np.ndarray, n: int, seed: int = 0) -> np.ndarray:
