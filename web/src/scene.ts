@@ -38,6 +38,7 @@ export interface BakedPlane {
   texture_px?: [number, number] | null; // width, height
   fit_rms_m?: number | null;
   filled_fraction?: number; // share of texels no Gaussian covered, filled by hole filling
+  transparent_fraction?: number; // share of texels outside the outline (alpha mask)
 }
 
 /** How the planes were baked; background_ply in the manifest already points at the reduced PLY. */

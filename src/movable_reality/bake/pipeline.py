@@ -25,7 +25,7 @@ from PIL import Image
 
 from movable_reality.scene import BakedPlane, PlaneBake, Scene
 
-from . import gaussians, glb, planefit, raster, texture
+from . import gaussians, glb, mask, planefit, raster, texture
 
 DEFAULT_LABELS = ("floor", "ceiling")
 IDS_PATH = "ids/gaussian_ids.npy"
@@ -56,6 +56,10 @@ class BakeOptions:
     image_format: str = "jpeg"  # "jpeg" or "png"
     jpeg_quality: int = 90
     seed: int = 0
+    # Alpha mask (see mask.py). Texels outside the surface's outline become transparent.
+    alpha_mask: bool = True
+    mask_cell: float = 0.05  # metres, grid of the mask
+    mask_close: float = 0.15  # metres, gaps narrower than about twice this are bridged
 
 
 @dataclass
@@ -73,6 +77,7 @@ class PlaneReport:
     size_m: tuple[float, float] | None = None
     texture_px: tuple[int, int] | None = None
     filled: float = 0.0
+    transparent: float = 0.0
     seconds: float = 0.0
 
 
@@ -114,8 +119,9 @@ def outputs_exist(scene_dir: Path, scene: Scene) -> bool:
 
 
 def _encode(img: np.ndarray, opts: BakeOptions) -> tuple[bytes, str]:
+    """JPEG or PNG as asked. An RGBA image (alpha mask) is always PNG, as JPEG has no alpha."""
     buf = io.BytesIO()
-    if opts.image_format == "png":
+    if opts.image_format == "png" or img.shape[-1] == 4:
         Image.fromarray(img).save(buf, format="PNG", optimize=True)
         return buf.getvalue(), "image/png"
     Image.fromarray(img).save(buf, format="JPEG", quality=opts.jpeg_quality, subsampling=0)
@@ -195,7 +201,30 @@ def bake_scene(
         view = raster.OrthoView(rect.origin, rect.u, rect.v, rect.normal, texel, width, height)
         premult, alpha = raster_fn(pts[bake_local], covs, g.opacities, g.rgb, view)
         rgb = texture.push_pull(premult, alpha)
-        img_bytes, mime = _encode(texture.to_uint8(rgb), opts)
+        keep = np.ones(alpha.shape, dtype=bool)
+        if opts.alpha_mask:
+            # Objects stand on floors, so the floor under them exists. Ceilings have no such rule.
+            on_floor = float(np.dot(plane.normal, up_world)) > 0.9
+            supports = (
+                [(np.asarray(o.bbox_min), np.asarray(o.bbox_max)) for o in scene.objects]
+                if on_floor
+                else None
+            )
+            keep = mask.plane_mask(
+                alpha,
+                texel,
+                origin=rect.origin,
+                u=rect.u,
+                v=rect.v,
+                supports=supports,
+                cell=opts.mask_cell,
+                close_m=opts.mask_close,
+            )
+        img = texture.to_uint8(rgb)
+        masked = not keep.all()
+        if masked:
+            img = np.dstack([img, np.where(keep, 255, 0).astype(np.uint8)])
+        img_bytes, mime = _encode(img, opts)
 
         corners_world = rect.corners()
         corners_recon = corners_world @ recon_from_world[:3, :3].T + recon_from_world[:3, 3]
@@ -206,6 +235,7 @@ def bake_scene(
             img_bytes,
             mime,
             name=label,
+            alpha_mask=masked,
             extras={"label": label, "texel_m": texel, "frame": "recon"},
         )
         removed_idx[label] = sel_idx[bake_local | behind_local]
@@ -218,7 +248,8 @@ def bake_scene(
         pr.rms = plane.rms
         pr.size_m = (rect.size_u, rect.size_v)
         pr.texture_px = (width, height)
-        pr.filled = texture.hole_fraction(alpha)
+        pr.filled = float(np.mean((alpha < 0.5) & keep))
+        pr.transparent = float(np.mean(~keep))
         pr.seconds = time.time() - t0
         report.planes.append(pr)
         planes.append(
@@ -233,6 +264,7 @@ def bake_scene(
                 texture_px=(width, height),
                 fit_rms_m=plane.rms,
                 filled_fraction=pr.filled,
+                transparent_fraction=pr.transparent,
             )
         )
         tilt = planefit.angle_deg(plane.normal, up)
@@ -240,7 +272,8 @@ def bake_scene(
             f"{label}: {pr.labelled} labelled, {pr.inliers} inliers"
             f" (rms {plane.rms * 1000:.1f} mm),"
             f" {tilt:.1f} deg from recon up, {rect.size_u:.2f} x {rect.size_v:.2f} m,"
-            f" {width} x {height} px, {pr.filled:.1%} filled, {pr.seconds:.1f} s"
+            f" {width} x {height} px, {pr.filled:.1%} filled, {pr.transparent:.1%} transparent,"
+            f" {pr.seconds:.1f} s"
         )
 
     if not planes:

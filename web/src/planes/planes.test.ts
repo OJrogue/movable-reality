@@ -92,6 +92,17 @@ describe("makeOpaque", () => {
     expect(mat.blending).toBe(THREE.NoBlending);
     expect(mesh.renderOrder).toBe(PLANE_RENDER_ORDER);
     expect(map.anisotropy).toBe(8);
+    expect(mat.alphaTest).toBe(0);
+  });
+
+  it("keeps the alpha test of a masked plane (glTF alphaMode MASK)", () => {
+    const root = new THREE.Group();
+    const mat = new THREE.MeshBasicMaterial({ alphaTest: 0.5 });
+    root.add(new THREE.Mesh(new THREE.PlaneGeometry(), mat));
+    makeOpaque(root);
+    expect(mat.alphaTest).toBe(0.5);
+    expect(mat.transparent).toBe(false);
+    expect(mat.depthWrite).toBe(true);
   });
 });
 

@@ -2,7 +2,8 @@
 
 Written by hand (spec: https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html) because
 one quad needs about 60 lines and no new dependency. The material is unlit
-(KHR_materials_unlit) and opaque, so three.js's GLTFLoader builds a MeshBasicMaterial and
+(KHR_materials_unlit) and opaque, or alpha-tested when the bake masks texels outside the
+surface's outline, so three.js's GLTFLoader builds a MeshBasicMaterial and
 the texture shows exactly the baked colours, independent of scene lighting.
 """
 
@@ -32,12 +33,17 @@ def quad_glb(
     mime: str,
     *,
     name: str = "plane",
+    alpha_mask: bool = False,
     extras: dict | None = None,
 ) -> bytes:
     """GLB with one quad. corners: (4, 3) in order c0, c0+u, c0+u+v, c0+v; c0 gets texture
     coordinate (0, 0), the first texel of the image's first row. With u x v pointing out
     of the room, triangles (0, 2, 1) and (0, 3, 2) are counter-clockwise (front-facing) seen
-    from inside the room; the material is double-sided anyway."""
+    from inside the room; the material is double-sided anyway.
+
+    With alpha_mask the image has an alpha channel that marks texels outside the surface.
+    The material then uses alphaMode MASK (cutoff 0.5), which three.js renders as alpha
+    test, so the quad stays an opaque depth writer where it is drawn."""
     corners = np.asarray(corners, dtype=np.float32).reshape(4, 3)
     uv = np.array([[0, 0], [1, 0], [1, 1], [0, 1]], dtype=np.float32)
     idx = np.array([0, 2, 1, 0, 3, 2], dtype=np.uint16)
@@ -77,7 +83,11 @@ def quad_glb(
                     "metallicFactor": 0.0,
                     "roughnessFactor": 1.0,
                 },
-                "alphaMode": "OPAQUE",
+                **(
+                    {"alphaMode": "MASK", "alphaCutoff": 0.5}
+                    if alpha_mask
+                    else {"alphaMode": "OPAQUE"}
+                ),
                 "doubleSided": True,
                 "extensions": {"KHR_materials_unlit": {}},
             }

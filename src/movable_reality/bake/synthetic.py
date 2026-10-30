@@ -5,6 +5,8 @@ carry a visible pattern (floor: 0.5 m checker of two wood tones and a red rug; c
 0.6 m panel grid and a round lamp), noise normal to the plane, mislabelled outliers, a
 floor island seen through a doorway, walls, and box objects standing on the floor. No floor
 Gaussians lie under the sofa (the phone never saw there), so the bake has a hole to fill.
+With shape="l" the 1.2 x 1.3 m corner at +x, +z is outside the room (walls follow the L),
+so the floor and ceiling quads cover a corner the alpha mask must cut away.
 
 Everything is written in the reconstruction frame (OpenCV) with a known world_from_recon
 (tilted, rotated and offset like a real capture), so the bake must convert both ways.
@@ -18,6 +20,7 @@ import json
 import math
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
 
 import numpy as np
 
@@ -27,6 +30,10 @@ from .gaussians import SH_C0, Gaussians, rotmat_to_quat, write_gaussians
 
 ROOM_X = (-2.0, 2.0)
 ROOM_Z = (-2.5, 2.5)
+# shape="l": this corner (world x, z ranges) is not part of the room, so floor and ceiling
+# form an L inside the same 4 x 5 m bounding rectangle and walls follow the L outline.
+L_CUT_X = (0.8, 2.0)
+L_CUT_Z = (1.2, 2.5)
 ROOM_H = 2.5
 CHECKER = 0.5
 FLOOR_A = np.array([0.62, 0.45, 0.28])  # light wood
@@ -57,6 +64,31 @@ def ceiling_colour(x: np.ndarray, z: np.ndarray) -> np.ndarray:
     lamp = (x - LAMP_C[0]) ** 2 + (z - LAMP_C[1]) ** 2 < LAMP_R**2
     rgb[lamp] = LAMP
     return rgb
+
+
+def in_l_cut(x: np.ndarray, z: np.ndarray) -> np.ndarray:
+    """True for world (x, z) in the corner that shape="l" leaves out. Open towards +x and
+    +z, so jittered splats just past the outer walls are left out too."""
+    return (x > L_CUT_X[0]) & (z > L_CUT_Z[0])
+
+
+def room_outline(shape: str = "rect") -> list[tuple[float, float]]:
+    """Wall corners (x, z) in order around the room."""
+    if shape == "rect":
+        return [
+            (ROOM_X[0], ROOM_Z[0]),
+            (ROOM_X[1], ROOM_Z[0]),
+            (ROOM_X[1], ROOM_Z[1]),
+            (ROOM_X[0], ROOM_Z[1]),
+        ]
+    return [
+        (ROOM_X[0], ROOM_Z[0]),
+        (ROOM_X[1], ROOM_Z[0]),
+        (ROOM_X[1], L_CUT_Z[0]),
+        (L_CUT_X[0], L_CUT_Z[0]),
+        (L_CUT_X[0], ROOM_Z[1]),
+        (ROOM_X[0], ROOM_Z[1]),
+    ]
 
 
 def _rot_y(deg: float) -> np.ndarray:
@@ -172,14 +204,26 @@ def make_room(
     outlier_fraction: float = 0.03,
     world_from_recon: np.ndarray | None = None,
     scene_id: str | None = None,
+    shape: Literal["rect", "l"] = "rect",
 ) -> GroundTruth:
     rng = np.random.default_rng(seed)
+
+    def in_room(p: np.ndarray) -> np.ndarray:
+        if shape == "rect":
+            return np.ones(len(p), dtype=bool)
+        return ~in_l_cut(p[:, 0], p[:, 2])
+
+    def keep(layer):
+        sel = in_room(layer[0])
+        return tuple(a[sel] for a in layer)
+
     w = default_world_from_recon() if world_from_recon is None else np.asarray(world_from_recon)
     recon_from_world = np.linalg.inv(w)
     groups: list[tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, int]] = []
 
     # Floor, without the area under the sofa (never observed).
     f = _flat_layer(rng, ROOM_X, ROOM_Z, 0.0, floor_spacing, 0.003, floor_colour, (0.4, 0.95))
+    f = keep(f)
     sofa = BOXES[0]
     under = (
         (f[0][:, 0] > sofa.lo[0] + 0.05)
@@ -197,26 +241,25 @@ def make_room(
 
     # Ceiling.
     c = _flat_layer(rng, ROOM_X, ROOM_Z, ROOM_H, ceiling_spacing, 0.004, ceiling_colour, (0.3, 0.9))
+    c = keep(c)
     groups.append((*c, CEILING_ID))
 
     # Mislabelled outliers: random points in the room volume carrying the floor or ceiling id.
     for gid, n_lab in ((FLOOR_ID, len(groups[0][0])), (CEILING_ID, len(c[0]))):
         n = int(outlier_fraction * n_lab)
         pts = rng.uniform([ROOM_X[0], 0.1, ROOM_Z[0]], [ROOM_X[1], ROOM_H - 0.1, ROOM_Z[1]], (n, 3))
+        pts = pts[in_room(pts)]
+        n = len(pts)
         rots = np.tile(np.eye(3), (n, 1, 1))
         groups.append(
             (pts, rots, np.full((n, 3), 0.01), np.full(n, 0.6), rng.uniform(0, 1, (n, 3)), gid)
         )
 
     # Walls (background).
-    corners = [
-        (ROOM_X[0], ROOM_Z[0]),
-        (ROOM_X[1], ROOM_Z[0]),
-        (ROOM_X[1], ROOM_Z[1]),
-        (ROOM_X[0], ROOM_Z[1]),
-    ]
-    for i in range(4):
-        groups.append((*_wall(rng, corners[i], corners[(i + 1) % 4], wall_spacing), -1))
+    corners = room_outline(shape)
+    for i in range(len(corners)):
+        a, b = corners[i], corners[(i + 1) % len(corners)]
+        groups.append((*_wall(rng, a, b, wall_spacing), -1))
 
     # Objects standing on the floor.
     names = {FLOOR_ID: "floor#1", CEILING_ID: "ceiling#1"}

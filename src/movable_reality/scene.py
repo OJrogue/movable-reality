@@ -99,6 +99,7 @@ class BakedPlane(BaseModel):
     texture_px: tuple[int, int] | None = None  # width, height
     fit_rms_m: float | None = None  # RMS distance of the fitted Gaussian centres to the plane
     filled_fraction: float = 0.0  # share of texels no Gaussian covered, filled by hole filling
+    transparent_fraction: float = 0.0  # share of texels outside the outline (alpha mask)
 
 
 class PlaneBake(BaseModel):

@@ -1,12 +1,16 @@
 """Bake the floor and ceiling of a scene into opaque textured quads (stage 12, lane bake).
 
     uv run python scripts/bake_planes.py --scene bakedemo --synthetic   # test room, then bake
+    uv run python scripts/bake_planes.py --scene bakedemo_l --synthetic --shape l   # L-shaped
     uv run python scripts/bake_planes.py --scene room01                 # skip if baked
     uv run python scripts/bake_planes.py --scene room01 --force         # bake again
     uv run python scripts/bake_planes.py --scene room01 --labels floor  # fallback: floor only
     uv run python scripts/bake_planes.py --scene room01 --revert        # back to splats only
 
 Reads splat/scene.ply, ids/gaussian_ids.npy and ids/labels.json ({"<id>": "floor#1", ...}).
+Texels outside the surface's outline (the missing corner of an L-shaped room) are
+transparent. The texture is then an RGBA PNG and the material alpha-tested (--no-mask
+turns this off).
 Writes planes/<label>.glb, a reduced background PLY next to the original (which is kept),
 and the `planes` and `plane_bake` sections of scene.json; background_ply then points at the
 reduced PLY. GPU path: modal_jobs/bake.py (same outputs, gsplat orthographic rasterizer).
@@ -34,6 +38,13 @@ def main() -> int:
     ap.add_argument("--max-tilt", type=float, default=None, help="max plane tilt from up, deg")
     ap.add_argument("--format", choices=["jpeg", "png"], default="jpeg")
     ap.add_argument("--synthetic", action="store_true", help="write the synthetic test room first")
+    ap.add_argument(
+        "--shape",
+        choices=["rect", "l"],
+        default="rect",
+        help="synthetic room outline, l leaves out one corner (alpha mask test)",
+    )
+    ap.add_argument("--no-mask", action="store_true", help="bake fully opaque quads (no alpha)")
     ap.add_argument("--revert", action="store_true", help="drop planes, restore background")
     args = ap.parse_args()
 
@@ -47,7 +58,7 @@ def main() -> int:
             print(f"{out} exists; keeping it (pass --force to rewrite the synthetic room)")
         else:
             shutil.rmtree(out, ignore_errors=True)
-            gt = make_room(out, scene_id=args.scene)
+            gt = make_room(out, scene_id=args.scene, shape=args.shape)
             print(f"wrote synthetic room to {out}: {gt.counts}")
     if not (out / "scene.json").is_file():
         print(f"{out / 'scene.json'} not found", file=sys.stderr)
@@ -60,6 +71,7 @@ def main() -> int:
         threshold=args.threshold,
         max_tilt_deg=args.max_tilt,
         image_format=args.format,
+        alpha_mask=not args.no_mask,
     )
     try:
         report = bake_scene(out, opts, force=args.force)
