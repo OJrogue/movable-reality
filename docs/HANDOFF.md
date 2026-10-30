@@ -40,8 +40,9 @@ Chromium (about 1 FPS, so no performance meaning).
 | D15 | Evaluation metrics with no Meta equivalent (LPIPS in gsplat's trainer and in the benchmarks) may use their usual networks. Only product runtime models must be Meta models. | OJ, 29 Oct |
 | D16 | Build order: capture, M1, M2 and M3 first; headset work on headset days (PLAN, "Build order"). | OJ asked for the best order, 29 Oct |
 | D17 | C2 first does a full reconstruction rerun on all frames (best quality); the fast fine-tune path comes second and replaces it in the demo only if it comes close. | OJ, 29 Oct |
+| D18 | Scope: the viewer is a full product in a desktop browser too (mouse and keyboard, typed and spoken commands), not only in VR. The hosted demo link must work on a laptop with no headset. VR stays the frontier claim and the performance target. New lane **ui** (U1-U4, section 5). | OJ, 30 Oct |
 
-Still open, OJ decides: **feature freeze date** (suggested Mon 2 Nov 20:00, the latest that
+Still open, OJ decides: **Blender ground-truth room** (analysis 30 Oct, build log), **feature freeze date** (suggested Mon 2 Nov 20:00, the latest that
 leaves Tue for the video), **borrowing a Quest 2** for one Meta-headset clip, **hosting** of
 the demo (needs chunked `.RAD` or HTTP Range support, see `docs/LOD.md`).
 
@@ -60,6 +61,15 @@ the demo (needs chunked `.RAD` or HTTP Range support, see `docs/LOD.md`).
 3. `uv sync`, `cd web && npm ci`, `uv run python scripts/build_lod.py --setup`.
 4. Smoke tests: `smoke_meta.py`, `smoke_meta.py --image ... --noun chair`, `smoke_baseten.py`,
    and one tiny Modal call. Note results in `docs/BUILD_LOG.md`.
+
+### 3.1b Setup on the Windows PC (done 30 Oct)
+RTX 3060 Laptop (6 GB), Ryzen 5 5600H, 16 GB, WSL2. git, gh, uv, Node 24, cargo, adb and
+ffmpeg (winget `Gyan.FFmpeg`, new shells only) installed; `uv sync`, `npm ci`,
+`build_lod.py --setup` (builds `build-lod.exe`) done. Keys in `.env` (it was saved as `env`,
+which git does not ignore; renamed). All keys checked live, see the build log of 30 Oct.
+Missing: Modal token (`uv run modal token new`, opens a browser) and Blender.
+Windows fixes made on the way: PLYs read with `mmap=False` (a mapped file cannot be
+replaced on Windows), manifest paths written with `as_posix()`, `build-lod.exe` lookup.
 
 ### 3.2 Film (nothing is filmed yet; this is the critical path)
 - Rooms per D13. Even light, lamps on. 4-8 clearly separate movable pieces in the main room
@@ -115,6 +125,22 @@ is updated. Before real scenes exist, use the synthetic scenes (`demo`, `bakedem
   completed mesh once an object is moved, using `completed_lod` (L1).
 - M5 Voice (Muse Voice Transcribe) and all three scenes end to end.
 
+**ui** (new lane, D18; owns `web/src/ui/`, one `installUi()` call in `main.ts`)
+- U1 Desktop editing without the agent: click an object (ray against the object boxes from
+  `scene.json`), highlight it, drag it on the floor plane, Q/E rotate, Delete hides, Ctrl+Z
+  undoes through `history`. Same edit path as the agent tools, so the server and the
+  viewer stay in step. Done when every agent tool has a mouse/keyboard equivalent.
+- U2 Command bar: a text box plus hold-to-talk (space on desktop, a controller button in
+  VR). The browser records with an AudioWorklet and encodes 16 kHz mono 16-bit WAV itself
+  (the ASR endpoint takes only that), sends it to the server; the transcript and the
+  agent's reply appear in the bar. Needs M3's server.
+- U3 Hosted demo: viewer + server in one public deployment (proposed: a Modal ASGI app,
+  credits cover it), keys only on the server, per-visitor cost cap and rate limit, an
+  "edits are local to your session" scene copy, and Range or chunked `.RAD` for big files.
+  Also a no-key fallback: scripted commands with cached agent replies.
+- U4 Onboarding overlay for judges: controls, sample commands, link to the video,
+  "generated" toggle and gap overlay as buttons.
+
 **lod**
 - L1 `SceneObject.completed_lod: str | None` in `scene.py` and `scene.ts` with tests;
   `build_lod.py` builds it when `completed_ply` exists; viewer uses it on the swap.
@@ -165,6 +191,20 @@ is updated. Before real scenes exist, use the synthetic scenes (`demo`, `bakedem
 - Bake: "Read docs/HANDOFF.md and AGENTS.md. Do B1 from section 5 on branch lane/bake."
 
 ## 7. Facts learned on 29 Oct
+
+- (30 Oct) Muse Voice Transcribe is **not** at the OpenAI `/audio/transcriptions` path
+  (404). It is `POST https://api.meta.ai/v1/asr/transcribe`, multipart with a `request`
+  part (JSON `{"model": "muse-voice-transcribe-1.0", "audioEncoding": "WAV", "mode":
+  "PUSH_TO_TALK"}`, type application/json) and an `audio` part (WAV, mono, 16-bit PCM,
+  16 or 24 kHz, at most 10 min / 32 MB). Response `{"transcript": ..., "audioDurationMs":
+  ...}`. Realtime: `wss://api.meta.ai/v1/asr/realtime`, token in the first JSON frame.
+  $0.18 per audio hour. Source: https://dev.meta.ai/docs/speech-to-text
+- (30 Oct) Muse Image text-to-image works through `client.images.generate(model=
+  "muse-image-1.0", prompt=..., size="1536x1024")`, result in `data[0].b64_json`.
+- (30 Oct) Steam Frame: SteamOS 3 on aarch64, 8 cores, 15 GiB RAM, `ssh frame` (user
+  `steamos`). Chrome XR launcher at `~/.local/bin/chrome-xr`. The reverse tunnel
+  `ssh -N -R 5173:localhost:5173 frame` works: the Frame fetches the PC's dev server at
+  `http://localhost:5173`, a secure context with no certificate warning.
 
 - Spark 2.4.0: all LOD meshes share one budget in a joint traversal; `lodScale` scales a
   mesh's share; Spark does not re-traverse on a `lodScale` change or a one-frame move, so

@@ -37,11 +37,11 @@ def test_write_read_roundtrip(tmp_path):
 
 def test_generated_property_is_added_and_other_properties_kept(tmp_path):
     p = small_ply(tmp_path / "a.ply")
-    before = PlyData.read(str(p))["vertex"].data
+    before = PlyData.read(str(p), mmap=False)["vertex"].data
     flags = np.zeros(10, np.uint8)
     flags[[2, 5]] = 1
     write_generated(p, flags)
-    after = PlyData.read(str(p))["vertex"].data
+    after = PlyData.read(str(p), mmap=False)["vertex"].data
     assert after.dtype.names == before.dtype.names + ("generated",)
     assert after.dtype["generated"] == np.uint8
     for name in before.dtype.names:
@@ -50,7 +50,7 @@ def test_generated_property_is_added_and_other_properties_kept(tmp_path):
     assert not (tmp_path / "a.ply.tmp").exists()
     # Overwriting an existing property keeps a single column.
     write_generated(p, np.ones(10, np.uint8))
-    assert PlyData.read(str(p))["vertex"].data.dtype.names.count("generated") == 1
+    assert PlyData.read(str(p), mmap=False)["vertex"].data.dtype.names.count("generated") == 1
     assert read_generated(p).sum() == 10
 
 

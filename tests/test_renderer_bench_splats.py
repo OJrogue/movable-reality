@@ -65,7 +65,7 @@ def test_density_grows_with_n_in_the_same_room():
 def test_writes_standard_ply_and_manifest(tmp_path):
     out = tmp_path / "bench_5000"
     assert bench.make_scene(5_000, out, seed=1)
-    ply = PlyData.read(str(out / "objects" / "background.ply"))
+    ply = PlyData.read(str(out / "objects" / "background.ply"), mmap=False)
     v = ply["vertex"]
     assert v.count == 5_000
     assert [p.name for p in v.properties] == bench.FIELDS

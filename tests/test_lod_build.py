@@ -12,6 +12,9 @@ from movable_reality.lod.build import build_scene_lod, find_build_lod, rad_name,
 from movable_reality.lod.rad import read_rad_header
 from movable_reality.scene import Scene, SceneObject
 
+# The fake build-lod is a /bin/sh script, which Windows cannot execute.
+needs_sh = pytest.mark.skipif(os.name == "nt", reason="fake build-lod is a shell script")
+
 
 def write_ply(path: Path, n: int) -> None:
     fields = ["x", "y", "z", "f_dc_0", "f_dc_1", "f_dc_2", "opacity"]
@@ -77,6 +80,7 @@ def test_find_build_lod_prefers_env(tmp_path, monkeypatch, fake_build_lod):
     assert find_build_lod() is None
 
 
+@needs_sh
 def test_build_writes_trees_and_manifest_then_skips(tmp_path, fake_build_lod):
     scene_dir = tmp_path / "scene"
     path = make_scene(scene_dir, {"chair#1": 10, "lamp#2": 0, "ghost#3": -1})
@@ -105,6 +109,7 @@ def test_build_writes_trees_and_manifest_then_skips(tmp_path, fake_build_lod):
     assert "--quick" in (tmp_path / "calls.log").read_text().splitlines()[-1]
 
 
+@needs_sh
 def test_stale_tree_is_rebuilt(tmp_path, fake_build_lod):
     path = make_scene(tmp_path / "scene", {"chair#1": 10})
     build_scene_lod(path, fake_build_lod, log=lambda _: None)
@@ -116,6 +121,7 @@ def test_stale_tree_is_rebuilt(tmp_path, fake_build_lod):
     assert calls(tmp_path) == 3
 
 
+@needs_sh
 def test_manifest_edits_during_build_are_kept(tmp_path, fake_build_lod, monkeypatch):
     path = make_scene(tmp_path / "scene", {"chair#1": 10})
     real = build.build_rad
@@ -133,6 +139,7 @@ def test_manifest_edits_during_build_are_kept(tmp_path, fake_build_lod, monkeypa
     assert scene.get("chair#1").lod == "lod/obj_chair_1.rad"
 
 
+@needs_sh
 def test_failure_without_output_raises(tmp_path):
     silent = tmp_path / "build-lod"
     silent.write_text("#!/bin/sh\necho 'Stopping processing due to invalid splats!'\n")

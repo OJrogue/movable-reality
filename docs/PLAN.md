@@ -13,6 +13,11 @@ Meta's own on-device splat path renders one splat at a time and advises staying 
 150k splats; Hyperscape relies on cloud rendering. This renders a multi-million-splat,
 object-separated room locally.
 
+Scope (30 Oct, D18): the same viewer is a complete product in a desktop browser, with
+mouse and keyboard editing and typed or spoken commands, so the hosted link works for
+judges and voters without a headset. The headset remains the frontier claim and the
+performance target.
+
 ## Build order (29 Oct, replaces the day-by-day lane table)
 
 Milestone names stay as before: core M1-M5, coverage C1-C3, renderer R0-R4, lod L1-L3,
@@ -36,13 +41,15 @@ go first.
    - M3: agent tools, server and WebSocket, verifier.
    - C1 on room01.
    - L1 and L2 in the lod lane, B1 in the bake lane.
+   - U1 desktop editing in the ui lane (works on the demo scene, needs no server).
    - Each session opens a PR. OJ merges on Sunday.
 4. **Sun 1 (headset).**
    - R1 to R3 on room01 (per-object trees, baked planes, controller on the walk path).
    - C2, first version: full rerun of M1 on the original plus top-up frames (see below).
    - M4: insert and completion.
+   - U2 command bar with hold-to-talk, on M3's server.
 5. **Mon 2 (headset).** M5 voice, all scenes end to end, C3 Muse Image repair and tags,
-   R4 benchmark logs. Suggested freeze 20:00.
+   R4 benchmark logs. U3 hosted demo and U4 onboarding. Suggested freeze 20:00.
 6. **Tue 3 to Wed 4.** Video, README and submission (dates under Ship below). Only fixes,
    unless an item from step 4 or 5 is still open.
 
@@ -110,4 +117,4 @@ frame time and splat counts → 0:45 gaps glow red; top-up prompt; repaired area
 naive renderer judders, LOD renderer holds → 1:35 pick up a chair, unseen back is
 complete → 1:50 "add a sofa, does it fit?" answered in metres → 2:05 same URL on the
 Pico 4 (and a Quest 2 if borrowed) → 2:15 how it works (diagram, Meta models named) →
-2:40 benchmark numbers → 2:55 what was built during the hackathon.
+2:30 the same scene in a laptop browser, edited by mouse and by typed command → 2:40 benchmark numbers → 2:55 what was built during the hackathon.

@@ -51,7 +51,8 @@ def find_build_lod(version: str | None = None, tools_dir: Path | None = None) ->
 
 
 def _cached_binary(version: str, tools_dir: Path) -> Path:
-    return tools_dir / f"spark-v{version}" / "rust" / "target" / "release" / "build-lod"
+    exe = "build-lod.exe" if os.name == "nt" else "build-lod"
+    return tools_dir / f"spark-v{version}" / "rust" / "target" / "release" / exe
 
 
 def ensure_build_lod(

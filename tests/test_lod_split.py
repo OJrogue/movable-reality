@@ -67,9 +67,11 @@ def test_write_split_roundtrip_keeps_all_properties(tmp_path):
     assert hi == pytest.approx(tuple(xyz[:100].max(0)), abs=1e-6)
     assert out["background"][1] == 300 - 150
 
-    chair = PlyData.read(str(tmp_path / rel))["vertex"].data
+    chair = PlyData.read(str(tmp_path / rel), mmap=False)["vertex"].data
     assert chair.dtype.names == synthetic_vertices(xyz[:1]).dtype.names
     assert chair["f_rest_0"].tolist() == list(range(100))
     assert chair["generated"].tolist() == [i % 2 for i in range(100)]
-    total = sum(len(PlyData.read(str(tmp_path / r))["vertex"].data) for r, _, _ in out.values())
+    total = sum(
+        len(PlyData.read(str(tmp_path / r), mmap=False)["vertex"].data) for r, _, _ in out.values()
+    )
     assert total == 300

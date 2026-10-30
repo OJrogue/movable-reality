@@ -87,7 +87,7 @@ class BakeReport:
 
 def reduced_background_name(source: str) -> str:
     p = Path(source)
-    return str(p.with_name(f"{p.stem}_baked{p.suffix}"))
+    return p.with_name(f"{p.stem}_baked{p.suffix}").as_posix()
 
 
 def load_label_ids(scene_dir: Path, labels: Iterable[str]) -> dict[str, list[int]]:

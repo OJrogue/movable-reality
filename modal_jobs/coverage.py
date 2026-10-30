@@ -173,7 +173,7 @@ def _load_gaussians(ply: Path, device):
     import torch
     from plyfile import PlyData
 
-    v = PlyData.read(str(ply))["vertex"].data
+    v = PlyData.read(str(ply), mmap=False)["vertex"].data
     names = v.dtype.names
     f = lambda *ks: np.stack([v[k] for k in ks], axis=1).astype(np.float32)  # noqa: E731
     means = f("x", "y", "z")

@@ -52,7 +52,8 @@ cd web && MR_HTTPS=1 npm run dev     # prints  Network: https://<laptop-ip>:5173
 - Use the IP that Vite prints under **Network** (`https://<laptop-ip>:5173/r0`).
 - On the Steam Frame, `localhost` would be the Frame itself, so HTTPS on the LAN is the
   way there (or an SSH tunnel: `ssh -R 5173:localhost:5173 frame`, then
-  `http://localhost:5173/r0` on the Frame).
+  `http://localhost:5173/r0` on the Frame). Verified 30 Oct from the Windows PC: the tunnel
+  needs no certificate and no firewall rule, so prefer it; add `-N` to keep it open.
 
 Every POSTed log lands on the laptop, whichever way the headset connects.
 

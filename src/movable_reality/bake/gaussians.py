@@ -108,7 +108,7 @@ def rotmat_to_quat(r: np.ndarray) -> np.ndarray:
 
 
 def read_ply(path: Path) -> PlyData:
-    return PlyData.read(str(path))
+    return PlyData.read(str(path), mmap=False)
 
 
 def vertices(ply: PlyData) -> np.ndarray:

@@ -41,7 +41,7 @@ def _sigmoid(x: np.ndarray) -> np.ndarray:
 
 
 def read_splats(path: Path) -> Splats:
-    v = PlyData.read(str(path))["vertex"].data
+    v = PlyData.read(str(path), mmap=False)["vertex"].data
     names = v.dtype.names or ()
     n = len(v)
     means = np.stack([v["x"], v["y"], v["z"]], axis=1).astype(np.float32)
@@ -96,7 +96,7 @@ def write_splats(
 
 def read_generated(path: Path) -> np.ndarray:
     """Per-splat generated flag (uint8). All zeros when the PLY has no such property."""
-    v = PlyData.read(str(path))["vertex"].data
+    v = PlyData.read(str(path), mmap=False)["vertex"].data
     if GENERATED in (v.dtype.names or ()):
         return v[GENERATED].astype(np.uint8)
     return np.zeros(len(v), np.uint8)
@@ -107,7 +107,7 @@ def write_generated(path: Path, flags: np.ndarray, out: Path | None = None) -> P
     properties and their order. Writes atomically to `out` (default: in place)."""
     path = Path(path)
     out = Path(out) if out is not None else path
-    ply = PlyData.read(str(path))
+    ply = PlyData.read(str(path), mmap=False)
     v = ply["vertex"].data
     flags = np.asarray(flags).astype(np.uint8)
     if flags.shape != (len(v),):

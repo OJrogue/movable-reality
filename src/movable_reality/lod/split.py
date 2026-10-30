@@ -62,7 +62,7 @@ def write_split(
     background. Returns {object id or "background": (relative ply, splat count, bbox)}; the
     background bbox is included for completeness. Objects with no splats are left out.
     """
-    vertices = PlyData.read(str(scene_ply))["vertex"].data
+    vertices = PlyData.read(str(scene_ply), mmap=False)["vertex"].data
     ids = np.asarray(ids).copy()
     ids[~np.isin(ids, list(names))] = BACKGROUND
     out: dict[str, tuple[str, int, tuple[Vec3, Vec3]]] = {}

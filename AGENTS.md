@@ -13,7 +13,8 @@ Movable Reality turns a ~30 s phone video of a room into a metric 3D Gaussian Sp
 (3DGS) scene in which every object is a separate, movable splat. It finds the parts of the
 room the video did not cover and fills them, either with a short top-up video or with Meta
 generative models, and tags what was generated. It renders the whole room on a standalone
-VR headset at a locked 72 FPS, and the user rearranges it by voice. It is an entry in the
+VR headset at a locked 72 FPS, and the user rearranges it by voice. The same viewer also runs in a desktop browser with
+mouse and keyboard and typed or spoken commands (scope change of 30 Oct). It is an entry in the
 Meta Global AI Developer Hackathon (Indie Developer track, theme "Push the Frontier").
 Team "Gaussian Movers", solo developer OJ.
 
@@ -120,12 +121,13 @@ web/                    Vite + three.js + Spark viewer (desktop and WebXR)
   src/lod/              lane: lod       loading per-object .RAD trees, priority
   src/coverage/         lane: coverage  gap overlay, "show generated" toggle, recapture prompt
   src/planes/           lane: bake      loading baked planes, opaque pass
+  src/ui/               lane: ui        desktop picking and dragging, command bar, hold-to-talk, onboarding
   src/scene.ts          core (shared)
 data/                   gitignored: raw videos, scenes, API cache
 benchmarks/             committed: raw frame-time logs (JSON) and result tables
 ```
 
-Lanes: **renderer** (R0-R4), **lod**, **coverage** (C1-C3), **bake**, and **core** (M1-M5:
+Lanes: **renderer** (R0-R4), **lod**, **coverage** (C1-C3), **bake**, **ui** (U1-U4), and **core** (M1-M5:
 reconstruction, objects, agent, server, voice). The core lane owns `scripts/`,
 `modal_jobs/reconstruct.py`, `src/movable_reality/{sam,clients}.py` and the future
 `agent/` and `server.py`.
@@ -164,6 +166,7 @@ uv run modal run modal_jobs/bake.py --scene room01    # bake: same stage, gsplat
 # bake depth check (dev server): http://localhost:5173/src/planes/depthcheck.html?case=behind|front|both|crossing
 uv run python scripts/bench_make_splats.py     # renderer: synthetic rooms data/scenes/bench_{50000..2000000}
 cd web && MR_HTTPS=1 npm run dev               # renderer: dev server on the LAN over HTTPS (headsets)
+ssh -N -R 5173:localhost:5173 frame            # Steam Frame: its localhost:5173 is this machine's dev server (no HTTPS needed)
 # renderer: /r0 = run menu for a device session; bench: /?bench=1&scene=bench_300000&mode=lod|naive&duration=120&path=walk
 # renderer: viewer ?budget=0|1, ?hud=0, ?target=<ms>, ?xrScale=<f>; keys M naive/LOD, H HUD, B budget, L save log
 uv run python scripts/bench_report.py          # renderer: benchmarks/raw/*.json -> benchmarks/RESULTS.md (see docs/DEVICES.md)
