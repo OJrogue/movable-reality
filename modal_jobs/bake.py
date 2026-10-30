@@ -124,6 +124,7 @@ def main(
     texel: float = 0.005,
     max_px: int = 4096,
     threshold: float = 0.03,
+    no_mask: bool = False,
 ):
     from movable_reality.bake.pipeline import BakeOptions, bake_scene
     from movable_reality.config import scene_dir
@@ -133,6 +134,7 @@ def main(
         texel=texel,
         max_px=max_px,
         threshold=threshold,
+        alpha_mask=not no_mask,
     )
     report = bake_scene(scene_dir(scene), opts, force=force, raster_fn=gpu_raster)
     print(f"{scene}: {report.status}, removed {report.removed_splats} splats")

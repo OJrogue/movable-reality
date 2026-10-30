@@ -1,4 +1,4 @@
-"""Download the CC0 Poly Haven assets for the synthetic Blender room (scene blender01).
+"""Download the CC0 Poly Haven assets for the synthetic Blender rooms (blender01, blender02).
 
     uv run python scripts/blender_assets.py            # -> data/assets/<asset>/ + assets.json
 
@@ -32,6 +32,16 @@ MODELS = {
     "ceramic_vase_01": "1k",
     "potted_plant_04": "1k",
     "wooden_bowl_01": "1k",
+    # blender02 (L-shaped bedroom-study)
+    "vintage_day_bed": "2k",
+    "painted_wooden_nightstand": "1k",
+    "wooden_table_02": "2k",
+    "dining_chair_02": "2k",
+    "wooden_bookshelf_worn": "2k",
+    "modern_arm_chair_01": "2k",
+    "potted_plant_02": "2k",
+    "ceramic_vase_03": "1k",
+    "horse_statue_01": "1k",
 }
 TEXTURES = {"laminate_floor_02": "2k", "beige_wall_001": "2k"}
 TEXTURE_MAPS = ("Diffuse", "nor_gl", "Rough")

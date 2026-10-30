@@ -42,6 +42,7 @@ class SceneObject(BaseModel):
     ply: str  # relative to the scene folder
     completed_ply: str | None = None
     lod: str | None = None  # lane lod: Spark .RAD tree for this object, relative path
+    completed_lod: str | None = None  # lane lod: .RAD tree for completed_ply, relative path
     bbox_min: Vec3  # world frame, before `transform`
     bbox_max: Vec3
     transform: Transform = Field(default_factory=Transform)
@@ -103,6 +104,7 @@ class BakedPlane(BaseModel):
     texture_px: tuple[int, int] | None = None  # width, height
     fit_rms_m: float | None = None  # RMS distance of the fitted Gaussian centres to the plane
     filled_fraction: float = 0.0  # share of texels no Gaussian covered, filled by hole filling
+    transparent_fraction: float = 0.0  # share of texels outside the outline (alpha mask)
 
 
 class PlaneBake(BaseModel):
