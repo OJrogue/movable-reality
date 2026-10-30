@@ -140,6 +140,31 @@ def test_manifest_edits_during_build_are_kept(tmp_path, fake_build_lod, monkeypa
 
 
 @needs_sh
+def test_completed_ply_gets_its_own_tree(tmp_path, fake_build_lod):
+    path = make_scene(tmp_path / "scene", {"chair#1": 10, "lamp#2": 10})
+    scene = Scene.load(path)
+    scene.get("chair#1").completed_ply = "objects/obj_chair_1_completed.ply"
+    scene.get("lamp#2").completed_ply = "objects/obj_lamp_2_completed.ply"  # not written yet
+    scene.save(path)
+    write_ply(tmp_path / "scene" / "objects" / "obj_chair_1_completed.ply", 12)
+
+    results = build_scene_lod(path, fake_build_lod, log=lambda _: None)
+
+    status = {r.ply: r.status for r in results}
+    assert status["objects/obj_chair_1_completed.ply"] == "built"
+    assert status["objects/obj_lamp_2_completed.ply"] == "missing"
+    scene = Scene.load(path)
+    assert scene.get("chair#1").lod == "lod/obj_chair_1.rad"
+    assert scene.get("chair#1").completed_lod == "lod/obj_chair_1_completed.rad"
+    assert scene.get("lamp#2").completed_lod is None
+    assert read_rad_header(tmp_path / "scene" / "lod" / "obj_chair_1_completed.rad").lod_tree
+    assert calls(tmp_path) == 4  # background, chair, chair completed, lamp
+
+    build_scene_lod(path, fake_build_lod, log=lambda _: None)
+    assert calls(tmp_path) == 4  # idempotent for completed trees too
+
+
+@needs_sh
 def test_failure_without_output_raises(tmp_path):
     silent = tmp_path / "build-lod"
     silent.write_text("#!/bin/sh\necho 'Stopping processing due to invalid splats!'\n")

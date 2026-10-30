@@ -388,6 +388,25 @@ This log is the record of what was built during the hackathon (26 Oct to 4 Nov 2
   test on a depth-writing full-screen quad on Adreno GPUs is unmeasured. If it shows,
   cutting the quad geometry along the mask is the alternative.
 - Next: B2 (gsplat bake on Modal), B3 (real room seams).
+## 2026-10-30 (lane: lod)
+
+- L1: `SceneObject.completed_lod` in `scene.py` and `scene.ts`. `build_lod.py` builds
+  `lod/obj_<id>_completed.rad` for every object with a `completed_ply` on disk and records
+  it (missing completed PLYs are skipped, reruns are idempotent).
+- The viewer swaps an object to its completed PLY once its transform differs from identity
+  (`shownPly` in `web/src/scene.ts`, the former M4 TODO) and back on undo. Both variants
+  stay in the scene graph and the unused one is hidden, so a swap back is instant and the
+  swap leaks no worker tree. A completed PLY that fails to load falls back to the scan.
+  `lodChoice` loads `completed_lod` for the completed PLY. Unit tests with a stub
+  `SplatMesh` cover the load race, undo during a load and failed loads.
+- L2 (D7): `installLod` sets `spark.lodCleanupTimeoutMs = Infinity`.
+- Checked in the browser on `demo_l1` (a local copy of `demo` with a red-tinted chair as
+  the fake completion, not committed). A move turns the chair red, the undo turns it
+  blue and a rotate turns it red again. `mrLod.stats()` showed 5 trees and 4 traversed
+  meshes throughout (manual check, no log committed).
+- Known gap: With cleanup off, the old background tree stays in the worker after a live
+  bake swaps the background PLY (see docs/LOD.md, open points).
+- Next: L3 (priority tuning on the headset). Real completions arrive with M4.
 
 ## 2026-10-30 (lane: ui)
 

@@ -5,8 +5,9 @@
     uv run python scripts/build_lod.py demo --method quick   # tiny-lod, about 3x faster
     uv run python scripts/build_lod.py --setup               # only fetch and build build-lod
 
-Writes data/scenes/<scene>/lod/<ply stem>.rad and sets SceneObject.lod and
-Scene.background_lod in scene.json. Skips trees that exist and are newer than their PLY
+Writes data/scenes/<scene>/lod/<ply stem>.rad and sets SceneObject.lod,
+SceneObject.completed_lod (for objects with a completed_ply, lod/obj_<id>_completed.rad)
+and Scene.background_lod in scene.json. Skips trees that exist and are newer than their PLY
 unless --force. Uses Spark's build-lod (MIT, Rust): $SPARK_BUILD_LOD, a cached build, or
 build-lod on PATH; if none is found it clones Spark at the version pinned in web/ and
 builds it with cargo (needs Rust; about 2 min once). See docs/LOD.md.
