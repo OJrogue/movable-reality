@@ -128,7 +128,8 @@ benchmarks/             committed: raw frame-time logs (JSON) and result tables
 Lanes: **renderer** (R0-R4), **lod**, **coverage** (C1-C3), **bake**, and **core** (M1-M5:
 reconstruction, objects, agent, server, voice). The core lane owns `scripts/`,
 `modal_jobs/reconstruct.py`, `src/movable_reality/{sam,clients}.py` and the future
-`agent/` and `server.py`.
+`agent/` and `server.py`. The **blender** lane (synthetic ground-truth room `blender01`)
+owns `scripts/blender_*.py`, `tests/test_blender_*.py` and `docs/ASSETS.md`.
 
 Shared files and how to change them:
 - `scene.py` / `scene.ts`: each lane owns its own section (`lod`, `coverage`, `planes`).
@@ -172,6 +173,10 @@ uv run python scripts/score_coverage.py --scene cov_synth   # coverage: gap map,
 uv run modal run modal_jobs/coverage.py --scene room01      # coverage: per-Gaussian uncertainty on Modal (not yet run)
 uv run python scripts/coverage_repair.py --scene cov_synth  # coverage: gap views + references, dry run; --call = Muse Image ($0.01/image, cached)
 # coverage viewer: ?gaps=1 shows the gap overlay, key G or XR squeeze toggles it, ?gapViews=<n>
+uv run python scripts/blender_assets.py        # blender: CC0 Poly Haven assets -> data/assets/ (docs/ASSETS.md)
+blender -b -P scripts/blender_room.py -- --out data/raw/blender01 --samples 16   # blender: synthetic room, both walks, GT, mp4 (~65 min on the RTX 3060)
+# blender: quick look with --walk test --frames 0:600:100 --stage build,render; Blender 4.5 LTS (winget BlenderFoundation.Blender.LTS.4.5)
+uv run python scripts/blender_gt_eval.py --scene blender01   # blender: pose ATE (Sim3) vs GT; --labels <dir> adds per-object mask IoU
 ```
 
 Lanes add their own commands here in their PR.
