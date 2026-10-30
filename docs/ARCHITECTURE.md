@@ -175,6 +175,11 @@ the reduced PLY and `plane_bake` keeps the original. `modal_jobs/bake.py` is the
 `camera_model="ortho"` path (not yet run). Inputs: `ids/gaussian_ids.npy` indexes
 `splat/scene.ply`, and `ids/labels.json` maps those ids to object ids (`"floor#1"`). Spark
 2.4.0 splats depth-test against the opaque quads (verified in headless Chromium).
+The alpha mask (30 Oct, B1, `bake/mask.py`) works on a 5 cm grid. Cells with baked
+coverage or under an object's footprint (floors only) count as surface. A 15 cm closing
+bridges cracks, and enclosed holes stay opaque. Uncovered regions that reach the quad's
+border are outside the outline and become transparent. The GLB then carries an RGBA PNG with `alphaMode: MASK`
+(cutoff 0.5), which three.js renders as alpha test, so an L-shaped floor stops at the walls.
 
 ### 13. Renderer loop and budget controller (lane: renderer, `web/src/perf/`)
 Each frame: opaque planes, then the joint LOD cut, then Spark's sort and blend. The HUD

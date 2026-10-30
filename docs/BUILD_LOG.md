@@ -349,3 +349,28 @@ This log is the record of what was built during the hackathon (26 Oct to 4 Nov 2
   existing renders stay; `--no-denoise` remains as an option.
 - Next: run M1 on `blender01`, download `recon/sparse` from the Modal volume, then run
   `blender_gt_eval.py`; masks once the object stage writes label PNGs.
+
+## 2026-10-30 (lane: bake)
+
+- B1 alpha mask (`src/movable_reality/bake/mask.py`, decision D11). On a 5 cm grid, a cell
+  is surface when a splat covered any of its texels or, for floors, when it lies under an
+  object's bbox footprint from `scene.json`. A 15 cm morphological closing bridges cracks,
+  and uncovered regions that do not reach the quad's border (under furniture) stay opaque
+  and keep the push-pull fill. Uncovered regions that reach the border are outside the
+  outline and get alpha 0.
+- A masked plane's texture is an RGBA PNG (JPEG has no alpha), and its GLB material uses
+  `alphaMode: MASK`, `alphaCutoff: 0.5`. `makeOpaque` in `web/src/planes/planes.ts` keeps
+  the alpha test GLTFLoader sets, so masked texels are discarded and write no depth.
+  Planes without transparent texels stay JPEG and `OPAQUE` as before.
+- New field `BakedPlane.transparent_fraction` (scene.py, scene.ts). `filled_fraction` now
+  counts only filled texels inside the outline.
+- `make_room(shape="l")` and `bake_planes.py --synthetic --shape l`: the 1.2 x 1.3 m corner
+  at +x, +z is outside the room and the walls follow the L. At 5 mm texels the floor is
+  7.3 % transparent and the ceiling 7.1 %. The corner is 7.8 % of the 4 x 5 m rectangle,
+  and the mask extends up to one cell past the splats, behind the walls. The rectangular
+  `bakedemo` has 0 % transparent texels.
+- Browser check (dev server on port 5175, local copies of the bakes with the floor turned
+  to face the default camera, not committed): with the mask the L-shaped floor ends at the
+  walls and the corner shows the background. With `--no-mask` the floor runs past the
+  walls into the corner. The default view inside `bakedemo_l` renders as before.
+- Next: B2 (gsplat bake on Modal), B3 (real room seams).
