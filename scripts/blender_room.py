@@ -84,8 +84,8 @@ ROOM2_OUTLINE = [  # Blender (x, y), counter-clockwise seen from above
     (-2.25, -2.5), (2.25, -2.5), (2.25, 0.5), (0.75, 0.5), (0.75, 2.5), (-2.25, 2.5),
 ]  # fmt: skip
 OBJECTS2 = [
-    ("bed", "bed", "vintage_day_bed", (-0.65, 2.05), 0, None),  # back to the north wall
-    ("nightstand", "nightstand", "painted_wooden_nightstand", (-1.97, 2.22), 0, None),
+    ("bed", "bed", "vintage_day_bed", (-0.72, 2.05), 0, None),  # back to the north wall
+    ("nightstand", "nightstand", "painted_wooden_nightstand", (-1.98, 2.22), 0, None),
     ("floor_lamp", "floor lamp", None, (0.5, 2.2), 0, None),
     ("desk", "desk", "wooden_table_02", (-1.3, -2.12), 0, None),  # against the south wall
     ("desk_chair", "chair", "dining_chair_02", (-1.3, -1.45), 0, None),  # faces the desk
@@ -318,7 +318,7 @@ SCENES = {
         "walks": WALKS,
         "eye_target": {"main": _main_eye_target, "test": _test_eye_target},
         "seeds": {"main": 7, "test": 11},
-        "panels": [(0.0, 1.0), (0.0, -1.2)],
+        "panels": [(0.0, 1.0), (0.0, -1.2)],  # documentation only: build_room hard-codes them
     },
     "blender02": {
         "objects": OBJECTS2,
@@ -332,11 +332,11 @@ SCENES = {
 }
 
 
-def furniture_footprints(scene: str = "blender02") -> dict[str, tuple[float, ...]]:
+def furniture_footprints2() -> dict[str, tuple[float, ...]]:
     """name -> (x0, y0, x1, y1) Blender footprint of each piece of furniture, from
     FOOTPRINT2 rotated by its yaw (an upper bound on the mesh bbox)."""
     out = {}
-    for name, _, asset, (x, y), yaw, support in SCENES[scene]["objects"]:
+    for name, _, asset, (x, y), yaw, support in OBJECTS2:
         if support:
             continue
         w, d = FOOTPRINT2[asset]

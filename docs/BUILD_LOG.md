@@ -365,7 +365,8 @@ This log is the record of what was built during the hackathon (26 Oct to 4 Nov 2
   the study) and test 20 s (a loop at 1.2 m through the study and the alcove, looking at a
   point that circles the furniture ring clockwise). Paths are corner-cut (Chaikin) polygons.
   Every frame keeps at least 0.35 m from walls and furniture footprints (unit test, checked
-  against the built `objects.json` bboxes too). Turn rate stays under 40 deg/s.
+  against the built `objects.json` bboxes when they exist, a test skipped otherwise).
+  Turn rate stays under 40 deg/s (36 main, 39.8 test). No two furniture bboxes overlap.
 - Outputs follow the scene id: `data/raw/blender02/`, `blender02_gt/`, `blender02.mp4`,
   `blender02_test.mp4`. `objects.json` gains `room_outline_xz` (world x, z) for the L.
   Floor and ceiling are one quad per band of the outline, with UVs from a shared origin so
@@ -375,6 +376,7 @@ This log is the record of what was built during the hackathon (26 Oct to 4 Nov 2
   instructions for the new walks.
 - 9 new CC0 Poly Haven models in `blender_assets.py` and `docs/ASSETS.md`.
 - Check on the Mac (Blender 5.2.1, Metal): 6 frames of the main walk (every 200th) at 8
-  samples took 109 s including the scene build. GT conversion of those frames gives masks
+  samples took 109 s on the first run and 27 s on a rerun (Blender console output, no log
+  committed). GT conversion of those frames gives masks
   with the expected indices and depth of 1.2 to 4.8 m. The full walks are not rendered yet.
 - Next: render both walks in full (main session), then the capture guide videos.

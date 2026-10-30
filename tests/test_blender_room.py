@@ -172,7 +172,7 @@ def test_blender02_walks_keep_clearance(walk):
     """Every frame's camera centre (shake included) is inside the L and at least 0.35 m
     from every wall and every furniture footprint."""
     poly = np.array(br.ROOM2_OUTLINE)
-    boxes = [*br.furniture_footprints("blender02").items(), *_boxes_from_gt().items()]
+    boxes = [*br.furniture_footprints2().items(), *_boxes_from_gt().items()]
     n = int(br.WALKS2[walk] * br.FPS)
     for i in range(n):
         p = br.camera_matrix(walk, i / br.FPS, "blender02")[:2, 3]
@@ -181,6 +181,23 @@ def test_blender02_walks_keep_clearance(walk):
         assert wall >= 0.35, (walk, i, p, wall)
         for name, box in boxes:
             assert _box_dist(p, box) >= 0.35, (walk, i, p, name)
+
+
+def test_blender02_footprints_bound_the_built_meshes():
+    """FOOTPRINT2 (used without Blender) contains each built mesh's bbox, and no two
+    furniture bboxes overlap in plan. Needs data/raw/blender02_gt from a build."""
+    gt = _boxes_from_gt()
+    if not gt:
+        pytest.skip("data/raw/blender02_gt/objects.json not built")
+    fp = br.furniture_footprints2()
+    for name, (x0, y0, x1, y1) in gt.items():
+        f = fp[name]
+        assert f[0] - 1e-3 <= x0 and f[1] - 1e-3 <= y0 and x1 <= f[2] + 1e-3 and y1 <= f[3] + 1e-3
+    names = sorted(gt)
+    for i, a in enumerate(names):
+        for b in names[i + 1 :]:
+            (ax0, ay0, ax1, ay1), (bx0, by0, bx1, by1) = gt[a], gt[b]
+            assert ax1 <= bx0 or bx1 <= ax0 or ay1 <= by0 or by1 <= ay0, (a, b)
 
 
 @pytest.mark.parametrize("walk", ["main", "test"])
@@ -193,7 +210,7 @@ def test_blender02_walks_smooth(walk):
     fwd = np.array([-m[:3, 2] for m in ms])
     yaw = np.unwrap(np.arctan2(fwd[:, 1], fwd[:, 0]))
     turn = np.degrees(np.abs(yaw[16:] - yaw[:-16])) / (16 / br.FPS)
-    assert turn.max() < 45  # deg/s over ~0.5 s; the capture guide warns above 40
+    assert turn.max() < 40  # deg/s over ~0.5 s; the capture guide warns above 40
     assert (fwd[:, 2] < 0).all()  # always pointing a little down
 
 
@@ -218,7 +235,7 @@ def test_blender02_objects_table():
     assert all(o[5] in names for o in items)
     assert all(o[2] in br.FOOTPRINT2 for o in furniture)
     poly = np.array(br.ROOM2_OUTLINE)
-    for name, (x0, y0, x1, y1) in br.furniture_footprints("blender02").items():
+    for name, (x0, y0, x1, y1) in br.furniture_footprints2().items():
         for corner in [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]:
             assert _inside(np.array(corner), poly), name  # every footprint inside the L
 

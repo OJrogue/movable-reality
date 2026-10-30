@@ -1,4 +1,4 @@
-"""Compare pipeline outputs for the synthetic room (scene blender01) against its ground truth.
+"""Compare pipeline outputs for a synthetic room (blender01, blender02) against its ground truth.
 
     uv run python scripts/blender_gt_eval.py --scene blender01
     uv run python scripts/blender_gt_eval.py --scene blender01 --labels data/scenes/blender01/<dir>
