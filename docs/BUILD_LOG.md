@@ -299,3 +299,22 @@ This log is the record of what was built during the hackathon (26 Oct to 4 Nov 2
 - Analysed a Blender ground-truth room as a second demo scene (recommendation in the
   session; waiting for OJ's decision, listed as open in HANDOFF).
 - Next: Modal token and the first M1 run; filming; R0 on the Frame through the tunnel; U1.
+
+## 2026-10-30 (Fri, afternoon, core: first Modal run of reconstruct.py)
+
+- Test video (private, never published) at `data/raw/`, scene `testroom`: 89 s, 1080p30;
+  `extract_frames.py` picked 200 frames (the cap). Frames show strong motion blur: the real
+  capture must be slower, ideally 60 fps with locked exposure.
+- Modal image for `modal_jobs/reconstruct.py` now builds (41 min once, then cached):
+  - The first build compiled gsplat for four GPU architectures and showed no progress for
+    2 h; stopped. Modal's image builder has **1 CPU**, so `MAX_JOBS` does not help.
+    `CUDA_ARCHS` is now `8.9` (L40S only), and pip runs with `-v` so nvcc progress shows.
+  - The link failed with `clang++: No such file or directory`: `add_python`'s interpreter
+    was built with clang, so setuptools defaults to clang++. The step now sets
+    `CC`/`CXX`/`LDSHARED`/`LDCXXSHARED` to gcc/g++, and an import check of
+    `gsplat.cuda._backend._C` runs right after the build.
+  - The job then stopped before running: Modal needs a payment method on the account for
+    L40S functions (OJ to add). `coverage.py` and `bake.py` build gsplat the same way and
+    need the same two fixes before their first run.
+- Next: rerun `modal run modal_jobs/reconstruct.py --scene testroom --max-steps 7000`
+  once billing is set; the image is cached, so it starts on the GPU directly.

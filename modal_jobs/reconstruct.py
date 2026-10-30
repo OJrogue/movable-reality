@@ -25,7 +25,9 @@ import modal
 APP_NAME = "movable-reality-recon"
 GPU = "L40S"
 VOLUME_ROOT = "/data"  # mount point of the scenes volume in the container
-CUDA_ARCHS = "8.0;8.6;8.9;9.0"  # A100, A10/3090, L40S/4090, H100
+# Only the GPU the job runs on: each extra architecture multiplies the gsplat compile time
+# (four of them took over 2 h on the CPU builder, 30 Oct). Change both together.
+CUDA_ARCHS = "8.9"  # L40S
 # Pinned upstream commits (main on 29 Oct 2026), so a rebuild of the image gets the same code.
 MAPANYTHING_SHA = "3d10cf7a3016fc0f9bb13a071ee66c47b10be0d9"
 GSPLAT_SHA = "512d366b67073d77ca099ede742683c165dfc23b"
@@ -49,9 +51,22 @@ image = (
         "git clone https://github.com/nerfstudio-project/gsplat /opt/gsplat",
         f"git -C /opt/gsplat checkout {GSPLAT_SHA}",
         "git -C /opt/gsplat submodule update --init --recursive",
-        "cd /opt/gsplat && pip install --no-build-isolation .",  # CUDA kernels for CUDA_ARCHS
+        "nproc && python -c 'import sysconfig; print(sysconfig.get_config_var(\"LDCXXSHARED\"))'",
+        # -v streams nvcc progress into the build log (a quiet pip looks like a hang).
+        "cd /opt/gsplat && pip install -v --no-build-isolation .",  # CUDA kernels for CUDA_ARCHS
+        "python -c 'from gsplat.cuda._backend import _C; assert _C is not None'",
         "pip install --no-build-isolation -r /opt/gsplat/examples/requirements.txt",
-        env={"TORCH_CUDA_ARCH_LIST": CUDA_ARCHS, "MAX_JOBS": "8"},
+        # add_python's interpreter was built with clang, so setuptools would link with clang++,
+        # which the CUDA image lacks (the link failed after all 50 objects, 30 Oct). Use g++.
+        env={
+            "TORCH_CUDA_ARCH_LIST": CUDA_ARCHS,
+            "MAX_JOBS": "8",
+            "CC": "gcc",
+            "CXX": "g++",
+            "LDSHARED": "gcc -shared",
+            "LDCXXSHARED": "g++ -shared",
+        },
+        gpu=GPU,  # a GPU builder has more CPU and memory than the default one
     )
     .env({"PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:True", "HF_HOME": "/cache/hf"})
 )
