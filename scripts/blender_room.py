@@ -82,7 +82,7 @@ OBJECTS = [
     ("bowl", "bowl", "wooden_bowl_01", (0.3, 0.92), 0, "coffee_table"),
 ]
 
-WALKS = {"main": 50.0, "test": 20.0}  # main: 38 s of loops + 12 s ceiling pass (31 Oct)
+WALKS = {"main": 56.0, "test": 20.0}  # main: 38 s of loops + 18 s upward loop (31 Oct)
 
 # Scene blender02: an L-shaped bedroom-study (D13), 4.5 x 5 m overall with the north-east
 # 1.5 x 2 m corner cut out. A 4.5 x 3 m study in the south, a 3 x 2 m bed alcove in the
@@ -227,32 +227,29 @@ def _main_eye_target(t: float) -> tuple[np.ndarray, np.ndarray]:
     return knee(t - t_loop - t_trans)
 
 
-def with_ceiling_pass(base, t_base: float, spot, t_rise: float = 2.0, t_turn: float = 10.0,
-                      height: float = 1.5, pitch_deg=(15.0, 45.0)):  # fmt: skip
-    """Extend a walk with a ceiling pass: after t_base, stand up at `spot` (Blender x, y) over
-    t_rise seconds, then turn once on the spot while the pitch rises from pitch_deg[0] to
-    pitch_deg[1] above the horizon. The 22 deg downward loops never see the ceiling or the
-    upper walls (blender01 trained them black, 31 Oct). Above ~45 deg a frame holds only blank
-    ceiling, which SfM cannot register, so the wall-ceiling edge stays in view."""
-    eye = np.array([spot[0], spot[1], height])
+def _main_up_eye_target(t: float) -> tuple[np.ndarray, np.ndarray]:
+    """blender01 main walk with a second, upward loop: the 38 s of loops above, 2 s to stand
+    up, then 16 s along the same perimeter at 1.5 m, facing inwards with the phone 15 deg
+    up. The 22 deg downward loops never see the ceiling or the upper walls (they trained
+    black, 31 Oct). A turn on the spot was tried first: without parallax SfM registered
+    none of its frames, so this loop walks."""
+    t_base, t_rise, t_up = 38.0, 2.0, 16.0
+    up = math.tan(math.radians(15.0))
 
-    def turn(u: float):
-        a = 2 * np.pi * u - np.pi / 2  # start facing south (-y), turn counter-clockwise
-        pitch = math.radians(pitch_deg[0] + (pitch_deg[1] - pitch_deg[0]) * u)
-        d = np.array([math.cos(a) * math.cos(pitch), math.sin(a) * math.cos(pitch),
-                      math.sin(pitch)])  # fmt: skip
-        return eye, eye + 1.5 * d
+    def loop(tt: float):
+        x, y = rounded_rect(tt / t_up, -1.3, 1.3, -1.7, 1.6, 0.5)
+        wander = np.array([0.5 * math.sin(2 * np.pi * tt / 7), 0.5 * math.sin(2 * np.pi * tt / 9)])
+        d = np.array([0.0, 0.3]) + wander - np.array([x, y])
+        d = 2.2 * d / np.linalg.norm(d)
+        return np.array([x, y, 1.5]), np.array([x + d[0], y + d[1], 1.5 + 2.2 * up])
 
-    def walk(t: float):
-        if t <= t_base:
-            return base(t)
-        if t <= t_base + t_rise:
-            u = smoothstep((t - t_base) / t_rise)
-            (e0, g0), (e1, g1) = base(t_base), turn(0.0)
-            return (1 - u) * e0 + u * e1, (1 - u) * g0 + u * g1
-        return turn(smoothstep(min((t - t_base - t_rise) / t_turn, 1.0)))
-
-    return walk
+    if t <= t_base:
+        return _main_eye_target(t)
+    if t <= t_base + t_rise:
+        u = smoothstep((t - t_base) / t_rise)
+        (e0, g0), (e1, g1) = _main_eye_target(t_base), loop(0.0)
+        return (1 - u) * e0 + u * e1, (1 - u) * g0 + u * g1
+    return loop(min(t - t_base - t_rise, t_up))
 
 
 def _test_eye_target(t: float) -> tuple[np.ndarray, np.ndarray]:
@@ -688,7 +685,7 @@ SCENES = {
         "room": (ROOM_X, ROOM_Y, ROOM_H),
         "walks": WALKS,
         "eye_target": {
-            "main": with_ceiling_pass(_main_eye_target, 38.0, (0.0, -0.6)),
+            "main": _main_up_eye_target,
             "test": _test_eye_target,
         },
         "seeds": {"main": 7, "test": 11},
@@ -1006,13 +1003,15 @@ def build_room(assets: Path) -> dict:
     for obj, key in ((floor, "floor"), (walls, "wall"), (ceiling, "ceiling")):
         obj.pass_index = STRUCTURE[key]
 
-    # Even light: two soft ceiling panels plus the floor lamp's bulb.
-    for i, y in enumerate((1.0, -1.2)):
-        light = bpy.data.lights.new(f"ceiling_panel_{i}", "AREA")
-        light.size, light.energy, light.color = 1.0, 160.0, (1.0, 0.95, 0.88)
-        obj = bpy.data.objects.new(light.name, light)
-        obj.location = (0.0, y, h - 0.02)
-        bpy.context.collection.objects.link(obj)
+    # Ambient-like light (OJ, 31 Oct): one area light the size of the ceiling, so the walls
+    # are lit evenly. The two 1 m panels and the lamp bulb left bright halos on the walls,
+    # which splats bake in and which stay behind when the lamp is moved.
+    light = bpy.data.lights.new("ceiling_ambient", "AREA")
+    light.shape, light.size, light.size_y = "RECTANGLE", 2 * hx - 0.3, 2 * hy - 0.3
+    light.energy, light.color = 420.0, (1.0, 0.97, 0.92)
+    obj = bpy.data.objects.new(light.name, light)
+    obj.location = (0.0, 0.0, h - 0.02)
+    bpy.context.collection.objects.link(obj)
     world = bpy.data.worlds.new("world")
     world.use_nodes = True
     world.node_tree.nodes["Background"].inputs["Strength"].default_value = 0.0
@@ -1145,7 +1144,7 @@ def build_room_zones(assets: Path, zones: list, columns: list, panels: list) -> 
 
 
 def build_floor_lamp():
-    """Floor lamp (base, pole, fabric shade) as one mesh, plus a bulb light."""
+    """Floor lamp (base, pole, fabric shade) as one mesh, unlit."""
     bpy = _bpy()
     import bmesh  # noqa: PLC0415
     from mathutils import Matrix  # noqa: PLC0415
@@ -1171,12 +1170,10 @@ def build_floor_lamp():
     obj = bpy.data.objects.new("floor_lamp", me)
     bpy.context.collection.objects.link(obj)
     me.materials.append(_new_mat("lamp_metal", (0.05, 0.05, 0.05), rough=0.35, metal=0.9))
-    me.materials.append(_new_mat("lamp_shade", (0.85, 0.78, 0.62), rough=0.8, emit=1.5))
+    me.materials.append(_new_mat("lamp_shade", (0.85, 0.78, 0.62), rough=0.8))  # unlit
     for p in me.polygons:
         p.use_smooth = True
-    bulb = bpy.data.lights.new("lamp_bulb", "POINT")
-    bulb.energy, bulb.shadow_soft_size, bulb.color = 45.0, 0.05, (1.0, 0.8, 0.55)
-    return obj, bulb
+    return obj
 
 
 def import_asset(path: Path, name: str):
@@ -1240,7 +1237,7 @@ def build_scene(assets: Path, gt: Path, scene: str = SCENE_ID) -> None:
     records = []
     for idx, (name, noun, asset, (x, y), yaw, support) in enumerate(cfg["objects"], start=1):
         if asset is None:
-            obj, bulb = build_floor_lamp()
+            obj = build_floor_lamp()
         else:
             obj = import_asset(assets / asset / f"{asset}.gltf", name)
         z = world_bbox(placed[support])[1][2] if support else 0.0
@@ -1249,10 +1246,8 @@ def build_scene(assets: Path, gt: Path, scene: str = SCENE_ID) -> None:
         obj.rotation_euler = (0.0, 0.0, math.radians(yaw))
         obj.pass_index = idx
         bpy.context.view_layer.update()
-        if asset is None:
-            bobj = bpy.data.objects.new("lamp_bulb", bulb)
-            bobj.location = (x, y, 1.47)
-            bpy.context.collection.objects.link(bobj)
+        # The lamp's bulb is no longer linked: its halo on the wall stayed behind when the
+        # lamp moved (OJ, 31 Oct).
         placed[name] = obj
         records.append((idx, name, noun, asset, support, obj))
 
