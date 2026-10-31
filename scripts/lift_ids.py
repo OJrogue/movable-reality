@@ -6,6 +6,7 @@
 Writes ids/gaussian_ids.npy (one int per Gaussian of splat/scene.ply, -1 = background),
 ids/labels.json ({"<int>": "<noun>#<sam id>"}, floor/wall/ceiling included, D9),
 ids/masks/{i:06d}.png (per-frame object label images for blender_gt_eval.py --labels),
+ids/object_labels.json (scene object id -> mask values, merged children included),
 objects/background.ply, objects/obj_<id>.ply and scene.json (objects, world_from_recon from
 the floor plane). Items resting on furniture join it (support rule, D12). SAM calls are
 cached under data/cache/sam/, so a rerun costs nothing.
@@ -24,6 +25,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import shutil
 import sys
 import time
 
@@ -221,7 +223,15 @@ def finish(args, root, p, names, ids, cams, xyz) -> None:
 
     # Split and write the manifest. Structure stays in the background (D9).
     object_names = {k: names[k] for k in objects if (ids == k).sum() >= MIN_SPLATS}
+    # Mask values (label + 1 in ids/masks) per object, merged children included, for the
+    # per-object training (modal_jobs/reconstruct.py --objects).
+    (root / "ids" / "object_labels.json").write_text(json.dumps({
+        n: [k + 1] + [c + 1 for c, par in merged.items() if par == k]
+        for k, n in object_names.items()
+    }, indent=2))  # fmt: skip
     split = write_split(root / "splat" / "scene.ply", ids, object_names, root, M.tolist())
+    for stale in ("objects_lifted", "objects_trained"):  # per-object training of the old split
+        shutil.rmtree(root / stale, ignore_errors=True)
     old = Scene.load(root / "scene.json") if (root / "scene.json").exists() else None
     scene = Scene(scene_id=args.scene, world_from_recon=M.tolist())
     if old and np.allclose(old.world_from_recon, M):  # coverage positions are world frame
