@@ -9,8 +9,8 @@ where it stood. Moving an object then leaves a ghost behind and drags background
 (OJ, 31 Oct). Here each part starts from its lifted splats and is fine-tuned alone:
 
 - the cut: a background splat that lands on object k in at least half the views that see
-  it while SAM found k moves to k when it is within CLAIM_DIST of its splats. One that
-  lands on objects in 90% of all its views joins the nearest object within CLAIM_DIST.
+  it while SAM found k moves to k when it is within 15 cm of its splats. One that
+  lands on objects in 90% of all its views joins the nearest object within 15 cm.
   SAM ids the lift left out join the scene object of the same noun.
 - junk: splats no object took that lie inside an object's box (1st to 99th percentile,
   plus 2 cm) above the floor go, when they land on objects in most views or on one
@@ -26,7 +26,8 @@ where it stood. Moving an object then leaves a ghost behind and drags background
   thing under two nouns, and install() hides the smaller.
 - object o: rendered alone on black, compared with frame * mask_o, plus an opacity term
   that pulls alpha to mask_o. Pixels of other objects (which may cover o, grown by 3 px)
-  and a 2 px band on the mask edge are ignored. Floor and wall pixels are not. Splats
+  and of any other SAM item, and a 2 px band on the mask edge are ignored. Floor and wall
+  pixels are not. Splats
   outside the object fade and are pruned.
 - background: rendered alone, compared with the frame outside the objects' masks (grown
   by 6 px). A second, colour-only pass adds the frame inpainted where the objects are,
@@ -330,7 +331,8 @@ def add_splats(params, means, rgb, radius, opacity: float = 0.9):
 
 
 FLOOR_CLEAR = 0.03  # world metres: splats lower than this are floor, whatever box they are in
-CLAIM_DIST = 0.09  # reconstruction units (blender01: 1.66 world m per unit, so 15 cm)
+CLAIM_DIST_M = 0.15  # world metres, converted with the scale of world_from_recon
+FRONT_MARGIN_M = 0.03
 
 
 def nearest_dist(points, ref, chunk: int = 4096):
@@ -362,6 +364,8 @@ def train_part(params, frames, cams, weight_fn, steps: int, scene_scale: float, 
            "sh0": 2.5e-3, "shN": 2.5e-3 / 20}  # fmt: skip
     if colour_only:  # base colour only: unseen splats have no views to fit SH to
         lrs = {"sh0": 4 * lrs["sh0"]}
+        for k in params:  # frozen: no gradients piling up unused
+            params[k].requires_grad_(k == "sh0")
     opts = {k: torch.optim.Adam([{"params": params[k], "lr": lr, "name": k}], eps=1e-15)
             for k, lr in lrs.items()}  # fmt: skip
     sched = torch.optim.lr_scheduler.ExponentialLR(
@@ -464,6 +468,9 @@ def main() -> None:
     scene_scale = float(np.linalg.norm(centres - centres.mean(0), axis=1).max()) * 1.1
     print(f"{len(cams)} frames with masks, scene scale {scene_scale:.2f}", flush=True)
     ply_of = {o["id"]: o["ply"] for o in scene["objects"]}
+    # Thresholds are set in metres: world metres per reconstruction unit from the manifest.
+    unit = float(abs(np.linalg.det(np.asarray(scene["world_from_recon"])[:3, :3])) ** (1 / 3))
+    claim = CLAIM_DIST_M / unit
     labels = {o: v for o, v in labels.items() if o in ply_of}
     sam = json.loads((root / "ids" / "masks" / "labels.json").read_text())
     labels, folded = fold_labels(labels, sam)
@@ -474,11 +481,14 @@ def main() -> None:
     for k, o in enumerate(oids):
         lut[labels[o]] = k + 1
     all_vals = torch.tensor(sorted({v for vs in labels.values() for v in vs}), device=dev)
+    struct_vals = torch.tensor(
+        [int(k) for k, n in sam.items() if n.split("#")[0] in STRUCTURE] or [0], device=dev
+    )
     report: dict = {"frames": len(cams), "folded": folded, "objects": {}}
 
     # The cut. The lift vote leaves parts of objects in the background (blender01: most of the
     # coffee table). A background splat whose centre lands on object k in at least half the
-    # views that see it while SAM found k goes to k, if it lies within CLAIM_DIST of k.
+    # views that see it while SAM found k goes to k, if it lies within 15 cm of k.
     bg = load_params(root / "objects" / "background.ply", dev)
     with torch.no_grad():
         obj_masks = [grow(torch.isin(m, all_vals), 6) for m in masks]
@@ -501,9 +511,9 @@ def main() -> None:
         own = owner[cand]
         own_d = dist.gather(1, own[:, None])[:, 0]
         dest = torch.full_like(own, -1)
-        by_ghost = ghost[cand] & (near_d < CLAIM_DIST)
+        by_ghost = ghost[cand] & (near_d < claim)
         dest[by_ghost] = near_k[by_ghost]
-        by_ratio = claimed[cand] & (own_d < CLAIM_DIST)
+        by_ratio = claimed[cand] & (own_d < claim)
         dest[by_ratio] = own[by_ratio]
     gone = torch.zeros_like(ghost)
     moved: dict[str, int] = {}
@@ -559,9 +569,10 @@ def main() -> None:
         def parts(i, vt=vt, cache=cache):
             if i not in cache:
                 m = torch.isin(masks[i], vt)
-                # Other objects may cover o, so their pixels say nothing about it. Floor,
-                # wall and unlabelled pixels count: o must be transparent there.
-                other = torch.isin(masks[i], all_vals) & ~m
+                # Other SAM items may cover o (another object, a bowl on it), so their pixels
+                # say nothing about it. Floor, wall and unlabelled pixels count: o must be
+                # transparent there.
+                other = (masks[i] > 0) & ~torch.isin(masks[i], struct_vals) & ~m
                 ignore = grow(other, 3) | (grow(m, 2) & ~shrink(m, 2))
                 w = (~ignore).float()
                 cache[i] = (m, w)
@@ -613,7 +624,7 @@ def main() -> None:
     every = {k: torch.cat([o[k] for o in objs]) for k in objs[0].keys()}
     del objs
     with torch.no_grad():
-        front = in_front(params["means"], every, cams)
+        front = in_front(params["means"], every, cams, margin=FRONT_MARGIN_M / unit)
         for key in list(params.keys()):
             params[key] = torch.nn.Parameter(params[key][~front])
         # Splats only ever seen behind objects keep a flat colour: SH fitted to a few fill
@@ -652,8 +663,8 @@ def main() -> None:
 def install(root: Path) -> dict:
     """CPU side, after the Modal run: objects/ -> objects_lifted/ (once), the trained PLYs into
     objects/, and fresh bboxes in scene.json. LOD trees and baked planes were built from the
-    old PLYs, so their fields are cleared and the viewer reads the PLYs until they are rebuilt.
-    """
+    old PLYs, so their fields are cleared and the viewer reads the PLYs until
+    build_lod.py and bake_planes.py run again (coverage/ stays stale as well)."""
     import shutil  # noqa: PLC0415
 
     from .scene import Scene  # noqa: PLC0415
@@ -687,6 +698,9 @@ def install(root: Path) -> dict:
     if (trained / "background.ply").exists():
         shutil.copyfile(trained / "background.ply", objects / "background.ply")
         scene.background_lod = None
+        scene.background_ply = "objects/background.ply"
+        scene.planes, scene.plane_bake = [], None
+        print("planes cleared: run bake_planes.py --force (and build_lod.py) again")
         counts["background"] = len(read_vertices(objects / "background.ply"))
     scene.save(root / "scene.json")
     return counts
