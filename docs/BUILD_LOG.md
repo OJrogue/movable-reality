@@ -852,14 +852,14 @@ test-walk metrics, `sfm.json`, GT pose ATE). Every row predates the lighting cha
   under `benchmarks/recon/`.
 - Moving objects (OJ, "it leaves so many artifacts behind"). New stage
   `src/movable_reality/objtrain.py`, run with `modal_jobs/reconstruct.py --objects` after
-  the lift (L40S, about 5 min, $0.20). It re-cuts the joint splat with the SAM masks and
+  the lift (L40S, 6.5 min wall clock with the image start, about $0.25). It re-cuts the joint splat with the SAM masks and
   trains every part alone.
   - Lost SAM ids join the scene object of the same noun (blender01: `coffee table#1` was
     the same table, so the lift had left the table body in the background).
   - A background splat that lands on object k in half the views where SAM found k moves
-    to k when it lies within 0.09 reconstruction units of k's splats.
+    to k when it lies within 15 cm of k's splats (set in metres via world_from_recon).
   - Each object trains on black against frame x mask with an alpha term, so splats outside
-    the object fade and are pruned (floor lamp 22.4k to 10.9k).
+    the object fade and are pruned (floor lamp 24.1k to 10.0k on the new lighting).
   - The background trains without object pixels, then colour only (SH degree 0) against the
     frame with the objects inpainted by OpenCV Telea. Geometry stays frozen in that pass:
     with geometry on, faint splats became floor-coloured floaters.
@@ -868,8 +868,9 @@ test-walk metrics, `sfm.json`, GT pose ATE). Every row predates the lighting cha
     under two nouns (armchair as `sofa#1` and `armchair#0`), and the smaller is hidden.
 - Bake (`bake/pipeline.py`). The floor quad now also removes background splats on or under
   it by position, because a retrained background no longer shares the joint splat's
-  centres. Texels under objects are blanked before the push-pull fill: the joint splat
-  had blue and yellow under the sofa.
+  centres, but only behind the quad or in its band under an object, so a rug stays (test
+  `test_retrained_background_goes_by_position`). Texels under objects are blanked before
+  the push-pull fill: the joint splat had blue and yellow under the sofa.
 - Tried and left off: depth inpainting to add splats on the never-seen wall behind the
   sofa (`--holes 1`). The back-projected points floated in the room as speckles.
 - Lighting (OJ, "remove lights like this, they leave a halo"). One ceiling-sized area light,
@@ -879,9 +880,12 @@ test-walk metrics, `sfm.json`, GT pose ATE). Every row predates the lighting cha
   Pose ATE median 5.6 mm, but 3 frames of the upward loop (183, 199, 201) are 0.2 to 0.66 m
   off, and the upper walls show dark streaks. Neither the MapAnything fit residual nor
   temporal smoothness separates those frames from good ones. The old-light scene is kept
-  as `data/scenes/blender01_oldlight`.
+  as `data/scenes/blender01_oldlight`. Metrics: `benchmarks/recon/blender01/` (new) and
+  `benchmarks/recon/blender01_oldlight/`.
 - Checked in the browser (blender01, both lightings): the sofa, armchair and coffee table
-  move and hide without a ghost, and the floor and wall behind them stay clean. Not yet
+  move and hide without a ghost, and the floor and wall behind them stay clean
+  (`benchmarks/recon/blender01/moved_sofa_table_armchair.jpg`). `books#0` still claims
+  20.5k background splats against 7.4k of its own, which looks like over-claiming. Not yet
   fixed: the bowl on the table is no scene object, so it stays where the table was. The
   wall behind the sofa is thin where no view saw it. LOD and coverage were not rebuilt
   for the new objects, so the viewer reads the PLYs.

@@ -1,15 +1,17 @@
 {
   "frames": 224,
   "fixed_intrinsics": true,
-  "registered": 178,
-  "mean_reprojection_px": 0.6751206856013366,
+  "registered": 177,
+  "mean_reprojection_px": 0.6726111760696111,
   "fit_to_mapanything": {
-    "shared": 178,
-    "scale": 0.2571963592969601,
-    "residual_rms": 0.1803148225704868,
-    "residual_max": 0.5230344861275428
+    "shared": 177,
+    "trimmed": 15,
+    "scale": 0.2381992507163155,
+    "residual_rms": 0.20496807986330529,
+    "residual_max": 0.863043712308718
   },
   "dropped": [
+    "000158.jpg",
     "000159.jpg",
     "000160.jpg",
     "000161.jpg",
@@ -75,6 +77,6 @@
       1.0
     ]
   ],
-  "points": 43630,
-  "sfm_s": 165.1
+  "points": 41672,
+  "sfm_s": 190.9
 }
