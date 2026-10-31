@@ -196,6 +196,7 @@ uv run python scripts/blender_view_eval.py --scene blender01   # blender: GT tes
 uv run modal run modal_jobs/reconstruct.py --scene blender01 --eval-walk test   # core: PSNR/SSIM/LPIPS of those views (eval only)
 # core reconstruct: --preset quality|fast (30k or 7k steps), --no-sfm (MapAnything cameras only), --max-steps <n>
 uv run python scripts/lift_ids.py --scene blender01 --skip wall   # core: leave nouns out of SAM (not with --reuse-votes)
+uv run modal run modal_jobs/reconstruct.py --scene blender01 --objects   # core: per-object training after the lift (L40S, ~5 min), installs into objects/; then bake_planes.py --force
 # ui viewer: click an object, drag it, Q/E rotate, Delete hides, R restores, Ctrl/Cmd+Z undo; Enter sends a command, hold Space to talk
 # ui viewer: ?onboarding=0|1 (panel), ?server=0 (local edits even when the server runs); window.mrUi.manifest() in the console
 # devices viewer: ?device=desktop|mobile|xr overrides the detected quality profile (an XR session always uses xr); window.mrDevice in the console
