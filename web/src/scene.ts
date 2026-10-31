@@ -90,6 +90,8 @@ export interface SceneManifest {
   world_from_recon: number[][]; // 4x4, row-major
   background_ply: string;
   background_lod?: string | null; // lane lod
+  room_mesh?: string | null; // the room as one .glb, recon frame; drawn in ?objects=meshonly
+  room_planes?: string[]; // floor, ceiling, walls as textured quads (.glb), with room_mesh
   objects: SceneObject[];
   planes?: BakedPlane[]; // lane bake
   plane_bake?: PlaneBake | null; // lane bake
@@ -131,10 +133,12 @@ export function isEdited(t: Transform): boolean {
  * - scan: the scanned splats always, edited or not;
  * - completed: SAM 3D Objects' completed splats wherever they exist, edited or not;
  * - mesh: SAM 3D Objects' vertex-coloured mesh (objects/index.ts), auto's splats where an
- *   object has no mesh.
+ *   object has no mesh, and the room as splats;
+ * - meshonly: meshes only, no splat at all: the object meshes and the room mesh
+ *   (room_mesh). An object without a mesh is not drawn.
  */
-export type ObjectStyle = "auto" | "scan" | "completed" | "mesh";
-export const OBJECT_STYLES: readonly ObjectStyle[] = ["auto", "scan", "completed", "mesh"];
+export type ObjectStyle = "auto" | "scan" | "completed" | "mesh" | "meshonly";
+export const OBJECT_STYLES: readonly ObjectStyle[] = ["auto", "scan", "completed", "mesh", "meshonly"];
 
 /**
  * The PLY an object shows. By default (auto) that is its completed version (SAM 3D Objects

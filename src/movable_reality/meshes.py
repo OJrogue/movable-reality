@@ -253,3 +253,20 @@ def decimate(
         / np.maximum(counts, 1)[:, None]
     )
     return p2.astype(np.float64), c2, f2.astype(np.int64)
+
+
+def read_ply_mesh(path: Path) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """(vertices, sRGB colours in 0..1, faces) of a triangle PLY such as open3d writes."""
+    from plyfile import PlyData  # noqa: PLC0415
+
+    ply = PlyData.read(str(path))
+    v = ply["vertex"]
+    xyz = np.stack([v["x"], v["y"], v["z"]], 1).astype(np.float64)
+    names = v.data.dtype.names
+    if "red" in names:
+        rgb = np.stack([v["red"], v["green"], v["blue"]], 1).astype(np.float64)
+        rgb = rgb / 255.0 if rgb.max() > 1.0 or v["red"].dtype == np.uint8 else rgb
+    else:
+        rgb = np.full_like(xyz, 0.6)
+    faces = np.stack(ply["face"]["vertex_indices"]).astype(np.int64).reshape(-1, 3)
+    return xyz, rgb, faces
