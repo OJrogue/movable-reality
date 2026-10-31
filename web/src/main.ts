@@ -13,6 +13,7 @@ import { createViewerContext } from "./context";
 import { installCoverage } from "./coverage";
 import { installDevices, installTouch } from "./devices";
 import { installLod } from "./lod";
+import { installObjects } from "./objects";
 import { installPlanes } from "./planes";
 import { matrixFromRows, OPENCV_TO_Y_UP, SceneView, type SceneManifest } from "./scene";
 import { installPerf } from "./perf";
@@ -70,6 +71,7 @@ installLod(ctx); // lane lod
 installCoverage(ctx); // lane coverage: gap overlay (?gaps=1, key G, XR squeeze)
 installUi(ctx); // lane ui: desktop editing, command bar, onboarding (?onboarding=0)
 installTouch(ctx); // lane devices: touch look, pan and pinch (after ui, see devices/touch.ts)
+installObjects(ctx); // lane core: scan, completed or mesh objects (?objects=, key V)
 installPerf(ctx); // lane renderer: HUD, frame log, budget controller, bench mode
 // ----------------------------------------------------------
 
