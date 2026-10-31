@@ -27,3 +27,19 @@ def full_res_camera(cam: Camera, width: int, height: int) -> Camera:
     K[0, 2] = (cam.K[0, 2] + left + 0.5) * kx - 0.5
     K[1, 2] = (cam.K[1, 2] + top + 0.5) * ky - 0.5
     return replace(cam, width=width, height=height, K=K)
+
+
+def model_res_camera(cam: Camera, width: int, height: int) -> Camera:
+    """Inverse of `full_res_camera`: a full-resolution camera expressed at MapAnything's model
+    resolution width x height, so refined cameras can stand in for MapAnything's in recon/."""
+    W, H = cam.width, cam.height
+    s = max(width / W, height / H) + 1e-8
+    rw, rh = math.floor(W * s), math.floor(H * s)
+    left, top = (rw - width) // 2, (rh - height) // 2
+    kx, ky = W / rw, H / rh
+    K = cam.K.copy()
+    K[0, 0] /= kx
+    K[1, 1] /= ky
+    K[0, 2] = (cam.K[0, 2] + 0.5) / kx - 0.5 - left
+    K[1, 2] = (cam.K[1, 2] + 0.5) / ky - 0.5 - top
+    return replace(cam, width=width, height=height, K=K)
