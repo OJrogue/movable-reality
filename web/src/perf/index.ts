@@ -4,6 +4,7 @@
 // URL parameters (all optional):
 //   ?mode=lod|naive        LOD (default) or naive: LOD off, full splats (the proof toggle)
 //   ?budget=1|0            budget controller (default on in LOD mode, off in bench mode)
+//   ?detail=0              hide the detail panel (auto checkbox + splat-count slider)
 //   ?target=<ms>           frame-time target (default: from the XR frame rate, else the
 //                          display rate within the device profile's range, else 13.9 in
 //                          XR and 16.7 on desktop and mobile; see devices/profile.ts)
@@ -39,6 +40,7 @@ import {
   type FrameLogMeta,
   type RenderMode,
 } from "./frameLog";
+import { DetailControl } from "./detail";
 import { Hud, type HudData } from "./hud";
 import { PerfInput, type PerfAction } from "./input";
 import {
@@ -63,7 +65,14 @@ const HUD_INTERVAL_MS = 250;
 export interface PerfHandle {
   mode(): RenderMode;
   setMode(m: RenderMode): void;
-  budget(): { active: boolean; level: number; phase: string; splatCount: number };
+  /** Splat count by hand (stops the budget controller), or "auto" to hand it back. */
+  setDetail(count: number | "auto"): void;
+  budget(): {
+    active: boolean;
+    level: number;
+    phase: string;
+    splatCount: number;
+  };
   bench(): ReturnType<BenchRunner["status"]> | null;
   /** Current recording as a log (null before the scene is ready). */
   log(): FrameLogJson | null;
@@ -88,14 +97,17 @@ export function installPerf(ctx: ViewerContext): PerfHandle {
   }
 
   // ---- mode and mesh options
-  let mode: RenderMode = bench?.cfg.mode ?? (p.get("mode") === "naive" ? "naive" : "lod");
+  let mode: RenderMode =
+    bench?.cfg.mode ?? (p.get("mode") === "naive" ? "naive" : "lod");
   const keepFull = !bench && mode === "lod" && p.get("keepFull") !== "0";
   if (mode === "lod") {
     // Lane lod sets ctx.meshOptions in installLod (runs before this). Without it, fall
     // back to Spark's load-time LOD tree (tiny-lod in a worker).
     const inner = ctx.meshOptions;
     ctx.meshOptions = (ply, id, m) => {
-      const o: Partial<SplatMeshOptions> = { ...(inner ? inner(ply, id, m) : { lod: true }) };
+      const o: Partial<SplatMeshOptions> = {
+        ...(inner ? inner(ply, id, m) : { lod: true }),
+      };
       // Keep the full splat set next to the tree so the naive toggle is instant. A .RAD
       // tree has no full set; toggling then reloads the page with ?mode=naive.
       if (keepFull && o.lod && !o.paged) o.nonLod = true;
@@ -111,13 +123,18 @@ export function installPerf(ctx: ViewerContext): PerfHandle {
   const budgetParam = p.get("budget");
   let budgetWanted = budgetParam === "1" || (budgetParam === null && !bench);
   if (hasUrlCount) spark.lodSplatCount = urlCount;
-  else if (bench && mode === "lod" && !budgetWanted) spark.lodSplatCount = BENCH_LOD_SPLATS;
+  else if (bench && mode === "lod" && !budgetWanted)
+    spark.lodSplatCount = BENCH_LOD_SPLATS;
   const urlRenderScale = Number(p.get("lodRenderScale"));
-  if (urlRenderScale >= 1 && urlRenderScale <= 5) spark.lodRenderScale = urlRenderScale;
+  if (urlRenderScale >= 1 && urlRenderScale <= 5)
+    spark.lodRenderScale = urlRenderScale;
 
   const explicitTarget = Number(p.get("target"));
   const target = {
-    ms: explicitTarget > 0 ? explicitTarget : (ctx.device?.defaultTargetMs ?? DEFAULT_TARGET_MS),
+    ms:
+      explicitTarget > 0
+        ? explicitTarget
+        : (ctx.device?.defaultTargetMs ?? DEFAULT_TARGET_MS),
     source: explicitTarget > 0 ? "url" : "default",
     hz: null as number | null,
   };
@@ -128,16 +145,26 @@ export function installPerf(ctx: ViewerContext): PerfHandle {
   // what a headset holds, and the first seconds of every log would be missed frames.
   const startLevelFor = (c: BudgetConfig) =>
     hasUrlCount ? levelForSplatCount(urlCount, c) : c.startLevel;
-  let controller = new BudgetController({ ...cfg, targetMs: target.ms, startLevel: startLevelFor(cfg) });
+  let controller = new BudgetController({
+    ...cfg,
+    targetMs: target.ms,
+    startLevel: startLevelFor(cfg),
+  });
   const budgetActive = () => budgetWanted && mode === "lod";
   const applyBudget = () => {
     const s = controller.settings();
-    if (spark.lodSplatCount !== s.splatCount) spark.lodSplatCount = s.splatCount;
-    if (spark.lodRenderScale !== s.renderScale) spark.lodRenderScale = s.renderScale;
+    if (spark.lodSplatCount !== s.splatCount)
+      spark.lodSplatCount = s.splatCount;
+    if (spark.lodRenderScale !== s.renderScale)
+      spark.lodRenderScale = s.renderScale;
   };
 
   // ---- HUD, input, download button
-  const hud = new Hud(ctx.camera, p.get("hud") !== "0", p.get("hudPanel") === "1");
+  const hud = new Hud(
+    ctx.camera,
+    p.get("hud") !== "0",
+    p.get("hudPanel") === "1",
+  );
   const input = new PerfInput(ctx.renderer);
   const button = document.createElement("button");
   button.textContent = "save log";
@@ -207,7 +234,8 @@ export function installPerf(ctx: ViewerContext): PerfHandle {
       recorder.event(lastTime ?? 0, "target", { ms, source, hz });
     }
   };
-  const defaultTargetMs = () => ctx.device?.defaultTargetMs ?? DEFAULT_TARGET_MS;
+  const defaultTargetMs = () =>
+    ctx.device?.defaultTargetMs ?? DEFAULT_TARGET_MS;
   const resetTarget = () => setTarget(defaultTargetMs(), "default", null);
   // A new profile (XR enter or exit, a resize across the mobile limit) brings its own
   // budget range: start a controller for it. The renderer's sessionstart and sessionend
@@ -220,9 +248,15 @@ export function installPerf(ctx: ViewerContext): PerfHandle {
     const startLevel = ready
       ? levelForSplatCount(lodSplatCount(spark).count, cfg)
       : startLevelFor(cfg);
-    controller = new BudgetController({ ...cfg, targetMs: target.ms, startLevel });
-    if (totalSplats !== null) controller.setMaxLevel(ceilingForScene(totalSplats, cfg));
-    if (target.source === "default" || target.source === "default-checked") resetTarget();
+    controller = new BudgetController({
+      ...cfg,
+      targetMs: target.ms,
+      startLevel,
+    });
+    if (totalSplats !== null)
+      controller.setMaxLevel(ceilingForScene(totalSplats, cfg));
+    if (target.source === "default" || target.source === "default-checked")
+      resetTarget();
     if (ready && budgetActive()) applyBudget();
     floorSince = null;
     if (recorder) {
@@ -238,9 +272,11 @@ export function installPerf(ctx: ViewerContext): PerfHandle {
     if (wantHz > 0 && supported && Array.from(supported).includes(wantHz)) {
       session.updateTargetFrameRate(wantHz).catch(() => undefined);
     }
-    if (session.frameRate) setTarget(targetForHz(session.frameRate), "xr", session.frameRate);
+    if (session.frameRate)
+      setTarget(targetForHz(session.frameRate), "xr", session.frameRate);
     session.addEventListener("frameratechange", () => {
-      if (session.frameRate) setTarget(targetForHz(session.frameRate), "xr", session.frameRate);
+      if (session.frameRate)
+        setTarget(targetForHz(session.frameRate), "xr", session.frameRate);
     });
     resetWindows("xr-enter");
   });
@@ -267,14 +303,18 @@ export function installPerf(ctx: ViewerContext): PerfHandle {
     const layer = session?.renderState.baseLayer;
     const size = ctx.renderer.getDrawingBufferSize(new THREE.Vector2());
     return {
-      framebuffer: layer ? [layer.framebufferWidth, layer.framebufferHeight] : [size.x, size.y],
+      framebuffer: layer
+        ? [layer.framebufferWidth, layer.framebufferHeight]
+        : [size.x, size.y],
       pixel_ratio: ctx.renderer.getPixelRatio(),
       xr_framebuffer_scale: ctx.renderer.xr.isPresenting ? xrScale : null,
       xr_frame_rate: session?.frameRate ?? null,
       xr_supported_frame_rates: session?.supportedFrameRates
         ? Array.from(session.supportedFrameRates)
         : null,
-      xr_fixed_foveation: session ? (ctx.renderer.xr.getFoveation() ?? null) : null,
+      xr_fixed_foveation: session
+        ? (ctx.renderer.xr.getFoveation() ?? null)
+        : null,
     };
   };
 
@@ -293,7 +333,9 @@ export function installPerf(ctx: ViewerContext): PerfHandle {
     total_splats: totalSplats,
     display: displayInfo(),
     settings: lodSettings(spark, budgetActive()),
-    bench: bench ? { duration_s: bench.cfg.durationS, warmup_s: bench.cfg.warmupS } : null,
+    bench: bench
+      ? { duration_s: bench.cfg.durationS, warmup_s: bench.cfg.warmupS }
+      : null,
   });
 
   const startRecording = (time: number, why: string) => {
@@ -320,7 +362,8 @@ export function installPerf(ctx: ViewerContext): PerfHandle {
   let savedCleanupMs = spark.lodCleanupTimeoutMs;
   const reloadWithMode = (m: RenderMode) => {
     // A reload ends the XR session; one button press should not take the headset out.
-    if (ctx.renderer.xr.isPresenting) return say(`${m} needs a reload: exit VR first`);
+    if (ctx.renderer.xr.isPresenting)
+      return say(`${m} needs a reload: exit VR first`);
     const u = new URL(location.href);
     u.searchParams.set("mode", m);
     location.assign(u.toString());
@@ -330,7 +373,8 @@ export function installPerf(ctx: ViewerContext): PerfHandle {
     if (bench) return say("mode is fixed in bench mode");
     const meshes = splatMeshes(ctx.scene).filter(hasLodTree);
     if (next === "naive") {
-      if (meshes.length === 0 || !meshes.every(hasFullSplats)) return reloadWithMode("naive");
+      if (meshes.length === 0 || !meshes.every(hasFullSplats))
+        return reloadWithMode("naive");
       // Keep the LOD trees in Spark's worker while they are unused, so switching back is
       // instant (Spark otherwise drops them after lodCleanupTimeoutMs).
       savedCleanupMs = spark.lodCleanupTimeoutMs;
@@ -357,6 +401,30 @@ export function installPerf(ctx: ViewerContext): PerfHandle {
     recorder?.event(lastTime ?? 0, "budget", { active: budgetWanted });
     say(`budget controller ${budgetWanted ? "on" : "off (settings frozen)"}`);
   };
+  // Manual detail (OJ, 31 Oct): a slider sets the splat count and stops the controller;
+  // "auto" restarts the controller from the count in use.
+  const setDetail = (count: number | "auto") => {
+    if (bench) return say("detail is fixed in bench mode");
+    if (count === "auto") {
+      if (mode !== "lod") setMode("lod");
+      budgetWanted = true;
+      controller.restart(levelForSplatCount(lodSplatCount(spark).count, cfg));
+      applyBudget();
+      recorder?.event(lastTime ?? 0, "budget", { active: true });
+      return;
+    }
+    if (mode !== "lod") setMode("lod");
+    if (budgetWanted)
+      recorder?.event(lastTime ?? 0, "budget", { active: false });
+    budgetWanted = false;
+    spark.lodSplatCount = Math.max(1, Math.round(count));
+    spark.lodRenderScale = 1;
+    recorder?.event(lastTime ?? 0, "detail", { splats: spark.lodSplatCount });
+  };
+  const detail =
+    p.get("detail") === "0"
+      ? null
+      : new DetailControl(setDetail, () => setDetail("auto"));
   const act = (a: PerfAction) => {
     if (a === "mode") setMode(mode === "lod" ? "naive" : "lod");
     else if (a === "hud") hud.toggle();
@@ -397,7 +465,9 @@ export function installPerf(ctx: ViewerContext): PerfHandle {
         .then((path) => bench!.done(path, pickSummary(log)))
         .catch((e: unknown) => {
           downloadLog(log);
-          bench!.fail(`POST /__bench failed (${String(e)}); downloaded instead`);
+          bench!.fail(
+            `POST /__bench failed (${String(e)}); downloaded instead`,
+          );
         });
     } else if (signal === "abort") {
       recorder = null;
@@ -438,12 +508,19 @@ export function installPerf(ctx: ViewerContext): PerfHandle {
         // Lane devices: a phone that misses most frames at the lowest level aims for the
         // profile's lower rate (30 Hz) instead. Only profiles with a floor (mobile); never
         // in XR or with ?target=. The lower target stays until the profile changes.
-        if (step.level > 0 || !ctx.device?.lowRateHz || target.source === "floor") floorSince = null;
+        if (
+          step.level > 0 ||
+          !ctx.device?.lowRateHz ||
+          target.source === "floor"
+        )
+          floorSince = null;
         else {
           floorSince ??= time;
           const dev = ctx.device;
           const missed = window2s.summary(target.ms).missedShare;
-          const hz = dev ? floorHz(dev, target.ms, step.level, missed, time - floorSince) : null;
+          const hz = dev
+            ? floorHz(dev, target.ms, step.level, missed, time - floorSince)
+            : null;
           if (hz && target.source !== "url" && target.source !== "xr") {
             setTarget(targetForHz(hz), "floor", target.hz);
             floorSince = null;
@@ -469,7 +546,9 @@ export function installPerf(ctx: ViewerContext): PerfHandle {
     if (now - hudAt < HUD_INTERVAL_MS) return;
     hudAt = now;
     if (!ready) {
-      hud.showStatus([ctx.status, bench?.label() ?? "", flash].filter(Boolean).join("\n"));
+      hud.showStatus(
+        [ctx.status, bench?.label() ?? "", flash].filter(Boolean).join("\n"),
+      );
       return;
     }
     const s = window2s.summary(target.ms);
@@ -500,15 +579,26 @@ export function installPerf(ctx: ViewerContext): PerfHandle {
       lodRenderScale: spark.lodRenderScale,
       budget: budgetActive() ? `L${b.level} ${b.phase}` : "off",
       bench: bench?.label() ?? null,
-      status: [ctx.status, now < flashUntil ? flash : ""].filter(Boolean).join("  "),
+      status: [ctx.status, now < flashUntil ? flash : ""]
+        .filter(Boolean)
+        .join("  "),
     };
     hud.update(data, now);
     button.style.display = data.xr || bench ? "none" : "";
+    if (detail) {
+      detail.setVisible(!data.xr && !bench);
+      detail.update({
+        auto: budgetActive(),
+        count: mode === "lod" ? lod.count : (totalSplats ?? lod.count),
+        total: totalSplats,
+      });
+    }
   });
 
   const handle: PerfHandle = {
     mode: () => mode,
     setMode,
+    setDetail,
     budget: () => ({ active: budgetActive(), ...controller.state() }),
     bench: () => bench?.status() ?? null,
     log: () => recorder?.finish() ?? null,
@@ -525,5 +615,11 @@ export function installPerf(ctx: ViewerContext): PerfHandle {
 
 function pickSummary(log: FrameLogJson): Record<string, number> {
   const s = summarize(log.frames.dt, log.target_ms);
-  return { frames: s.frames, p50: s.p50, p99: s.p99, fps: s.fps, missedShare: s.missedShare };
+  return {
+    frames: s.frames,
+    p50: s.p50,
+    p99: s.p99,
+    fps: s.fps,
+    missedShare: s.missedShare,
+  };
 }

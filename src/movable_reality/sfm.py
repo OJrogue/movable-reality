@@ -28,7 +28,7 @@ from .coverage.colmap import find_sparse_dir, read_model, write_model
 from .recon import full_res_camera, model_res_camera
 from .splat_ops import similarity, umeyama
 
-MIN_REGISTERED = 0.9  # fraction of frames SfM must register to replace MapAnything
+MIN_REGISTERED = 0.5  # fraction of frames SfM must register; the rest are dropped
 
 
 def fit_to_reference(cams: list[Camera], ref: list[Camera]) -> tuple[np.ndarray, dict]:
@@ -65,6 +65,9 @@ def run_colmap(frames: Path, work: Path, K: np.ndarray | None, fix_k: bool):
         reader.camera_params = f"{K[0, 0]},{K[1, 1]},{K[0, 2]},{K[1, 2]}"
     extract = pycolmap.FeatureExtractionOptions()
     extract.sift.max_num_features = 8192
+    # Plain painted walls and ceilings have little contrast: a lower peak threshold keeps
+    # their weak corners (default 0.0067).
+    extract.sift.peak_threshold = 0.002
     pycolmap.extract_features(
         db, frames, camera_mode=pycolmap.CameraMode.SINGLE, reader_options=reader,
         extraction_options=extract,
@@ -74,6 +77,8 @@ def run_colmap(frames: Path, work: Path, K: np.ndarray | None, fix_k: bool):
     pairing.quadratic_overlap = True  # also frames 16, 32, 64 ... apart: closes walk loops
     pycolmap.match_sequential(db, pairing_options=pairing)
     opts = pycolmap.IncrementalPipelineOptions()
+    opts.min_num_matches = 10  # default 15
+    opts.mapper.abs_pose_min_num_inliers = 15  # default 30
     if fix_k:
         opts.ba_refine_focal_length = False
         opts.ba_refine_principal_point = False
@@ -127,6 +132,11 @@ def refine(frames: Path, ma: Path, out: Path, K: np.ndarray | None) -> dict:
         report["fit_to_mapanything"] = fit
         xyz = xyz @ M[:3, :3].T + M[:3, 3]
         moved = [model_res_camera(c.in_frame(M), small_w, small_h) for c in cams]
+        # Frames SfM could not register are left out of training. Placing them with
+        # MapAnything's pose relative to the nearest registered frame was tried on the
+        # blender01 ceiling turn (31 Oct): up to 1.6 m and 178 deg off, worse than no frame.
+        have = {c.name for c in cams}
+        report["dropped"] = [c.name for c in ma_cams if c.name not in have]
         write_model(out / "sparse", moved, xyz, rgb)
         report["used"] = "sfm"
         report["K_full_res"] = cams[0].K.tolist()
