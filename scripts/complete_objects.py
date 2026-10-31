@@ -105,8 +105,16 @@ def main() -> int:
         )  # fmt: skip
         so.write_vertices(root / out_rel, splats)
         obj.completed_ply = out_rel
+        obj.completed_lod = None  # its .RAD tree was built from the old PLY
         M = np.asarray(info.pop("recon_from_local"))
-        if args.mesh and res.glb:
+        W = np.asarray(scene.world_from_recon)
+        sw_xyz = so.xyz(splats) @ W[:3, :3].T + W[:3, 3]
+        info["completed_bounds_world"] = [np.percentile(sw_xyz, q, 0).round(3).tolist()
+                                          for q in (1, 99)]  # fmt: skip
+        info["completed_bytes"] = (root / out_rel).stat().st_size
+        # A run with a mesh (requested, or the cached mesh entry reused) always rewrites the
+        # mesh, so mesh and completed splats come from the same run.
+        if res.glb:
             mv, mc, mf = read_mesh_glb(res.glb)
             raw_faces = len(mf)
             mv, mc, mf = decimate(mv, mc, mf, args.mesh_faces)
@@ -114,10 +122,16 @@ def main() -> int:
             mv = (mv @ R.T) @ M[:3, :3].T + M[:3, 3]
             obj.mesh = mesh_name(obj.ply)
             write_mesh_glb(root / obj.mesh, mv, mc, mf, name=obj.id)
+            mw = mv @ W[:3, :3].T + W[:3, 3]
             info.update(mesh_vertices=len(mv), mesh_faces=len(mf), mesh_raw_faces=raw_faces,
-                        mesh_frame=frame_name, mesh_frame_dist=round(frame_d, 4))  # fmt: skip
-        elif args.mesh:
-            print(f"{obj.id:<24} SAM 3D returned no mesh")
+                        mesh_frame=frame_name, mesh_frame_dist=frame_d,
+                        mesh_bounds_world=[mw.min(0).round(3).tolist(),
+                                           mw.max(0).round(3).tolist()],
+                        mesh_bytes=(root / obj.mesh).stat().st_size)  # fmt: skip
+        else:
+            if args.mesh:
+                print(f"{obj.id:<24} SAM 3D returned no mesh")
+            obj.mesh = None  # a mesh from another run would not match these splats
         scene.save(root / "scene.json")
         report[obj.id] = {
             "frame": frame,

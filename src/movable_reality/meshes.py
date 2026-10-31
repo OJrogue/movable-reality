@@ -20,8 +20,11 @@ import numpy as np
 
 from .bake.glb import CHUNK_BIN, CHUNK_JSON, GLB_MAGIC, _pad, read_glb
 
-FLOAT, UBYTE, USHORT, UINT = 5126, 5121, 5123, 5125
-_DTYPE = {FLOAT: np.float32, UBYTE: np.uint8, USHORT: np.uint16, UINT: np.uint32}
+BYTE, UBYTE, SHORT, USHORT, UINT, FLOAT = 5120, 5121, 5122, 5123, 5125, 5126
+_DTYPE = {
+    BYTE: np.int8, UBYTE: np.uint8, SHORT: np.int16, USHORT: np.uint16, UINT: np.uint32,
+    FLOAT: np.float32,
+}  # fmt: skip
 _WIDTH = {"SCALAR": 1, "VEC2": 2, "VEC3": 3, "VEC4": 4}
 
 # to_glb (sam3d_objects/model/backbone/tdfy_dit/utils/postprocessing_utils.py) turns the
@@ -35,6 +38,8 @@ def _accessor(doc: dict, blob: bytes, i: int) -> np.ndarray:
     v = doc["bufferViews"][a["bufferView"]]
     dt = np.dtype(_DTYPE[a["componentType"]])
     width = _WIDTH[a["type"]]
+    if a["count"] == 0:
+        return np.zeros((0, width)) if width > 1 else np.zeros(0)
     start = v.get("byteOffset", 0) + a.get("byteOffset", 0)
     stride = v.get("byteStride") or dt.itemsize * width
     raw = np.frombuffer(blob, dtype=np.uint8, count=stride * (a["count"] - 1) + dt.itemsize * width,
@@ -44,7 +49,7 @@ def _accessor(doc: dict, blob: bytes, i: int) -> np.ndarray:
     )
     out = np.ascontiguousarray(rows).view(dt).reshape(a["count"], width).astype(np.float64)
     if a.get("normalized") and a["componentType"] != FLOAT:
-        out /= np.iinfo(dt).max
+        out = np.maximum(out / np.iinfo(dt).max, -1.0)  # spec rule, signed types included
     return out if width > 1 else out[:, 0]
 
 
@@ -200,24 +205,28 @@ def _mean_nearest(a: np.ndarray, b: np.ndarray, chunk: int = 512) -> float:
 
 
 def to_gaussian_frame(
-    mesh_v: np.ndarray, gauss_xyz: np.ndarray, n: int = 1500, seed: int = 0
-) -> tuple[np.ndarray, str, float]:
-    """3x3 rotation R with v_gauss = v_mesh @ R.T, picked among the GLB frame's known
-    candidates (inverse of to_glb's z-up to y-up turn, that turn itself, identity) by the
-    symmetric mean nearest-point distance between the two clouds. Returns R, its name and
-    the distance (canonical units) so a wrong guess shows in the report."""
+    mesh_v: np.ndarray, gauss_xyz: np.ndarray, n: int = 1500, seed: int = 0, margin: float = 0.5
+) -> tuple[np.ndarray, str, dict[str, float]]:
+    """3x3 rotation R with v_gauss = v_mesh @ R.T. The default is the inverse of to_glb's
+    z-up to y-up turn ("y_to_z"). Another candidate (the turn itself, identity) replaces it
+    only when its symmetric mean nearest-point distance is under `margin` times the
+    default's, so a near-cubic or symmetric object cannot flip the mesh by a small margin.
+    Returns R, its name and every candidate's distance (canonical units) for the report."""
     rng = np.random.default_rng(seed)
     a = mesh_v[rng.choice(len(mesh_v), min(n, len(mesh_v)), replace=False)]
     b = gauss_xyz[rng.choice(len(gauss_xyz), min(n, len(gauss_xyz)), replace=False)]
-    best = None
-    for name, R in (("y_to_z", Z_TO_Y), ("z_to_y", Z_TO_Y.T), ("identity", np.eye(3))):
-        # v_gauss = v_mesh @ R.T; v_glb = v_z @ Z_TO_Y gives v_z = v_glb @ Z_TO_Y.T = v @ R.T
-        # with R = Z_TO_Y, which is the first candidate.
+    # v_glb = v_z @ Z_TO_Y gives v_z = v_glb @ Z_TO_Y.T, i.e. R = Z_TO_Y.
+    cands = {"y_to_z": Z_TO_Y, "z_to_y": Z_TO_Y.T, "identity": np.eye(3)}
+    dist = {}
+    for name, R in cands.items():
         moved = a @ R.T
-        d = 0.5 * (_mean_nearest(moved, b) + _mean_nearest(b, moved))
-        if best is None or d < best[2]:
-            best = (R, name, d)
-    return best
+        dist[name] = round(0.5 * (_mean_nearest(moved, b) + _mean_nearest(b, moved)), 5)
+    name = min(dist, key=dist.get)
+    if name != "y_to_z" and dist[name] >= margin * dist["y_to_z"]:
+        name = "y_to_z"
+    elif name != "y_to_z":
+        print(f"  mesh frame: {name} fits clearly better than y_to_z {dist}")
+    return cands[name], name, dist
 
 
 def decimate(

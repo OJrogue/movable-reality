@@ -114,7 +114,10 @@ export function installObjects(ctx: ViewerContext): ObjectsHandle {
         console.info(`[objects] ${id}: ${url} (${tris} triangles)`);
         refresh();
       })
-      .catch((err) => console.warn(`[objects] ${id}: failed to load ${url}: ${String(err)}`));
+      .catch((err) => {
+        console.warn(`[objects] ${id}: failed to load ${url}: ${String(err)}`);
+        offset.removeFromParent(); // the entry stays, so the failed URL is not retried
+      });
   };
 
   // Meshes load on first use of the mesh style, so the other styles cost nothing extra.
@@ -126,6 +129,7 @@ export function installObjects(ctx: ViewerContext): ObjectsHandle {
         const e = entries.get(o.id);
         if (e && e.url !== url) {
           e.group.removeFromParent();
+          dispose(e.group);
           entries.delete(o.id);
         }
         if (url && !entries.has(o.id)) load(o.id, url, manifest);
@@ -163,4 +167,13 @@ export function installObjects(ctx: ViewerContext): ObjectsHandle {
   refresh();
   (window as unknown as { mrObjects: ObjectsHandle }).mrObjects = handle;
   return handle;
+}
+
+function dispose(root: THREE.Object3D): void {
+  root.traverse((o) => {
+    const mesh = o as THREE.Mesh;
+    if (!mesh.isMesh) return;
+    mesh.geometry.dispose();
+    for (const mat of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) mat.dispose();
+  });
 }

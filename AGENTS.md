@@ -124,6 +124,7 @@ web/                    Vite + three.js + Spark viewer (desktop and WebXR)
   src/planes/           lane: bake      loading baked planes, opaque pass
   src/ui/               lane: ui        desktop picking and dragging, command bar, hold-to-talk, onboarding
   src/devices/          lane: devices   device profiles (desktop, mobile, xr), touch controls
+  src/objects/          lane: core      object styles (scan, SAM 3D splats, SAM 3D meshes), mesh loading
   src/scene.ts          core (shared)
 data/                   gitignored: raw videos, scenes, API cache
 benchmarks/             committed: raw frame-time logs (JSON) and result tables

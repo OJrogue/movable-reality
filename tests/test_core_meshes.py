@@ -57,7 +57,83 @@ def test_frame_found_from_the_gaussians():
     R, name, d = to_gaussian_frame(mesh_v, gauss)
     assert name == "y_to_z"
     assert np.allclose(mesh_v @ R.T, gauss[:2000])
-    assert d < 0.02
+    assert d["y_to_z"] < 0.02 < d["identity"]
+
+
+def test_symmetric_object_keeps_the_default_frame():
+    rng = np.random.default_rng(2)
+    cube = rng.uniform(-0.3, 0.3, size=(3000, 3))  # every candidate fits about as well
+    _, name, d = to_gaussian_frame(cube[:2000] @ Z_TO_Y, cube)
+    assert name == "y_to_z" and set(d) == {"y_to_z", "z_to_y", "identity"}
+
+
+def _trimesh_style_glb() -> bytes:
+    """Interleaved POSITION (float) + COLOR_0 (normalised UBYTE VEC4) with byteStride 16,
+    USHORT indices, a parent node with a translation and a child with rotation and scale."""
+    import json
+    import struct
+
+    pos = np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0]], dtype=np.float32)
+    col = np.array([[255, 0, 0, 255], [0, 255, 0, 255], [0, 0, 255, 255]], dtype=np.uint8)
+    inter = b"".join(p.tobytes() + c.tobytes() for p, c in zip(pos, col, strict=True))
+    idx = np.array([0, 1, 2], dtype=np.uint16).tobytes() + b"\x00\x00"
+    blob = inter + idx
+    h = np.sqrt(0.5)  # 90 degrees about +Z: x -> y
+    doc = {
+        "asset": {"version": "2.0"},
+        "scene": 0,
+        "scenes": [{"nodes": [0]}],
+        "nodes": [
+            {"translation": [10, 0, 0], "children": [1]},
+            {"mesh": 0, "rotation": [0, 0, h, h], "scale": [2, 2, 2]},
+        ],
+        "meshes": [{"primitives": [{"attributes": {"POSITION": 0, "COLOR_0": 1}, "indices": 2}]}],
+        "accessors": [
+            {"bufferView": 0, "componentType": 5126, "count": 3, "type": "VEC3"},
+            {
+                "bufferView": 0,
+                "byteOffset": 12,
+                "componentType": 5121,
+                "normalized": True,
+                "count": 3,
+                "type": "VEC4",
+            },
+            {"bufferView": 1, "componentType": 5123, "count": 3, "type": "SCALAR"},
+        ],
+        "bufferViews": [
+            {"buffer": 0, "byteOffset": 0, "byteLength": len(inter), "byteStride": 16},
+            {"buffer": 0, "byteOffset": len(inter), "byteLength": 6},
+        ],
+        "buffers": [{"byteLength": len(blob)}],
+    }
+    js = json.dumps(doc).encode()
+    js += b" " * ((4 - len(js) % 4) % 4)
+    out = struct.pack("<III", 0x46546C67, 2, 28 + len(js) + len(blob))
+    return (
+        out
+        + struct.pack("<II", len(js), 0x4E4F534A)
+        + js
+        + struct.pack("<II", len(blob), 0x004E4942)
+        + blob
+    )
+
+
+def test_reads_trimesh_style_layout():
+    v, c, f = read_mesh_glb(_trimesh_style_glb())
+    assert np.allclose(v, [[10, 0, 0], [10, 2, 0], [8, 0, 0]], atol=1e-6)
+    assert np.allclose(c, np.eye(3))
+    assert (f == [[0, 1, 2]]).all()
+
+
+def test_mesh_field_survives_a_scene_round_trip(tmp_path):
+    from movable_reality.scene import Scene, SceneObject
+
+    s = Scene(scene_id="t")
+    s.objects.append(SceneObject(id="chair#1", label="chair", ply="objects/obj_chair_1.ply",
+                                 bbox_min=(0, 0, 0), bbox_max=(1, 1, 1),
+                                 mesh="objects/obj_chair_1_mesh.glb"))  # fmt: skip
+    s.save(tmp_path / "scene.json")
+    assert Scene.load(tmp_path / "scene.json").objects[0].mesh == "objects/obj_chair_1_mesh.glb"
 
 
 def test_decimate_keeps_shape_and_colours():

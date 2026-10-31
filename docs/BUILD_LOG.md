@@ -903,14 +903,21 @@ test-walk metrics, `sfm.json`, GT pose ATE). Every row predates the lighting cha
 - `scripts/complete_objects.py --mesh` writes `objects/obj_<id>_mesh.glb` beside
   `obj_<id>_completed.ply` and sets the new optional `SceneObject.mesh` (scene.py and
   scene.ts). The mesh uses the same registration matrix as the completed splats. The
-  rotation from the GLB's y-up frame back to the Gaussians' frame is picked by nearest-point
-  distance (`meshes.to_gaussian_frame`), and every object picked the inverse of `to_glb`'s
-  z-up to y-up turn. The raw meshes have 85k to 1.02M faces. Quadric decimation
+  rotation from the GLB's y-up frame back to the Gaussians' frame defaults to the inverse
+  of `to_glb`'s z-up to y-up turn, and `meshes.to_gaussian_frame` logs the nearest-point
+  distance of every candidate. The default fitted best on all 10 objects, but only by
+  0.0295 against 0.0299 on `books#0`, a near-box, so another candidate must win by 2x to
+  replace it. The raw meshes have 85k to 1.02M faces. Quadric decimation
   (fast-simplification, MIT, no learned weights) cuts each one to at most 100k faces,
-  2.4 MB per object and 23 MB for the ten.
-- Run on blender01. All 10 objects took about 3.5 min of L40S time (about $0.15) on a warm
-  container, plus 48 s of model load. ICP RMS after registration was 7 to 47 mm. Mesh and
-  completed splats agree in world bounds to within about 5 cm (`benchmarks/recon/blender01/completion.json`).
+  2.05 to 2.40 MB per object and 23.66 MB for the ten (`mesh_bytes` in the report).
+- Run on blender01. SAM 3D's generate step summed to 92.6 s over the 10 objects, plus 48.5 s
+  of model load, on one L40S (under $0.20). ICP RMS after registration was 7 to 47 mm. Per
+  object, the mesh's world bounds and the completed splats' 1st to 99th percentile bounds
+  differ by 1.2 to 16 cm, median about 4.5 cm. The largest gaps are on `sofa#0` (16 cm)
+  and `armchair#0` (11 cm), where the percentile trim cuts more of the splats' extent
+  (`completed_bounds_world`, `mesh_bounds_world` in `benchmarks/recon/blender01/completion.json`).
+- A completed PLY and its mesh always come from one SAM 3D run. A run without `--mesh`
+  reuses the cached mesh run when there is one, and clears `mesh` when there is none.
 - Viewer. `?objects=auto|scan|completed|mesh` and key V (or the label under the detail
   panel) switch the style. auto is the old behaviour (scan, SAM 3D splats once moved).
   scan pins the scan, completed pins SAM 3D's splats, and mesh draws the GLBs (unlit,

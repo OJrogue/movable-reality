@@ -54,10 +54,15 @@ def run_sam3d(
 ) -> Sam3DResult:
     """Image (PNG/JPEG bytes) + mask (PNG, white = object) -> Gaussians and pose.
     dense=True: 32 splats per voxel (about 1M for a stool) instead of 4 (about 120k).
-    mesh=True: also the object as a vertex-coloured triangle mesh (GLB bytes). The same seed
-    gives the same Gaussians and pose, so the mesh run can replace a cached Gaussian run."""
+    mesh=True: also the object as a vertex-coloured triangle mesh (GLB bytes). A mesh run is
+    its own cache entry. A call without mesh reuses that entry when it exists, so the
+    completed splats and the mesh of one object always come from the same run."""
     cache = CACHE_DIR / "sam3d"
     key = _key(image, mask_png, seed, dense, mesh)
+    if not mesh and not force:
+        with_mesh = _key(image, mask_png, seed, dense, True)
+        if (cache / f"{with_mesh}.ply").exists() and (cache / f"{with_mesh}.json").exists():
+            key = with_mesh
     ply_path, meta_path = cache / f"{key}.ply", cache / f"{key}.json"
     glb_path = cache / f"{key}.glb"
     if not (ply_path.exists() and meta_path.exists()) or force:
