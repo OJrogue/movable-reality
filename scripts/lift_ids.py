@@ -117,9 +117,11 @@ def main() -> int:
         }
         if len(ids) != len(xyz):
             raise SystemExit("ids/assigned.npy does not match splat/scene.ply; run without it")
+        if args.skip:
+            print("--skip has no effect with --reuse-votes (the saved vote already has its nouns)")
     else:
-        skip = {n.strip() for n in args.skip.split(",") if n.strip()}
-        inv = {**inv, "nouns": [n for n in inv["nouns"] if n not in skip]}
+        skip = {n.strip().lower() for n in args.skip.split(",") if n.strip()}
+        inv = {**inv, "nouns": [n for n in inv["nouns"] if n.lower() not in skip]}
         names, ids = segment_and_vote(root, inv, p, cams, xyz, v, w, h)
     finish(args, root, p, names, ids, cams, xyz)
     return 0

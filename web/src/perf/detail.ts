@@ -110,7 +110,7 @@ export class DetailControl {
   update(s: DetailState): void {
     this.total = s.total;
     this.slider.disabled = s.total === null;
-    if (document.activeElement !== this.auto) this.auto.checked = s.auto;
+    this.auto.checked = s.auto; // a programmatic set fires no change event
     const shown = s.total === null ? s.count : Math.min(s.count, s.total);
     this.label.textContent =
       s.total === null

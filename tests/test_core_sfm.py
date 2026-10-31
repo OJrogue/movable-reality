@@ -38,3 +38,13 @@ def test_fit_to_reference_recovers_similarity_and_moves_cameras():
     moved = sfm[3].in_frame(M)
     np.testing.assert_allclose(moved.center, ref[2].center, atol=1e-9)
     np.testing.assert_allclose(moved.R, ref[2].R, atol=1e-9)
+
+
+def test_fit_to_reference_trims_a_bad_reference_pose():
+    sfm = [_cam(f"{i:06d}.jpg", (np.cos(i), 1.5 + 0.1 * i, np.sin(i) * 2)) for i in range(10)]
+    M_true = similarity(np.eye(3), np.array([0.3, -0.2, 1.0]), 0.5)
+    ref = [c.in_frame(M_true) for c in sfm]
+    ref[4] = _cam(ref[4].name, ref[4].center + np.array([2.0, 0, 0]))  # one pose 2 m off
+    M, stats = fit_to_reference(sfm, ref)
+    assert stats["trimmed"] == 1
+    np.testing.assert_allclose(M, M_true, atol=1e-9)

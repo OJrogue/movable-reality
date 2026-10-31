@@ -187,11 +187,18 @@ def reconstruct(
     fhash = _frames_hash(frames)
     if intrinsics:  # a new camera must redo MapAnything too
         fhash += " " + json.dumps(intrinsics, sort_keys=True)
-    fhash += " sfm" if sfm else " no-sfm"
-    stamp = recon / "frames_hash.txt"
-    if not force and stamp.exists() and stamp.read_text().strip() != fhash:
+    # Two stamps: recon_ma/ records the frames and camera MapAnything saw, recon/ adds the
+    # SfM switch, so turning SfM on or off redoes recon/ onwards and keeps MapAnything.
+    ma_stamp, stamp = recon_ma / "frames_hash.txt", recon / "frames_hash.txt"
+    rhash = fhash + (" sfm" if sfm else " no-sfm")
+    old = (_read(stamp) or "").strip()
+    seen = (_read(ma_stamp) or "").strip() or old.rsplit(" ", 1)[0]  # scenes from before the split
+    if not force and seen and seen != fhash:
         print("frames changed since the last reconstruction; redoing every stage")
         force = True
+    elif not force and old and old != rhash:
+        print("SfM setting changed; redoing the cameras and later stages")
+        shutil.rmtree(recon, ignore_errors=True)
 
     # 1. MapAnything: metric cameras + points with one shared camera, exported as a COLMAP
     # model (Apache weights).
@@ -203,6 +210,7 @@ def reconstruct(
             ["python", "-m", "movable_reality.ma_colmap", f"--images_dir={frames}",
              f"--output_dir={recon_ma}", *k_args]
         )  # fmt: skip
+        ma_stamp.write_text(fhash)
 
     # 1a. COLMAP SfM on the same frames, fitted to MapAnything's metric frame (sfm.py). It also
     # fixes the focal length: MapAnything's export writes its own predicted intrinsics even when
@@ -218,7 +226,7 @@ def reconstruct(
             scenes_vol.reload()
         else:
             shutil.copytree(recon_ma, recon, symlinks=True)
-        stamp.write_text(fhash)
+        stamp.write_text(rhash)
 
     # 1b. MapAnything's model stores ~518 px images and intrinsics. Train on the full-res
     # frames instead: recon_full/ = frames as images/ plus the cameras rescaled to them.
@@ -362,6 +370,8 @@ def render_eval(scene_id: str, walk: str, n_side: int = 8) -> dict:
     ckpts = sorted(
         (root / "gsplat" / "ckpts").glob("ckpt_*_rank0.pt"), key=lambda p: int(p.stem.split("_")[1])
     )
+    if not ckpts:
+        raise FileNotFoundError(f"no gsplat checkpoint for {scene_id}; reconstruct it first")
     sp = torch.load(ckpts[-1], map_location="cuda", weights_only=False)["splats"]
     colors = torch.cat([sp["sh0"], sp["shN"]], 1)
     sh_degree = round(math.sqrt(colors.shape[1])) - 1

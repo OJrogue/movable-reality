@@ -799,8 +799,9 @@ render runs $0.011, top-up rerun $0.055, distil about $0.01), Muse Image 11 call
   which gsplat's requirements install, registered none of the 152 frames. One Sim3 fits the
   model onto MapAnything's metric frame and writes `recon/` in MapAnything's convention, so
   later stages read it unchanged. Frames it cannot register are dropped (50% minimum). On
-  blender01 it registered all 152 frames with a 0.59 px reprojection error, 3.3 mm ATE and a
-  0.08 deg median rotation error.
+  blender01 it registered all 152 frames with a 0.59 px reprojection error, 2.9 mm ATE
+  against GT (3.3 mm once fitted into MapAnything's frame) and a 0.08 deg median rotation
+  error. The fit now drops pairs over 3x the median residual and refits once.
 - Training presets in `modal_jobs/reconstruct.py`. `quality` (the default) runs 30k steps
   with absolute-gradient densification (grow_grad2d 0.0003) and antialiasing. `mcmc` relocated
   about 99% of 3M Gaussians every 100 steps on blender01 and ran out of memory at step 22k.
@@ -817,6 +818,9 @@ render runs $0.011, top-up rerun $0.055, distil about $0.01), Muse Image 11 call
 | blender01 | + upward loop (224 frames, 178 registered) | 848k | 40.9 | 34.3 | 0.179 |
 | blender02 | 30k, SfM, grow 0.0003 | 1.25M | 40.5 | 31.1 | 0.140 |
 
+The raw metrics for the last two rows are in `benchmarks/recon/<scene>/` (gsplat val stats,
+test-walk metrics, `sfm.json`, GT pose ATE). Every row predates the lighting change below.
+
 - Ceiling. The capture walks pitch 22 deg down, so the ceiling and the upper walls trained
   black. A turn on the spot at 20 to 65 deg up was tried first. Without parallax, SfM placed
   none of its frames, and MapAnything's poses for them were up to 178 deg off. blender01's
@@ -829,8 +833,13 @@ render runs $0.011, top-up rerun $0.055, distil about $0.01), Muse Image 11 call
   the detail by hand.
 - New blender01 downstream. Lift `--skip wall --scale 1.657` (GT-assisted) gave 11 objects.
   The ceiling plane fit came out 25 deg off level over a 2.83 x 0.91 m strip, so the bake
-  uses `--labels floor` only. In the browser the room draws all 594k splats at 60 fps under
-  the desktop profile, with the ceiling and upper walls present. Smudges remain where the
+  uses `--labels floor` only. In the browser the room draws all 594k splats at about 60 fps
+  under the desktop profile (read off the HUD by eye, no frame-time log), with the ceiling and upper walls present. Smudges remain where the
   upward loop was dropped (plain wall).
+- Lighting (OJ, 31 Oct, "they leave a halo on the wall"). `build_room` in
+  `scripts/blender_room.py` now lights every room with one ceiling-sized area light (420 W,
+  warm white) instead of the 1 m ceiling panels, and the floor lamp has no bulb and no
+  glowing shade. This changes `build_scene` for all four rooms. blender01 is re-rendering.
+  The scores above are from the old lighting.
 - Next: the upward loop in blender02 to blender04 and in the real-room filming guide, the
   splats left behind when an object moves, and object box sizes (armchair#0 is 0.07 m wide).

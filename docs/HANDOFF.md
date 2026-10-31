@@ -68,10 +68,11 @@ Open problems, in order of impact.
 1. **Pose quality and scale.** MapAnything (Apache weights) under-scales both synthetic rooms
    by about 2x (Sim3 1.83 and 2.07) with GT intrinsics, and the ATE after Sim3 is 0.29 m and
    0.50 m. The export uses the documented metric outputs, so this is the model on these
-   renders. The errors are even over the walk (no crouch spike). Next: gsplat `pose_opt`
-   with the refined cameras written back for lift and coverage, then a metric reference that
-   needs no GT. `--ceiling-height` works only when the ceiling is reconstructed (the walk
-   tilts 28 deg down, so it is not). A tape measurement of one object or a camera-height
+   renders. The errors are even over the walk (no crouch spike). Update of 31 Oct: COLMAP SfM
+   (`sfm.py`) now refines the cameras and fits them into MapAnything's frame, ATE 3.3 mm on
+   blender01, so `pose_opt` is no longer needed. Still open is a metric reference that needs
+   no GT. `--ceiling-height` needs the ceiling reconstructed, which the blender01 upward loop
+   now gives in part. A tape measurement of one object or a camera-height
    prior are the options. Test on a real room first, because real textures may behave better.
 2. **SAM 3.1 drops long streams** ("Connection error") for floor and wall on 150+ frame clips.
    Floor succeeded on a retry after 731 s and 1200 s. Wall failed 9 of 9, so use

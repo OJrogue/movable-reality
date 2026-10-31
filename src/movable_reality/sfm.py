@@ -3,11 +3,12 @@
     python -m movable_reality.sfm --frames frames --ma recon_ma --out recon [--fx .. --cy ..]
 
 MapAnything gives metric cameras, but on blender01 (31 Oct) its poses were 0.29 m off after a
-Sim(3) fit, which blurs every splat. SIFT + incremental mapping on the same 152 frames gave
-2.9 mm ATE and 0.08 deg median rotation error. COLMAP has no metric scale, so its model is
-fitted to MapAnything's camera centres by one Sim(3) (Umeyama). The output lands in recon/ in
-MapAnything's own convention (model-resolution intrinsics), so every later stage reads it
-unchanged. If too few frames register, MapAnything's model is copied through instead.
+Sim(3) fit, which blurs every splat. SIFT + incremental mapping on the same 152 frames gave 2.9
+mm ATE against GT (3.3 mm after the fit into the MapAnything frame) and 0.08 deg median
+rotation error. COLMAP has no metric scale, so its model is fitted to MapAnything's camera
+centres by one Sim(3) (Umeyama). The output lands in recon/ in MapAnything's own convention
+(model-resolution intrinsics), so every later stage reads it unchanged. If too few frames
+register, MapAnything's model is copied through instead.
 Needs pycolmap 4 (API of 4.2.1). Version 3.13, which gsplat's requirements install in the
 training image, registered none of the 152 blender01 frames, so this runs in its own CPU image.
 """
@@ -41,8 +42,15 @@ def fit_to_reference(cams: list[Camera], ref: list[Camera]) -> tuple[np.ndarray,
     src, dst = (np.array(x) for x in zip(*pairs, strict=True))
     R, t, s = umeyama(src, dst)
     res = np.linalg.norm((s * src @ R.T + t) - dst, axis=1)
+    # One refit without the pairs far off the median, so a few bad reference poses do not
+    # bend the whole fit. The residuals reported are those of every pair.
+    keep = res <= 3 * np.median(res) + 1e-9
+    if 3 <= keep.sum() < len(res):
+        R, t, s = umeyama(src[keep], dst[keep])
+        res = np.linalg.norm((s * src @ R.T + t) - dst, axis=1)
     stats = {
         "shared": len(pairs),
+        "trimmed": int((~keep).sum()),
         "scale": s,
         "residual_rms": float(np.sqrt((res**2).mean())),
         "residual_max": float(res.max()),

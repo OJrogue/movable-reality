@@ -197,7 +197,9 @@ Device profiles (lane devices, 31 Oct, `web/src/devices/profile.ts`). The HUD's 
 names the profile. Outside XR the estimated rate is clamped to 30 to 60 Hz on the `desktop`
 and `mobile` profiles, so desktop and headless logs recorded after this change target
 16.7 ms on a 120 Hz screen where earlier logs targeted 8.3 ms. Their missed-frame shares
-are not comparable with older desktop logs. Inside an XR session the `xr` profile applies,
+are not comparable with older desktop logs. Since the later change of 31 Oct (OJ, "at least
+20-30 fps is fine") the `desktop` profile is pinned to 30 Hz, so desktop logs target 33.3 ms
+and the controller keeps every splat down to 30 fps. `mobile` keeps the 30 to 60 Hz clamp. Inside an XR session the `xr` profile applies,
 with the budget range and targets described here. Logs carry `device_profile` and a
 `device` event when the profile changes.
 
