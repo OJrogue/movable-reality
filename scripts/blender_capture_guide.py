@@ -3,6 +3,7 @@
     uv run python scripts/blender_capture_guide.py                 # both walks
     uv run python scripts/blender_capture_guide.py --walk main
     uv run python scripts/blender_capture_guide.py --scene blender02
+    uv run python scripts/blender_capture_guide.py --scene blender04 --layout   # plan PNG only
 
 Inputs come from scripts/blender_room.py: the rendered frames (data/raw/<scene>/<walk>/rgb)
 and the ground-truth cameras and objects (data/raw/<scene>_gt/). Each output frame shows
@@ -10,6 +11,9 @@ the phone's view next to a floor plan with the room outline (room_outline_xz in 
 else the room_size_m box), the path, the phone position and the direction it points, plus
 the current instruction, phone height, walking speed and turn rate.
 Writes data/raw/<scene>_guide_main.mp4 (training capture) and _test.mp4 (test walk).
+--layout writes data/raw/<scene>_layout.png instead: the floor plan with both walks, the
+furniture labels, columns and ceiling heights. It needs no render; without objects.json it
+takes the furniture footprints from the scene definition in blender_room.py.
 CPU only, no API calls.
 """
 
@@ -80,7 +84,54 @@ PHASES_02 = {
           "Film it right after the main capture, same light."]),
     ],
 }  # fmt: skip
-PHASES = {"blender01": PHASES_01, "blender02": PHASES_02}
+PHASES_03 = {
+    "main": [
+        (0.0, 25.0, "1/3  Chest-height loop round the column",
+         ["Walk slowly round the column through the open middle, about 0.5 m",
+          "from walls and furniture, past the angled wall and the bay window.",
+          "Phone landscape at chest height (1.5 m), pointing across the room",
+          "and a little down (about 20 deg). Slow pace (0.4 m/s)."]),
+        (25.0, 27.0, "2/3  Crouch",
+         ["Lower the phone to knee height.",
+          "Keep filming, keep the phone pointed across the room."]),
+        (27.0, 40.0, "3/3  Knee-height loop",
+         ["A smaller loop round the column at 0.6 m, phone nearly level,",
+          "aimed across the loop, so the back of the column, the bay",
+          "and the space under the furniture are seen."]),
+    ],
+    "test": [
+        (0.0, 20.0, "Test walk (never used for training)",
+         ["A loop at 1.2 m past the column and the bay.",
+          "Turn the phone slowly so it sweeps every piece of",
+          "furniture from angles the main loop did not use.",
+          "Film it right after the main capture, same light."]),
+    ],
+}  # fmt: skip
+PHASES_04 = {
+    "main": [
+        (0.0, 25.0, "1/3  Chest-height loop under the flat ceiling",
+         ["Walk slowly round the middle of the attic, where you can stand,",
+          "and step into the mouth of the dormer. Mind your head under the slopes.",
+          "Phone landscape at chest height (1.5 m), pointing across the room",
+          "and a little down (about 20 deg). Slow pace (0.4 m/s)."]),
+        (25.0, 27.0, "2/3  Crouch",
+         ["Lower the phone to knee height.",
+          "Keep filming, keep the phone pointed across the room."]),
+        (27.0, 43.0, "3/3  Knee-height loop under the slopes",
+         ["A loop at 0.6 m that reaches in under both slopes and past the dormer,",
+          "phone nearly level, aimed across the loop,",
+          "so the knee walls and the space under the furniture are seen."]),
+    ],
+    "test": [
+        (0.0, 20.0, "Test walk (never used for training)",
+         ["A loop at 1.2 m through the middle of the attic.",
+          "Turn the phone slowly so it sweeps every piece of",
+          "furniture from angles the main loop did not use.",
+          "Film it right after the main capture, same light."]),
+    ],
+}  # fmt: skip
+PHASES = {"blender01": PHASES_01, "blender02": PHASES_02, "blender03": PHASES_03,
+          "blender04": PHASES_04}  # fmt: skip
 TIPS = [
     "Before filming: lock focus and exposure (long-press on iPhone), 1080p60 or 4K30,",
     "lamps on, curtains still, no people or pets, screens off. Move slowly, no fast turns.",
@@ -139,25 +190,41 @@ def room_outline(objs: dict) -> list[tuple[float, float]]:
 
 
 class Plan:
-    """Top-down floor plan, north (world -z) up, in a PLAN x PLAN panel."""
+    """Top-down floor plan, north (world -z) up, in a size x size panel. Polygon rooms add
+    ceiling zones (drawn as thin lines where the ceiling changes) and columns."""
 
-    def __init__(self, outline: list[tuple[float, float]], objects: list[dict]):
+    def __init__(
+        self,
+        outline: list[tuple[float, float]],
+        objects: list[dict],
+        size: int = PLAN,
+        zones: list[dict] | None = None,
+        columns: list[list[float]] | None = None,
+    ):
         pts = np.asarray(outline, dtype=float)
         lo, hi = pts.min(0), pts.max(0)
+        self.size = size
         self.centre = (lo + hi) / 2
-        self.s = (PLAN - 80) / float((hi - lo).max())
+        self.s = (size - 80 * size / PLAN) / float((hi - lo).max())
         self.outline = [tuple(p) for p in pts]
         self.objects = objects
+        self.zones = zones or []
+        self.columns = columns or []
 
     def px(self, x: float, z: float) -> tuple[float, float]:
-        return (PLAN / 2 + (x - self.centre[0]) * self.s,
-                PLAN / 2 + (z - self.centre[1]) * self.s)  # fmt: skip
+        return (self.size / 2 + (x - self.centre[0]) * self.s,
+                self.size / 2 + (z - self.centre[1]) * self.s)  # fmt: skip
 
     def base(self, path: np.ndarray) -> Image.Image:
-        img = Image.new("RGB", (PLAN, PLAN), (24, 26, 30))
+        img = Image.new("RGB", (self.size, self.size), (24, 26, 30))
         d = ImageDraw.Draw(img)
         poly = [self.px(x, z) for x, z in self.outline]
         d.polygon(poly, fill=(52, 48, 44))
+        for zone in self.zones:  # ceiling zone edges (slope starts, dormer, bay)
+            zp = [self.px(x, z) for x, z in zone["outline_xz"]]
+            d.line([*zp, zp[0]], fill=(88, 84, 78), width=2)
+        for x0, z0, x1, z1 in self.columns:
+            d.rectangle([*self.px(x0, z0), *self.px(x1, z1)], fill=(220, 210, 195))
         d.line([*poly, poly[0]], fill=(220, 210, 195), width=6, joint="curve")
         f = font(15)
         big = [o for o in self.objects if o.get("support") is None]
@@ -174,8 +241,44 @@ class Plan:
                    stroke_width=2, stroke_fill=(40, 38, 34))  # fmt: skip
         pts = [self.px(p[0], p[2]) for p in path]
         d.line(pts, fill=(70, 140, 220), width=3)
-        d.text((PLAN / 2, 18), "floor plan (north up)", font=font(16), fill=(170, 170, 170),
+        d.text((self.size / 2, 18), "floor plan (north up)", font=font(16), fill=(170, 170, 170),
                anchor="mm")  # fmt: skip
+        return img
+
+    def layout(self, walks: dict[str, np.ndarray], title: str) -> Image.Image:
+        """Plan with every walk's eye path (world positions, (N, 3)), ceiling heights per
+        zone and a 1 m scale bar. Main walk: blue above 1 m, violet below; test: green."""
+        img = self.base(np.zeros((0, 3)))
+        d = ImageDraw.Draw(img)
+        f = font(int(self.size / 40))
+        for zone in self.zones:
+            pts = np.asarray(zone["outline_xz"], dtype=float)
+            if (pts.max(0) - pts.min(0)).min() < 0.6:
+                continue  # too narrow to label
+            hx, hz, h0 = zone["height"]
+            hs = [hx * x + hz * z + h0 for x, z in pts]
+            label = f"{min(hs):.1f} m" if max(hs) - min(hs) < 1e-6 else (
+                f"{min(hs):.1f}-{max(hs):.1f} m")  # fmt: skip
+            cx, cz = self.px(*pts.mean(0))
+            d.text((cx, cz + self.size / 30), f"ceiling {label}", font=f, fill=(150, 145, 135),
+                   anchor="mm")  # fmt: skip
+        colours = {"test": (90, 200, 120)}
+        for walk, eyes in sorted(walks.items(), reverse=True):  # test first, main on top
+            for a, b in zip(eyes[:-1], eyes[1:], strict=True):
+                c = colours.get(walk) or ((90, 150, 235) if a[1] > 1.0 else (190, 110, 230))
+                d.line([self.px(a[0], a[2]), self.px(b[0], b[2])], fill=c, width=4)
+            sx, sz = self.px(eyes[0][0], eyes[0][2])
+            d.ellipse([sx - 8, sz - 8, sx + 8, sz + 8], outline="white", width=3)
+        x0, y0 = self.size * 0.06, self.size - self.size * 0.05
+        d.line([(x0, y0), (x0 + self.s, y0)], fill="white", width=4)
+        d.text((x0 + self.s / 2, y0 - 6), "1 m", font=f, fill="white", anchor="mb")
+        d.rectangle([0, 0, self.size, self.size * 0.06], fill=(24, 26, 30))
+        d.text((self.size / 2, self.size * 0.03), title, font=font(int(self.size / 32)),
+               fill=(230, 230, 230), anchor="mm")  # fmt: skip
+        d.text((self.size - 12, self.size - 12),
+               "blue: main walk at chest height   violet: main walk at knee height   "
+               "green: test walk   circle: start", font=font(int(self.size / 55)),
+               fill=(170, 170, 170), anchor="rd")  # fmt: skip
         return img
 
     def frame(self, base: Image.Image, c2w: np.ndarray, i: int) -> Image.Image:
@@ -198,7 +301,8 @@ class Plan:
         d.ellipse(
             [cx - 11, cz - 11, cx + 11, cz + 11], fill=(255, 120, 40), outline="white", width=2
         )
-        d.text((PLAN / 2, PLAN - 16), "orange: phone, view and path so far   blue: whole path",
+        d.text((self.size / 2, self.size - 16),
+               "orange: phone, view and path so far   blue: whole path",
                font=font(15), fill=(160, 160, 160), anchor="mm")  # fmt: skip
         return img.convert("RGB")
 
@@ -223,7 +327,8 @@ def render(
     if len(frames) < len(c2w):
         raise SystemExit(f"{rgb}: {len(frames)} of {len(c2w)} frames rendered")
     objs = json.loads((gt / "objects.json").read_text())
-    plan = Plan(room_outline(objs), [o for o in objs["objects"] if "bbox_min" in o])
+    plan = Plan(room_outline(objs), [o for o in objs["objects"] if "bbox_min" in o],
+                zones=objs.get("ceiling_zones"), columns=objs.get("columns_xz"))  # fmt: skip
     base = plan.base(path_all)
     phases = PHASES[scene][walk]
     ff = subprocess.Popen(
@@ -268,15 +373,53 @@ def render(
     return out
 
 
+def scene_layout(scene: str, gt: Path, out: Path, size: int = 1400) -> Path:
+    """Top-down layout PNG of a scene: outline, furniture, columns, ceiling heights and both
+    walks. Uses objects.json when a build exists, else the scene definition."""
+    sys.path.insert(0, str(Path(__file__).parent))
+    import blender_room as br  # noqa: PLC0415 - pure helpers, no bpy needed
+
+    cfg = br.SCENES[scene]
+    path = gt / "objects.json"
+    if path.exists():
+        objs = json.loads(path.read_text())
+        objects = [o for o in objs["objects"] if "bbox_min" in o]
+    else:  # footprints from the definition; Blender (x0, y0, x1, y1) -> world x, z
+        rx, ry, rh = cfg["room"]
+        objs = {"room_size_m": [rx, rh, ry]}
+        if cfg["outline"] is not None:
+            objs["room_outline_xz"] = [[x, -y] for x, y in cfg["outline"]]
+        if cfg.get("zones"):
+            objs.update(br.world_room_extras(scene))
+        foot = br.furniture_footprints(scene) if scene != "blender01" else {}
+        objects = [
+            {"noun": noun, "support": None, "bbox_min": [b[0], 0.0, -b[3]],
+             "bbox_max": [b[2], 1.0, -b[1]]}
+            for name, noun, *_ in cfg["objects"] if (b := foot.get(name))
+        ]  # fmt: skip
+    plan = Plan(room_outline(objs), objects, size=size, zones=objs.get("ceiling_zones"),
+                columns=objs.get("columns_xz"))  # fmt: skip
+    walks = {walk: poses(gt, walk, scene)[:, :3, 3] for walk in cfg["walks"]}
+    img = plan.layout(walks, f"{scene}: layout (north up), {len(objects)} objects")
+    out.parent.mkdir(parents=True, exist_ok=True)
+    img.save(out)
+    print(f"wrote {out}")
+    return out
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
     ap.add_argument("--scene", default="blender01", choices=sorted(PHASES))
     ap.add_argument("--walk", default="main,test")
     ap.add_argument("--raw", type=Path, default=None, help="default data/raw/<scene>")
     ap.add_argument("--limit", type=int, default=None, help="first N frames only (preview)")
+    ap.add_argument("--layout", action="store_true", help="write <scene>_layout.png only")
     args = ap.parse_args()
     raw = args.raw or DATA_DIR / "raw" / args.scene
     gt = raw.parent / (raw.name + "_gt")
+    if args.layout:
+        scene_layout(args.scene, gt, raw.parent / f"{raw.name}_layout.png")
+        return 0
     for walk in args.walk.split(","):
         out = raw.parent / f"{raw.name}_guide_{walk}.mp4"
         render(walk, raw, gt, out, args.limit, args.scene)

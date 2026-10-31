@@ -130,7 +130,7 @@ benchmarks/             committed: raw frame-time logs (JSON) and result tables
 Lanes: **renderer** (R0-R4), **lod**, **coverage** (C1-C3), **bake**, **ui** (U1-U4), and **core** (M1-M5:
 reconstruction, objects, agent, server, voice). The core lane owns `scripts/`,
 `modal_jobs/reconstruct.py`, `src/movable_reality/{sam,clients}.py` and the future
-`agent/` and `server.py`. The **blender** lane (synthetic ground-truth rooms `blender01`, `blender02`)
+`agent/` and `server.py`. The **blender** lane (synthetic ground-truth rooms `blender01` to `blender04`)
 owns `scripts/blender_*.py`, `tests/test_blender_*.py` and `docs/ASSETS.md`.
 
 Shared files and how to change them:
@@ -186,6 +186,9 @@ blender -b -P scripts/blender_room.py -- --out data/raw/blender01 --samples 16  
 # blender: quick look with --walk test --frames 0:600:100 --stage build,render; Blender 4.5 LTS (winget BlenderFoundation.Blender.LTS.4.5)
 blender -b -P scripts/blender_room.py -- --scene blender02 --samples 16   # blender: second room (L-shaped bedroom-study) -> data/raw/blender02*, both walks, GT, mp4
 uv run python scripts/blender_capture_guide.py --scene blender02   # blender: filming guide videos with the floor plan (needs the full render)
+blender -b -P scripts/blender_room.py -- --scene blender03 --samples 16   # blender: polygon living room (angled wall, bay, column) -> data/raw/blender03*
+blender -b -P scripts/blender_room.py -- --scene blender04 --samples 16   # blender: attic (1 m knee walls, 45 deg slopes, dormer) -> data/raw/blender04*
+uv run python scripts/blender_capture_guide.py --scene blender04 --layout   # blender: top-down layout PNG (outline, furniture, both walks), no render needed
 uv run python scripts/blender_gt_eval.py --scene blender01   # blender: pose ATE (Sim3) vs GT; --labels <dir> adds per-object mask IoU
 # ui viewer: click an object, drag it, Q/E rotate, Delete hides, R restores, Ctrl/Cmd+Z undo; Enter sends a command, hold Space to talk
 # ui viewer: ?onboarding=0|1 (panel), ?server=0 (local edits even when the server runs); window.mrUi.manifest() in the console

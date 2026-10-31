@@ -1,4 +1,4 @@
-"""Download the CC0 Poly Haven assets for the synthetic Blender rooms (blender01, blender02).
+"""Download the CC0 Poly Haven assets for the synthetic Blender rooms (blender01 to blender04).
 
     uv run python scripts/blender_assets.py            # -> data/assets/<asset>/ + assets.json
 

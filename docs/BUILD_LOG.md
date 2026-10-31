@@ -616,3 +616,46 @@ render runs $0.011, top-up rerun $0.055, distil about $0.01), Muse Image 11 call
   longer touches `coverage.generated_splats`, which stays with the coverage lane.
 - Next: run `complete_objects.py` once `lift_ids.py` has written masks for a real scene,
   then the viewer swap to `completed_ply` (lod lane, L1).
+
+## 2026-10-31 (lane: blender, irregular rooms `blender03` and `blender04`)
+
+- `scripts/blender_room.py` builds polygon rooms from zones. A zone is a convex floor
+  polygon with its own ceiling plane z = a x + b y + c. `shell_faces` turns the zones into
+  floor, ceiling and wall polygons. A zone edge that no other zone covers becomes a wall
+  from the floor to that zone's ceiling. A covered edge where the neighbour's ceiling is
+  lower becomes a vertical step face on the higher side (dormer cheeks, the header over the
+  bay). Free-standing columns get four faces and their own GT index, 104. `blender01` and
+  `blender02` keep their old builders, so their geometry and cameras are unchanged.
+- `blender03`: living room, 5.8 x 5.0 m bounds, with an angled south-east wall, a three-sided
+  bay window on the east wall (2.4 m ceiling, the rest 2.6 m) and a 0.36 m column. The
+  outline has 9 vertices and is non-convex at the bay. There are 8 pieces of furniture and
+  4 items, all reused CC0 assets. Main walk 40 s. Its chest loop circles the column and
+  runs between the column and the bookshelf, along the bay mouth and past the angled wall.
+  The knee loop stays south of the column.
+- `blender04`: attic bedroom-study with 1.0 m knee walls at x = ±2.4, 45 degree slopes, a
+  flat 2.6 m ceiling between x = -0.8 and 0.8, and a dormer recess (1.4 m wide, 0.6 m deep
+  past the knee wall, 2.3 m flat ceiling). The bed, nightstand, armchair and plant stand
+  under the slopes. Every footprint sits at least 5 cm below the ceiling (test). Main walk
+  43 s. The chest loop enters the dormer mouth. The 16 s knee loop reaches under both
+  slopes, where the ceiling is below 1.7 m.
+- `objects.json` of the polygon scenes adds `ceiling_zones` (world outline and ceiling
+  plane) and `columns_xz`. The capture guide draws the polygon, the zone edges and the
+  columns, and has instructions for both new scenes. `--layout` writes
+  `data/raw/<scene>_layout.png` (outline, furniture labels, ceiling heights, both walks)
+  from `objects.json` or, before a build, from the scene definition. Made for `blender02`,
+  `blender03` and `blender04`.
+- `tests/test_blender_polygon.py` has 31 tests and 2 skips without a build. They check that
+  the zones tile the outline, that floor and ceiling areas match it, that the walls run the
+  perimeter once with air on their normal side, the dormer cheeks and bay header, that the
+  furniture fits under the ceiling, and that every walk frame keeps 0.35 m from walls,
+  furniture and the column and 0.3 m from the ceiling. They also check speed, turn rate and
+  coverage of the column, bay, dormer and slopes.
+- Previews at 8 samples (Blender 5.2.1, Metal, M5) are in `data/raw/preview/<scene>/`,
+  every 150th frame of both walks. The first `blender03` preview had the column in the middle
+  of both loops, so it filled many frames. The column moved north, off-centre, and a fourth
+  ceiling light went in behind it.
+- Full renders (16 samples) of both scenes, then the guide videos and layouts, are queued
+  by `data/raw/render_loop_blender03_04.sh`. It waits for the running `blender02` render
+  to finish. Not yet verified.
+- Next: check the full renders and guide videos, then run M1 and `blender_gt_eval.py` on
+  `blender03` and `blender04`.
