@@ -13,13 +13,13 @@ def _load(name: str):
     return mod
 
 
-def test_focal35_matches_blender01_camera():
+def test_focal35_uses_the_4_3_diagonal():
     k = _load("extract_frames").intrinsics_from_focal35(26.0, 1920, 1080)
-    assert abs(k["fx"] - 1386.67) < 0.01  # blender01 GT: fx = fy = 1386.67 at 1920 x 1080
+    assert abs(k["fx"] - 26 / 34.616 * 1920) < 0.01  # 1442.1 px
     assert k["fy"] == k["fx"]
     assert (k["cx"], k["cy"]) == (960.0, 540.0)
 
 
 def test_focal35_portrait_uses_long_side():
     k = _load("extract_frames").intrinsics_from_focal35(26.0, 1080, 1920)
-    assert abs(k["fx"] - 1386.67) < 0.01
+    assert abs(k["fx"] - 26 / 34.616 * 1920) < 0.01

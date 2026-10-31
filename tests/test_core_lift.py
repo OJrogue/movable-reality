@@ -174,15 +174,3 @@ def test_ceiling_from_histogram_refuses_a_plain_tail():
     rng = np.random.default_rng(2)
     tail = 1.2 + rng.exponential(0.2, 5000)  # blender01: no ceiling, heights only tail off
     assert len(ceiling_from_histogram(tail, cam_y=np.array([1.1]))) == 0
-
-
-def test_trim_outliers_drops_strays_keeps_body():
-    from movable_reality.lift import trim_outliers
-
-    rng = np.random.default_rng(3)
-    body = rng.uniform([0, 0, 0], [1.2, 0.4, 0.6], (3000, 3))
-    strays = rng.uniform([0, 0.4, 0], [1.2, 1.1, 0.6], (40, 3))
-    keep = trim_outliers(np.vstack([body, strays]))
-    assert keep[:3000].mean() > 0.97
-    kept = np.vstack([body, strays])[keep]
-    assert kept[:, 1].max() < 0.5

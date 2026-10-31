@@ -727,15 +727,16 @@ render runs $0.011, top-up rerun $0.055, distil about $0.01), Muse Image 11 call
 
   | Run | ATE RMSE | median rot. error | Sim3 scale |
   | --- | --- | --- | --- |
-  | per-view intrinsics (demo_colmap) | 0.43 m | 3.3 deg | 1.97 |
+  | per-view intrinsics (demo_colmap, earlier run, eval file since overwritten) | 0.43 m | 3.3 deg | 1.97 |
   | self-calibrated shared camera (fx 1024 against GT 1387) | 0.45 m | 4.3 deg | 2.11 |
   | GT intrinsics | 0.29 m | 2.7 deg | 1.83 |
 
   Known intrinsics help. The scale stays about 1.8x too small, and smoke01 (real phone) shows
   the same direction (median phone height 0.98 m).
 - Metric scale in `lift_ids.py`. `--scale <f>` or `--ceiling-height <m>` folds a uniform
-  scale into `world_from_recon`, which every consumer already treats as a similarity
-  (coverage splits it, bake and insert invert it, the viewer puts it on a group). The
+  scale into `world_from_recon`. Coverage splits it, bake and insert invert it and the viewer
+  puts it on a group. Completion needed a fix (SAM 3D's metric pose is now divided by the
+  world scale). The
   ceiling fallback looks for a spike in the height histogram above the cameras and refuses
   a plain tail. blender01 has no reconstructed ceiling (the walk tilts 28 deg down, SAM found
   no "ceiling"), so the fallback refuses there. blender01 now uses `--scale 1.83`, taken

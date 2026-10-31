@@ -30,7 +30,7 @@ visualisation exists, but it is priced for architects and takes days.
 
 1. The user films the room with a phone for about 30 seconds.
 2. The pipeline turns the video into a photoreal 3D Gaussian Splatting scene at real scale
-   (metres), in which every piece of furniture is a separate object.
+   (metres, set by one tape measurement), in which every piece of furniture is a separate object.
 3. The user walks through the room and changes it, by voice or by typing. "Move the sofa
    half a metre towards the window." "Does the armchair fit next to the bookshelf?" "Add a
    reading lamp in the corner." "Undo that."
@@ -63,7 +63,7 @@ side.
 What is true today and what is not.
 
 - Built: capture of an existing space, separation into movable objects, moving, rotating,
-  removing and restoring objects, fit and clearance checks in metres, generated furniture
+  removing and restoring objects, fit and clearance checks in metres (after the one-measurement scale step), generated furniture
   inserted on the floor, undo of every edit.
 - Built: the "show generated" switch, which hides everything the models invented so the
   user can see what was really filmed.
@@ -85,7 +85,7 @@ level-of-detail trees per object and a frame-time controller that keeps it at 72
 phone sits in between. The same scene file feeds all three.
 
 Status. The desktop browser and WebXR paths are built. Per-device profiles and touch
-controls are in progress (lane/devices). Headset numbers are only claimed with their raw
+controls are merged (PR #15) and tested in an emulated phone viewport, not yet on a real phone. Headset numbers are only claimed with their raw
 frame-time logs under `benchmarks/`.
 
 ## The self-correcting pipeline

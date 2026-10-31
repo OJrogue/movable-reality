@@ -167,9 +167,10 @@ def main() -> int:
 
 
 def intrinsics_from_focal35(f35: float, width: int, height: int) -> dict[str, float]:
-    """Pinhole intrinsics from a 35 mm-equivalent focal length (36 mm wide sensor, long side).
-    Video stabilisation crops the sensor, so the true focal is a few percent longer."""
-    f = f35 / 36.0 * max(width, height)
+    """Pinhole intrinsics from a phone's 35 mm-equivalent focal length. Phones quote it for
+    the 4:3 photo, matched on the diagonal (43.27 mm), so the 4:3 sensor is 34.6 mm wide, and
+    16:9 video keeps the full width. Stabilisation crops a few percent more."""
+    f = f35 / (43.27 * 0.8) * max(width, height)
     return {"fx": f, "fy": f, "cx": width / 2, "cy": height / 2}
 
 

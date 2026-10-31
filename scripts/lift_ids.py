@@ -44,7 +44,6 @@ from movable_reality.lift import (
     largest_cluster,
     scaled,
     support,
-    trim_outliers,
     vote,
 )
 from movable_reality.lod.split import write_split
@@ -67,7 +66,10 @@ async def segment_all(video, nouns: list[str]):
                     break
                 except Exception as exc:  # noqa: BLE001 - APITimeoutError, stream errors
                     cause = f"{type(exc).__name__}: {exc.__cause__ or exc}"
-                    if attempt == 2 and noun in STRUCTURE:  # walls only refine the yaw
+                    if attempt == 2 and noun in (
+                        "wall",
+                        "ceiling",
+                    ):  # they only refine yaw and scale
                         print(f"  SAM '{noun}' failed 3 times ({cause}); continuing without it")
                         return noun, []
                     if attempt == 2:
@@ -86,8 +88,9 @@ def main() -> int:
     ap.add_argument("--scene", required=True)
     ap.add_argument("--force", action="store_true")
     ap.add_argument("--min-share", type=float, default=0.6)
-    ap.add_argument("--ceiling-height", type=float, help="tape-measured floor to ceiling, m")
-    ap.add_argument("--scale", type=float, help="metric correction factor (instead of the above)")
+    metric = ap.add_mutually_exclusive_group()
+    metric.add_argument("--ceiling-height", type=float, help="tape-measured floor to ceiling, m")
+    metric.add_argument("--scale", type=float, help="metric correction factor")
     ap.add_argument("--reuse-votes", action="store_true", help="skip SAM and the vote")
     args = ap.parse_args()
     root = scene_dir(args.scene)
@@ -171,6 +174,8 @@ def finish(args, root, p, names, ids, cams, xyz) -> None:
         M = np.asarray(Scene(scene_id="x").world_from_recon)
     world = xyz.astype(np.float64) @ M[:3, :3].T + M[:3, 3]
     s = args.scale
+    if args.ceiling_height and not aligned:
+        raise SystemExit("--ceiling-height needs the floor plane, and floor alignment failed")
     if args.ceiling_height:
         ceiling = np.isin(ids, [k for k, n in noun_of.items() if n == "ceiling"])
         ceiling_y = world[ceiling, 1]
@@ -191,7 +196,6 @@ def finish(args, root, p, names, ids, cams, xyz) -> None:
     for k in objects:
         m = np.nonzero(ids == k)[0]
         keep = largest_cluster(world[m], p.voxel)
-        keep[keep] = trim_outliers(world[m[keep]])
         ids[m[~keep]] = -1
         if keep.sum() < MIN_SPLATS:
             ids[m] = -1
@@ -210,8 +214,10 @@ def finish(args, root, p, names, ids, cams, xyz) -> None:
     split = write_split(root / "splat" / "scene.ply", ids, object_names, root, M.tolist())
     old = Scene.load(root / "scene.json") if (root / "scene.json").exists() else None
     scene = Scene(scene_id=args.scene, world_from_recon=M.tolist())
-    if old:  # keep lane sections that do not depend on object ids
+    if old and np.allclose(old.world_from_recon, M):  # coverage positions are world frame
         scene.coverage = old.coverage
+    elif old and old.coverage:
+        print("world_from_recon changed: coverage dropped, rerun score_coverage.py")
     for key, (rel, n, (lo, hi)) in split.items():
         if key == "background":
             continue

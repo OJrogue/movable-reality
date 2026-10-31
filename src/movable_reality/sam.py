@@ -7,6 +7,7 @@ Docs: https://dev.meta.ai/docs/sam/overview
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import hashlib
 import json
@@ -134,7 +135,9 @@ def _load_cached(cache: Path) -> list[Instance]:
         for i in out
     ]  # fmt: skip
     bits = [np.packbits(i.mask.ravel()) for i in out]
-    np.savez(packed, meta=json.dumps(meta), bits=np.concatenate(bits) if bits else np.zeros(0))
+    tmp = packed.with_suffix(".tmp.npz")  # rename, so a killed write leaves no corrupt cache
+    np.savez(tmp, meta=json.dumps(meta), bits=np.concatenate(bits) if bits else np.zeros(0))
+    tmp.replace(packed)
     return out
 
 
@@ -215,7 +218,7 @@ async def segment_video(
     key = {"model": Models.SAM, "noun": noun, "sha": sha256_file(video), "enc": encoding}
     cache = _cache_path("video", key)
     if cache.exists() and not force:
-        return _load_cached(cache)
+        return await asyncio.to_thread(_load_cached, cache)
     file_id = await upload_video(video)
     try:
         records = await _segment(
@@ -229,4 +232,4 @@ async def segment_video(
         )
     cache.parent.mkdir(parents=True, exist_ok=True)
     cache.write_text(json.dumps(records))
-    return _load_cached(cache)
+    return await asyncio.to_thread(_load_cached, cache)

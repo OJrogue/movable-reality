@@ -24,6 +24,7 @@ from PIL import Image
 from movable_reality import splat_ops as so
 from movable_reality.completion import best_frame, register
 from movable_reality.config import scene_dir
+from movable_reality.coverage.cameras import similarity_parts
 from movable_reality.coverage.colmap import read_model
 from movable_reality.sam3d import mask_png, run_sam3d
 from movable_reality.scene import Scene
@@ -73,6 +74,9 @@ def main() -> int:
 
         cam = cams[frame]
         A, t, s = res.cam_from_local()
+        # SAM 3D's pose is metric; the recon frame is metric / world scale (lift_ids --scale).
+        sw, _ = similarity_parts(np.asarray(scene.world_from_recon))
+        t, s = np.asarray(t) / sw, s / sw
         recon_from_cam = np.linalg.inv(so.similarity(cam.R, cam.t, 1.0))
         recon_from_local = recon_from_cam @ so.similarity(A, t, s)
         scan_v = so.read_vertices(root / obj.ply)

@@ -134,6 +134,8 @@ def reconstruct(
         raise FileNotFoundError(f"{frames} missing; run extract_frames.py and upload first")
     timings: dict[str, float] = {}
     fhash = _frames_hash(frames)
+    if intrinsics:  # a new camera must redo MapAnything too
+        fhash += " " + json.dumps(intrinsics, sort_keys=True)
     stamp = recon / "frames_hash.txt"
     if not force and stamp.exists() and stamp.read_text().strip() != fhash:
         print("frames changed since the last reconstruction; redoing every stage")
