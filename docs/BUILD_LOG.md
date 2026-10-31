@@ -713,3 +713,54 @@ render runs $0.011, top-up rerun $0.055, distil about $0.01), Muse Image 11 call
   multi-touch, the microphone on a phone, an XR session switching profiles on a headset.
 - Next: open `?scene=demo` on a real phone over the LAN (`MR_HTTPS=1`), check gestures
   and frame rate, and check on the Steam Frame that entering XR logs the `xr` profile.
+
+## 2026-10-31 (night), lane core: blender01 end to end, metric scale, filming guides
+
+- Filming guides from blender01. `data/raw/blender01_guide_main.mp4` (38 s, chest loop,
+  crouch, knee loop) and `data/raw/blender01_guide_test.mp4` (20 s figure eight) show the
+  phone view, the floor plan with the path and view cone, and gauges for phone height, tilt,
+  walking speed and turn rate. Sent to OJ.
+- MapAnything runner `src/movable_reality/ma_colmap.py` replaces `demo_colmap.py`. One shared
+  camera for all frames, either given (`intrinsics.json` in the scene folder, written by
+  `extract_frames.py --focal35 <mm>`) or self-calibrated from the median of a first pass.
+  Pose results on blender01 against GT (152 frames, 18.9 m path).
+
+  | Run | ATE RMSE | median rot. error | Sim3 scale |
+  | --- | --- | --- | --- |
+  | per-view intrinsics (demo_colmap) | 0.43 m | 3.3 deg | 1.97 |
+  | self-calibrated shared camera (fx 1024 against GT 1387) | 0.45 m | 4.3 deg | 2.11 |
+  | GT intrinsics | 0.29 m | 2.7 deg | 1.83 |
+
+  Known intrinsics help. The scale stays about 1.8x too small, and smoke01 (real phone) shows
+  the same direction (median phone height 0.98 m).
+- Metric scale in `lift_ids.py`. `--scale <f>` or `--ceiling-height <m>` folds a uniform
+  scale into `world_from_recon`, which every consumer already treats as a similarity
+  (coverage splits it, bake and insert invert it, the viewer puts it on a group). The
+  ceiling fallback looks for a spike in the height histogram above the cameras and refuses
+  a plain tail. blender01 has no reconstructed ceiling (the walk tilts 28 deg down, SAM found
+  no "ceiling"), so the fallback refuses there. blender01 now uses `--scale 1.83`, taken
+  from the GT Sim3 fit. That is GT-assisted and only valid for the synthetic test.
+- `--reuse-votes` reruns floor alignment, scale, floaters and the support rule from
+  `ids/assigned.npy` in about 20 s. Decoded SAM masks are now kept bit-packed next to the
+  JSON cache, because meta_sam_parser's pure-Python decode took about 10 min per run.
+  SAM requests retry three times, the client timeout is 30 min (the floor noun streamed for
+  731 s), and floor, wall or ceiling may fail without stopping the run. The wall noun
+  failed with "Connection error" 6 times out of 6 on blender01.
+- Lift on blender01. 2D mask IoU against GT is 0.63 mean over objects (vase 0.95, floor
+  lamp 0.93, coffee table 0.91, books 0.79, armchair 0.50, plant 0.47). The 3D boxes are
+  still too large after scaling (coffee table 1.85 x 1.08 x 1.12 m against 1.20 x 0.39 x
+  0.60 m). Trimming outlying splats changed little, so the splats themselves are spread,
+  which fits the 0.29 m pose error. The armchair was labelled `sofa#1`.
+- build_lod (10 trees), bake_planes (floor only, 21 deg tilt from recon up, 17,869 splats
+  removed) and score_coverage (172 gaps) ran on blender01.
+- Browser test at `?scene=blender01`. "move the coffee table half a metre towards the sofa"
+  went through measure, fits and move_object (0.188 m). Muse Spark Open answered NO
+  ("moved only 0.188 m not the requested 0.5 m"), the agent undid the move, moved 0.5 m, and
+  the second check passed. The gap overlay draws 172 gaps over most of the room and is
+  unreadable at this density (coverage lane).
+- Merged PRs #14 (coverage C0 to C3), #15 (device profiles desktop, mobile, xr) and #16
+  (irregular rooms blender03 and blender04). `docs/MARKETING.md` holds the marketing notes
+  and the self-correcting pipeline explanation.
+- Next: pose quality on synthetic renders (more frames, or keyframe spacing), a metric
+  reference that works without GT (camera height prior or a measured object), gap
+  clustering for the overlay, then blender02 to 04 through the same pipeline.
