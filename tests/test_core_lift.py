@@ -128,3 +128,49 @@ def test_floor_alignment_squares_rotated_room(yaw_deg, opencv):
     lo, hi = world.min(axis=0), world.max(axis=0)
     area = (hi[0] - lo[0]) * (hi[2] - lo[2])
     assert area < 8.0 * 1.03  # axis-aligned 4 x 2 m, not a rotated box
+
+
+def test_ceiling_scale_puts_ceiling_at_measured_height():
+    from movable_reality.lift import ceiling_scale, scaled
+
+    rng = np.random.default_rng(0)
+    ceiling_y = 1.42 + rng.normal(0, 0.01, 500)  # recon came out 2.6 / 1.42 too small
+    s = ceiling_scale(ceiling_y, 2.6)
+    assert abs(s - 2.6 / 1.42) < 0.01
+    M = np.eye(4)
+    M[1, 3] = 0.3
+    p = np.array([1.0, 1.12, -2.0, 1.0])  # 1.42 m above the floor after M
+    out = scaled(M, s) @ p
+    assert abs(out[1] - 2.6) < 0.02
+    assert abs(out[0] - s) < 1e-9 and abs(out[2] + 2 * s) < 1e-9
+
+
+def test_ceiling_scale_rejects_too_few_or_negative():
+    import pytest
+
+    from movable_reality.lift import ceiling_scale
+
+    with pytest.raises(ValueError):
+        ceiling_scale(np.ones(10), 2.5)
+    with pytest.raises(ValueError):
+        ceiling_scale(-np.ones(200), 2.5)
+
+
+def test_ceiling_from_histogram_finds_the_dense_layer():
+    from movable_reality.lift import ceiling_from_histogram
+
+    rng = np.random.default_rng(1)
+    clutter = rng.uniform(0, 1.4, 5000)  # furniture and walls below and around
+    walls = rng.uniform(1.4, 1.5, 800)  # walls continue up to the ceiling
+    ceiling = 1.45 + rng.normal(0, 0.003, 2000)
+    y = np.concatenate([clutter, walls, ceiling])
+    layer = ceiling_from_histogram(y, cam_y=np.array([0.7, 0.8]))
+    assert abs(np.median(layer) - 1.45) < 0.01
+
+
+def test_ceiling_from_histogram_refuses_a_plain_tail():
+    from movable_reality.lift import ceiling_from_histogram
+
+    rng = np.random.default_rng(2)
+    tail = 1.2 + rng.exponential(0.2, 5000)  # blender01: no ceiling, heights only tail off
+    assert len(ceiling_from_histogram(tail, cam_y=np.array([1.1]))) == 0

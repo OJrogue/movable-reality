@@ -330,3 +330,17 @@ def test_upright_rotation_forced_axis():
     R, tilt = so.upright_rotation(A, up_axis=2)
     assert tilt == pytest.approx(50, abs=1e-6)
     np.testing.assert_allclose(R @ [0, 0, 1], [0, 1, 0], atol=1e-9)
+
+
+def test_register_with_scaled_world_from_recon():
+    # lift_ids --scale 1.83: recon units are metres / 1.83. The guess comes from a metric
+    # SAM 3D pose divided by the world scale, as complete_objects.py does.
+    sw = 1.83
+    canon = box_points((0.5, 0.9, 0.5), n=5000)
+    W = so.similarity(rot("x", 180), [0, 0, 0], sw)
+    world_true = canon + [0.0, 0.45, 0.0]
+    recon_true = (np.linalg.inv(W)[:3, :3] @ world_true.T).T
+    scan = recon_true[recon_true[:, 2] < 0.0]
+    guess = np.linalg.inv(W) @ so.similarity(rot("y", 3), [0.05, 0.45, 0.0], 0.95)
+    v, info = register(so.standard(sam3d_like(canon)), guess, scan, W)
+    assert np.abs(so.xyz(v) - recon_true).max() < 0.03

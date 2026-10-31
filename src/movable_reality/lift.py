@@ -148,7 +148,8 @@ def floor_alignment(
     floor_xyz: np.ndarray, cam_centres: np.ndarray, wall_xyz: np.ndarray | None = None
 ) -> np.ndarray:
     """4x4 world_from_recon: floor normal to +Y (towards the cameras), floor at y = 0, and a
-    yaw that lines the walls (or the floor outline) up with x and z. Scale stays 1 (metric)."""
+    yaw that lines the walls (or the floor outline) up with x and z. Scale stays 1; see
+    `ceiling_scale` for the metric correction."""
     interior = cam_centres.mean(axis=0)
     plane = fit_plane(floor_xyz, threshold=0.02, interior=interior)
     up = plane.normal / np.linalg.norm(plane.normal)
@@ -170,6 +171,50 @@ def floor_alignment(
     M[:3, :3] = R
     M[1, 3] = -plane.offset  # n . p = offset becomes y = offset, shift to 0
     return M
+
+
+def ceiling_scale(ceiling_y: np.ndarray, height: float) -> float:
+    """Metric correction from one tape measurement: the factor that puts the ceiling (world
+    y of the "ceiling" Gaussians, floor at y = 0) at `height` metres. MapAnything's scale
+    came out 1.4x to 1.8x too small on blender01 and smoke01 (31 Oct)."""
+    if len(ceiling_y) < 100:
+        raise ValueError(
+            f"only {len(ceiling_y)} ceiling Gaussians (ceiling not reconstructed); pass --scale"
+        )
+    measured = float(np.median(ceiling_y))
+    if measured <= 0:
+        raise ValueError(f"ceiling at y = {measured:.3f}, below the floor")
+    return height / measured
+
+
+def ceiling_from_histogram(
+    world_y: np.ndarray, cam_y: np.ndarray, bin_m: float = 0.01
+) -> np.ndarray:
+    """Heights of the Gaussians in the ceiling layer when SAM labelled no ceiling (blender01):
+    the densest 1 cm height bin above every camera, plus its neighbours. A ceiling is the one
+    large horizontal surface up there, so it dominates the histogram."""
+    above = world_y[world_y > float(np.max(cam_y)) + 0.1]
+    if len(above) < 100:
+        return above
+    lo_y, hi_y = np.percentile(above, [1, 99])  # floaters must not blow up the bins
+    above = above[(above >= lo_y) & (above <= hi_y)]
+    edges = np.arange(lo_y, hi_y + bin_m, bin_m)
+    counts, edges = np.histogram(above, bins=edges)
+    peak = int(np.argmax(counts))
+    # A real ceiling is a spike. On blender01 (camera tilted 28 deg down) the ceiling was never
+    # reconstructed and the heights above the cameras only tail off: refuse that case.
+    away = int(round(0.1 / bin_m))
+    near = [counts[i] for i in (peak - away, peak + away) if 0 <= i < len(counts)]
+    if not near or counts[peak] < 2 * max(near):
+        return above[:0]
+    lo, hi = edges[max(peak - 2, 0)], edges[min(peak + 3, len(edges) - 1)]
+    return above[(above >= lo) & (above <= hi)]
+
+
+def scaled(M: np.ndarray, s: float) -> np.ndarray:
+    """world_from_recon followed by a uniform scale about the world origin (floor stays y = 0)."""
+    S = np.diag([s, s, s, 1.0])
+    return S @ M
 
 
 def dominant_yaw(xz: np.ndarray, bins: int = 90) -> float:
