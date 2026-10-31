@@ -1,12 +1,17 @@
-"""Synthetic Blender rooms with ground truth (blender01, blender02): build, render, export.
+"""Synthetic Blender rooms with ground truth (blender01 to blender04): build, render, export.
 
     "C:/Program Files/Blender Foundation/Blender 4.5/blender.exe" -b -P scripts/blender_room.py \
         -- --out data/raw/blender01                       # build + render both walks + GT + mp4
     ... -- --out data/raw/blender01 --walk test --frames 0:30 --stage render,gt   # quick check
     ... -- --scene blender02                              # the L-shaped room, data/raw/blender02
+    ... -- --scene blender04 --walk test --frames 0:600:100 --stage build,render --samples 8
 
 Scenes: blender01 (default) is a 4 x 5 m living room. blender02 is an L-shaped
 bedroom-study, 4.5 x 5 m overall with the north-east 1.5 x 2 m corner cut out, 40 s main walk.
+blender03 is a living room with an angled wall, a bay window and a free-standing column
+(non-convex outline, 40 s main walk). blender04 is an attic room with 1 m knee walls, 45 deg
+slopes to a 2.6 m ceiling and a dormer recess (43 s main walk). Both are built from zones,
+convex floor polygons with their own ceiling plane (shell_faces).
 
 A synthetic ground-truth scene for benchmarks and a fallback demo; the real phone capture
 stays the main demo. Assets are CC0 from Poly Haven (scripts/blender_assets.py, docs/ASSETS.md);
@@ -14,13 +19,15 @@ the floor lamp and the room shell are built here.
 
 Outputs (out = data/raw/<scene>, e.g. data/raw/blender01):
   <out>/<scene>.blend, <out>/<walk>/rgb/000000.png ...    working files (noise-free renders)
-  <out>.mp4 (main walk, 38 s / 40 s), <out>_test.mp4 (test walk, 20 s)   H.264, sensor noise
+  <out>.mp4 (main walk, 38 to 43 s), <out>_test.mp4 (test walk, 20 s)   H.264, sensor noise
   <out>_gt/objects.json                 index -> id, noun, asset, support, world bbox
-                                        (+ room_outline_xz, world x, z, for the L-shaped room)
+                                        (+ room_outline_xz, world x, z, for blender02-04,
+                                        + ceiling_zones and columns_xz for blender03-04)
   <out>_gt/meshes/<name>.ply            each object's mesh in world coordinates
   <out>_gt/<walk>/cameras.json          K and cam_to_world per frame (OpenCV camera)
   <out>_gt/<walk>/depth/000000.png      uint16 z-depth in mm (0 = no hit)
-  <out>_gt/<walk>/masks/000000.png      uint8 object index (0 none, 101-103 floor, wall, ceiling)
+  <out>_gt/<walk>/masks/000000.png      uint8 object index (0 none, 101-104 floor, wall,
+                                        ceiling, column)
 Frame i of each video is GT frame i (time i / 30 s). cameras.json holds the shutter-centre
 pose; Cycles writes depth and index from one sample per pixel, at a random time within the
 0.3-frame shutter, so GT edges can be off by ~1-2 px and depth by ~2 mm on fast motion.
@@ -51,7 +58,7 @@ FPS = 30
 WIDTH, HEIGHT = 1920, 1080
 FOCAL_MM, SENSOR_MM = 26.0, 36.0  # ~69 deg horizontal FOV, a phone main camera
 ROOM_X, ROOM_Y, ROOM_H = 4.0, 5.0, 2.6  # Blender x (width), y (length), z (height)
-STRUCTURE = {"floor": 101, "wall": 102, "ceiling": 103}
+STRUCTURE = {"floor": 101, "wall": 102, "ceiling": 103, "column": 104}
 
 WORLD_FROM_BLENDER = np.array(
     [[1, 0, 0, 0], [0, 0, 1, 0], [0, -1, 0, 0], [0, 0, 0, 1]], dtype=np.float64
@@ -309,7 +316,343 @@ def _test2_eye_target(t: float) -> tuple[np.ndarray, np.ndarray]:
     return eye, np.array([gx, gy, 0.45])
 
 
+# ---------------------------------------------------------------- polygon rooms (no bpy)
+# blender03 and blender04 describe the room as zones: convex floor polygons (Blender x, y,
+# counter-clockwise from above), each with its own ceiling plane z = a x + b y + c. Their
+# union is the floor outline, any polygon. A zone edge that no other zone shares is a wall
+# from the floor to the zone's ceiling. A shared edge where the neighbour's ceiling is
+# lower gets a vertical step face from the neighbour's ceiling up to this zone's, facing
+# this zone, the side with air (a dormer cheek, the header over a lower bay). blender01 and
+# blender02 keep their own builders, so their geometry stays byte-identical.
+
+EPS = 1e-9
+
+
+def polygon_area(poly) -> float:
+    """Signed area, positive for a counter-clockwise polygon (shoelace)."""
+    p = np.asarray(poly, dtype=float)
+    q = np.roll(p, -1, axis=0)
+    return float((p[:, 0] * q[:, 1] - q[:, 0] * p[:, 1]).sum() / 2)
+
+
+def point_in_polygon(p, poly) -> bool:
+    """Even-odd point-in-polygon test."""
+    inside = False
+    pts = np.asarray(poly, dtype=float)
+    for a, b in zip(pts, np.roll(pts, -1, axis=0), strict=True):
+        if (a[1] > p[1]) != (b[1] > p[1]):
+            x = a[0] + (p[1] - a[1]) / (b[1] - a[1]) * (b[0] - a[0])
+            inside ^= bool(p[0] < x)
+    return inside
+
+
+def segment_distance(p, a, b) -> float:
+    p, a, b = (np.asarray(v, dtype=float) for v in (p, a, b))
+    ab = b - a
+    u = np.clip(((p - a) @ ab) / (ab @ ab), 0.0, 1.0)
+    return float(np.linalg.norm(p - (a + u * ab)))
+
+
+def wall_distance(p, poly) -> float:
+    """Distance from p to the nearest edge of a closed polygon."""
+    pts = np.asarray(poly, dtype=float)
+    return min(
+        segment_distance(p, a, b) for a, b in zip(pts, np.roll(pts, -1, axis=0), strict=True)
+    )
+
+
+def box_distance(p, box) -> float:
+    """Distance from p to an axis-aligned (x0, y0, x1, y1) box, 0 inside it."""
+    x0, y0, x1, y1 = box
+    return float(np.hypot(max(x0 - p[0], 0, p[0] - x1), max(y0 - p[1], 0, p[1] - y1)))
+
+
+def is_convex(poly) -> bool:
+    """True for a counter-clockwise convex polygon (collinear vertices allowed)."""
+    p = np.asarray(poly, dtype=float)
+    d1, d2 = np.roll(p, -1, axis=0) - p, np.roll(p, -2, axis=0) - np.roll(p, -1, axis=0)
+    return bool((d1[:, 0] * d2[:, 1] - d1[:, 1] * d2[:, 0] >= -EPS).all())
+
+
+def plane_z(plane, x: float, y: float) -> float:
+    a, b, c = plane
+    return a * x + b * y + c
+
+
+def ceiling_height(zones, x: float, y: float) -> float | None:
+    """Ceiling z above (x, y): the highest ceiling of the zones that contain the point or
+    touch it (so a point on a step edge reports the upper side); None outside the room."""
+    hs = [
+        plane_z(plane, x, y)
+        for poly, plane in zones
+        if point_in_polygon((x, y), poly) or wall_distance((x, y), poly) < 1e-7
+    ]
+    return max(hs) if hs else None
+
+
+def min_ceiling_near(zones, x: float, y: float, r: float, n: int = 16) -> float:
+    """Lowest ceiling within r of (x, y), sampled at the centre and n points on the circle
+    (points outside the room are skipped; the wall clearance covers them)."""
+    hs = [ceiling_height(zones, x, y)]
+    for a in np.linspace(0, 2 * np.pi, n, endpoint=False):
+        hs.append(ceiling_height(zones, x + r * math.cos(a), y + r * math.sin(a)))
+    return min(h for h in hs if h is not None)
+
+
+def _edge_cover(a, b, zones, skip: int) -> list[tuple[float, float, int | None]]:
+    """Split edge a -> b into (t0, t1, zone index or None) pieces by the collinear,
+    overlapping edges of the other zones."""
+    a, b = np.asarray(a, float), np.asarray(b, float)
+    ab = b - a
+    ll = float(ab @ ab)
+    cuts, spans = {0.0, 1.0}, []
+    for j, (poly, _) in enumerate(zones):
+        if j == skip:
+            continue
+        pts = np.asarray(poly, float)
+        for c, d in zip(pts, np.roll(pts, -1, axis=0), strict=True):
+            cross_c = ab[0] * (c - a)[1] - ab[1] * (c - a)[0]
+            cross_d = ab[0] * (d - a)[1] - ab[1] * (d - a)[0]
+            if abs(cross_c) > 1e-7 * math.sqrt(ll) or abs(cross_d) > 1e-7 * math.sqrt(ll):
+                continue
+            tc, td = float((c - a) @ ab) / ll, float((d - a) @ ab) / ll
+            t0, t1 = max(0.0, min(tc, td)), min(1.0, max(tc, td))
+            if t1 - t0 > 1e-7:
+                cuts |= {t0, t1}
+                spans.append((t0, t1, j))
+    ts = sorted(cuts)
+    out = []
+    for t0, t1 in zip(ts[:-1], ts[1:], strict=True):
+        if t1 - t0 < 1e-7:
+            continue
+        tm = (t0 + t1) / 2
+        out.append((t0, t1, next((j for s0, s1, j in spans if s0 <= tm <= s1), None)))
+    return out
+
+
+def _face(points) -> list[tuple[float, float, float]]:
+    """Drop consecutive duplicate points (a step face that closes to a triangle)."""
+    out = []
+    for p in points:
+        p = tuple(round(float(v), 9) for v in p)
+        if not out or max(abs(u - v) for u, v in zip(p, out[-1], strict=True)) > 1e-7:
+            out.append(p)
+    if len(out) > 1 and max(abs(u - v) for u, v in zip(out[0], out[-1], strict=True)) < 1e-7:
+        out.pop()
+    return out
+
+
+def shell_faces(zones, columns=()) -> dict[str, list[list[tuple[float, float, float]]]]:
+    """Room shell as polygons (Blender x, y, z), each counter-clockwise seen from inside the
+    room, so normals face the room: floor and ceiling per zone, a wall face per uncovered
+    zone edge piece, a step face where a neighbour zone's ceiling is lower, and four faces
+    per free-standing column box (x0, y0, x1, y1) from the floor to the ceiling."""
+    floor, ceiling, wall, column = [], [], [], []
+    for i, (poly, plane) in enumerate(zones):
+        pts = [tuple(map(float, p)) for p in poly]
+        floor.append(_face([(x, y, 0.0) for x, y in pts]))
+        ceiling.append(_face([(x, y, plane_z(plane, x, y)) for x, y in reversed(pts)]))
+        for a, b in zip(pts, pts[1:] + pts[:1], strict=True):
+            for t0, t1, j in _edge_cover(a, b, zones, i):
+                p0 = np.asarray(a) + t0 * (np.asarray(b) - np.asarray(a))
+                p1 = np.asarray(a) + t1 * (np.asarray(b) - np.asarray(a))
+                h0, h1 = plane_z(plane, *p0), plane_z(plane, *p1)
+                if j is None:
+                    lo0 = lo1 = 0.0
+                    hi0, hi1 = h0, h1
+                else:
+                    hi0, hi1 = h0, h1
+                    lo0, lo1 = plane_z(zones[j][1], *p0), plane_z(zones[j][1], *p1)
+                    if max(hi0 - lo0, hi1 - lo1) < 1e-6:
+                        continue  # the neighbour is higher or level: it draws the step
+                    if min(hi0 - lo0, hi1 - lo1) < -1e-6:
+                        raise ValueError(f"ceilings of zones {i} and {j} cross on a shared edge")
+                    lo0, lo1 = min(lo0, hi0), min(lo1, hi1)
+                f = _face([(*p1, lo1), (*p0, lo0), (*p0, hi0), (*p1, hi1)])
+                if len(f) >= 3:
+                    wall.append(f)
+    for x0, y0, x1, y1 in columns:
+        ring = [(x0, y0), (x0, y1), (x1, y1), (x1, y0)]  # clockwise: the room is outside
+        if not any(all(point_in_polygon(c, poly) for c in ring) for poly, _ in zones):
+            raise ValueError(f"column {(x0, y0, x1, y1)} must lie inside one zone")
+        for a, b in zip(ring, ring[1:] + ring[:1], strict=True):
+            ha, hb = ceiling_height(zones, *a), ceiling_height(zones, *b)
+            column.append(_face([(*b, 0.0), (*a, 0.0), (*a, ha), (*b, hb)]))
+    out = {"floor": floor, "wall": wall, "ceiling": ceiling}
+    if columns:
+        out["column"] = column
+    return out
+
+
+def face_area(face) -> float:
+    """Area of a planar 3D polygon (Newell's method)."""
+    p = np.asarray(face, dtype=float)
+    return float(np.linalg.norm(np.cross(p, np.roll(p, -1, axis=0)).sum(0)) / 2)
+
+
+def footprint_box(x: float, y: float, yaw: float, w: float, d: float) -> tuple[float, ...]:
+    """(x0, y0, x1, y1) of a w x d footprint (size at yaw 0) rotated by yaw degrees, an
+    upper bound on the rotated mesh's bbox."""
+    c, s = abs(math.cos(math.radians(yaw))), abs(math.sin(math.radians(yaw)))
+    hx, hy = (c * w + s * d) / 2, (s * w + c * d) / 2
+    return (x - hx, y - hy, x + hx, y + hy)
+
+
+# Asset size (Blender x, y at yaw 0, and height z, metres), measured after import_asset in
+# Blender 5.2.1 on 31 Oct; None is the floor lamp built here.
+ASSET_SIZE = {
+    "sofa_02": (1.807, 0.818, 0.709),
+    "ArmChair_01": (0.848, 0.766, 1.065),
+    "modern_coffee_table_01": (0.6, 1.202, 0.39),
+    "side_table_01": (0.55, 0.45, 0.551),
+    "painted_wooden_cabinet": (1.195, 0.617, 1.182),
+    "potted_plant_01": (0.587, 0.634, 1.35),
+    "potted_plant_02": (0.701, 0.657, 0.841),
+    "vintage_day_bed": (1.973, 0.855, 1.127),
+    "painted_wooden_nightstand": (0.505, 0.509, 0.616),
+    "wooden_table_02": (1.134, 0.706, 0.8),
+    "dining_chair_02": (0.434, 0.576, 0.973),
+    "wooden_bookshelf_worn": (1.374, 0.581, 2.063),
+    "modern_arm_chair_01": (0.82, 0.987, 1.023),
+    None: (0.46, 0.46, 1.65),
+}
+
+
+def _make_main_walk(chest, knee, t_loop=25.0, t_trans=2.0, t_knee=13.0, far=0.45):
+    """Main walk of the polygon rooms, the blender02 pattern: chest-height loop (1.5 m)
+    looking across at the far side of the loop, crouch, knee-height loop (0.6 m) looking
+    across it and slightly down."""
+
+    def high(tt: float):
+        s = tt / t_loop
+        x, y = polyline_at(chest, s)
+        wander = np.array([0.4 * math.sin(2 * np.pi * tt / 9), 0.4 * math.sin(2 * np.pi * tt / 13)])
+        d = polyline_at(chest, s + far) + wander - np.array([x, y])
+        d = 2.2 * d / np.linalg.norm(d)
+        return np.array([x, y, 1.5]), np.array([x + d[0], y + d[1], 0.6])
+
+    def low(tt: float):
+        s = tt / t_knee
+        x, y = polyline_at(knee, s)
+        d = polyline_at(knee, s + 0.5) - np.array([x, y])
+        d = d / max(np.linalg.norm(d), 1e-6)
+        eye = np.array([x, y, 0.6])
+        return eye, eye + np.array([2.5 * d[0], 2.5 * d[1], -0.25])
+
+    def eye_target(t: float) -> tuple[np.ndarray, np.ndarray]:
+        if t <= t_loop:
+            return high(t)
+        if t <= t_loop + t_trans:
+            u = smoothstep((t - t_loop) / t_trans)
+            (e0, g0), (e1, g1) = high(t), low(0.0)
+            return (1 - u) * e0 + u * e1, (1 - u) * g0 + u * g1
+        return low(t - t_loop - t_trans)
+
+    return eye_target
+
+
+def _make_test_walk(loop, ring, duration=20.0, height=1.2, phase=0.3):
+    """Test walk: a loop at 1.2 m looking at a point that circles the furniture ring the
+    other way, once per walk."""
+
+    def eye_target(t: float) -> tuple[np.ndarray, np.ndarray]:
+        s = t / duration
+        x, y = polyline_at(loop, s)
+        eye = np.array([x, y, height + 0.05 * math.sin(2 * np.pi * t / 7)])
+        gx, gy = polyline_at(ring, phase - s)
+        return eye, np.array([gx, gy, 0.45])
+
+    return eye_target
+
+
+# Scene blender03: a living room with an angled south-east wall, a three-sided bay window
+# on the east wall (lower ceiling, 2.4 m) and a free-standing 0.36 m column. The outline is
+# non-convex at the bay. Flat 2.6 m ceiling elsewhere.
+ROOM3_OUTLINE = [
+    (-2.5, -2.5), (1.5, -2.5), (2.7, -1.3), (2.7, 0.0), (3.3, 0.4), (3.3, 1.4), (2.7, 1.8),
+    (2.7, 2.5), (-2.5, 2.5),
+]  # fmt: skip
+ROOM3_ZONES = [
+    ([(-2.5, -2.5), (1.5, -2.5), (2.7, -1.3), (2.7, 2.5), (-2.5, 2.5)], (0.0, 0.0, 2.6)),
+    ([(2.7, 0.0), (3.3, 0.4), (3.3, 1.4), (2.7, 1.8)], (0.0, 0.0, 2.4)),  # bay
+]
+ROOM3_COLUMNS = [(0.32, 0.57, 0.68, 0.93)]
+OBJECTS3 = [
+    ("sofa", "sofa", "sofa_02", (-2.07, 0.2), 90, None),  # back to the west wall
+    ("coffee_table", "coffee table", "modern_coffee_table_01", (-1.05, 0.2), 0, None),
+    ("side_table", "side table", "side_table_01", (-2.2, 1.6), 90, None),
+    ("floor_lamp", "floor lamp", None, (-2.15, -1.25), 0, None),
+    ("cabinet", "cabinet", "painted_wooden_cabinet", (-0.9, -2.18), 180, None),  # south wall
+    ("plant", "potted plant", "potted_plant_01", (1.4, -1.85), 0, None),  # by the angled wall
+    ("bookshelf", "bookshelf", "wooden_bookshelf_worn", (1.2, 2.2), 180, None),  # north wall
+    ("armchair", "armchair", "modern_arm_chair_01", (2.8, 0.9), -90, None),  # in the bay
+    ("books", "books", "book_encyclopedia_set_01", (-0.95, -2.2), 180, "cabinet"),
+    ("vase", "vase", "ceramic_vase_01", (-2.2, 1.6), 0, "side_table"),
+    ("succulent", "succulent", "potted_plant_04", (-1.05, 0.5), 0, "coffee_table"),
+    ("bowl", "bowl", "wooden_bowl_01", (-1.05, -0.1), 0, "coffee_table"),
+]
+# Paths (Blender x, y). The column stands off-centre inside the chest loop, whose north run
+# passes behind it (between the column and the bookshelf); the loop also passes the angled
+# wall and the bay mouth. The knee loop stays south of the column, in the open middle.
+CHEST3 = smooth_loop(
+    [(-0.3, -1.4), (0.7, -1.25), (1.9, -0.8), (1.9, 0.4), (1.85, 1.2), (1.4, 1.5),
+     (0.0, 1.5), (-0.3, 0.2), (-0.4, -1.0)]
+)  # fmt: skip
+KNEE3 = smooth_loop([(-0.1, -1.25), (1.35, -1.1), (1.5, 0.0), (0.6, 0.05), (-0.3, -0.2)])
+TEST3 = smooth_loop([(0.0, -1.3), (1.3, -1.0), (1.6, 0.6), (1.0, 1.5), (-0.2, 1.3), (-0.3, 0.3),
+                     (0.6, -0.2), (-0.2, -0.6)])  # fmt: skip
+RING3 = smooth_loop([(-2.0, -2.0), (-2.1, 1.7), (1.2, 2.0), (2.9, 0.9), (1.5, -1.9)], iters=3)
+WALKS3 = {"main": 40.0, "test": 20.0}
+
+# Scene blender04: an attic bedroom-study. Knee walls 1.0 m high at x = +-2.4, 45 deg
+# slopes up to a flat 2.6 m collar ceiling between x = -0.8 and 0.8, gable walls at
+# y = +-2.5. A dormer recess on the east side (|y| <= 0.7, out to x = 3.0) has a flat
+# 2.3 m ceiling. The bed, nightstand, armchair and plant stand under the slopes.
+_W4 = (1.0, 0.0, 3.4)  # west slope: z = 3.4 + x
+_E4 = (-1.0, 0.0, 3.4)  # east slope: z = 3.4 - x
+_F4 = (0.0, 0.0, 2.6)
+ROOM4_OUTLINE = [
+    (-2.4, -2.5), (2.4, -2.5), (2.4, -0.7), (3.0, -0.7), (3.0, 0.7), (2.4, 0.7), (2.4, 2.5),
+    (-2.4, 2.5),
+]  # fmt: skip
+ROOM4_ZONES = [
+    ([(-2.4, -2.5), (-0.8, -2.5), (-0.8, 2.5), (-2.4, 2.5)], _W4),
+    ([(-0.8, -2.5), (0.8, -2.5), (0.8, 2.5), (-0.8, 2.5)], _F4),
+    ([(0.8, -2.5), (2.4, -2.5), (2.4, -0.7), (0.8, -0.7)], _E4),
+    ([(0.8, -0.7), (1.1, -0.7), (1.1, 0.7), (0.8, 0.7)], _E4),
+    ([(0.8, 0.7), (2.4, 0.7), (2.4, 2.5), (0.8, 2.5)], _E4),
+    ([(1.1, -0.7), (3.0, -0.7), (3.0, 0.7), (1.1, 0.7)], (0.0, 0.0, 2.3)),  # dormer
+]
+OBJECTS4 = [
+    ("bed", "bed", "vintage_day_bed", (-1.74, 0.95), 90, None),  # back to the west knee wall
+    ("nightstand", "nightstand", "painted_wooden_nightstand", (-2.0, 2.2), 90, None),
+    ("floor_lamp", "floor lamp", None, (0.9, -2.1), 0, None),
+    ("bookshelf", "bookshelf", "wooden_bookshelf_worn", (0.0, 2.19), 180, None),  # north gable
+    ("armchair", "armchair", "ArmChair_01", (1.82, -1.7), -90, None),  # under the east slope
+    ("desk", "desk", "wooden_table_02", (2.64, 0.0), 90, None),  # in the dormer
+    ("desk_chair", "chair", "dining_chair_02", (1.98, 0.0), 90, None),  # faces the desk
+    ("plant", "potted plant", "potted_plant_02", (1.9, 1.85), 0, None),  # under the slope
+    ("vase", "vase", "ceramic_vase_03", (-2.05, 2.3), 0, "nightstand"),
+    ("figurine", "horse figurine", "horse_statue_01", (-1.95, 2.1), 120, "nightstand"),
+    ("books", "books", "book_encyclopedia_set_01", (2.72, 0.3), 90, "desk"),
+    ("succulent", "succulent", "potted_plant_04", (2.6, -0.3), 0, "desk"),
+]
+CHEST4 = smooth_loop(
+    [(-0.6, -1.5), (0.4, -1.45), (1.1, -0.9), (1.3, 0.0), (1.1, 0.9), (0.4, 1.45),
+     (-0.6, 1.45), (-0.7, 0.3), (-1.1, -0.7)]
+)  # fmt: skip
+KNEE4 = smooth_loop([(-0.5, -1.55), (1.0, -0.9), (1.9, -0.75), (1.3, -0.55), (1.25, 0.0),
+                     (1.3, 0.55), (1.9, 0.85), (0.5, 1.2), (-0.8, 1.0), (-0.9, -0.4),
+                     (-1.9, -1.3)])  # fmt: skip
+TEST4 = smooth_loop([(-0.3, -1.6), (0.9, -0.6), (0.3, 0.6), (-0.6, 1.3), (0.6, 1.3),
+                     (0.4, -0.2), (-0.8, -0.7)])  # fmt: skip
+RING4 = smooth_loop([(-1.7, -1.8), (-1.8, 1.9), (0.0, 2.1), (2.3, 1.3), (2.6, 0.0),
+                     (1.8, -1.9)], iters=3)  # fmt: skip
+WALKS4 = {"main": 43.0, "test": 20.0}
+
+
 # Per scene: id -> objects, outline (None = the blender01 box), size, walks and shake seeds.
+# Polygon scenes add zones (floor pieces with ceiling planes), columns and asset sizes.
 SCENES = {
     "blender01": {
         "objects": OBJECTS,
@@ -329,6 +672,34 @@ SCENES = {
         "seeds": {"main": 23, "test": 29},
         "panels": [(-0.2, -1.0), (-0.75, 1.5)],
     },
+    "blender03": {
+        "objects": OBJECTS3,
+        "outline": ROOM3_OUTLINE,
+        "zones": ROOM3_ZONES,
+        "columns": ROOM3_COLUMNS,
+        "room": (5.8, 5.0, 2.6),
+        "walks": WALKS3,
+        "eye_target": {
+            "main": _make_main_walk(CHEST3, KNEE3),
+            "test": _make_test_walk(TEST3, RING3),
+        },  # fmt: skip
+        "seeds": {"main": 31, "test": 37},
+        "panels": [(-1.2, 0.2), (1.2, 0.0), (0.3, -1.6), (0.5, 1.6)],
+    },
+    "blender04": {
+        "objects": OBJECTS4,
+        "outline": ROOM4_OUTLINE,
+        "zones": ROOM4_ZONES,
+        "columns": [],
+        "room": (5.4, 5.0, 2.6),
+        "walks": WALKS4,
+        "eye_target": {
+            "main": _make_main_walk(CHEST4, KNEE4, t_knee=16.0),
+            "test": _make_test_walk(TEST4, RING4),
+        },  # fmt: skip
+        "seeds": {"main": 41, "test": 43},
+        "panels": [(0.0, -1.2), (0.0, 1.0), (2.0, 0.0)],
+    },
 }
 
 
@@ -343,6 +714,43 @@ def furniture_footprints2() -> dict[str, tuple[float, ...]]:
         c, s = abs(math.cos(math.radians(yaw))), abs(math.sin(math.radians(yaw)))
         hx, hy = (c * w + s * d) / 2, (s * w + c * d) / 2
         out[name] = (x - hx, y - hy, x + hx, y + hy)
+    return out
+
+
+def furniture_footprints(scene: str) -> dict[str, tuple[float, ...]]:
+    """name -> (x0, y0, x1, y1) Blender footprint of each piece of furniture of a scene
+    (blender02 from FOOTPRINT2, the polygon scenes from ASSET_SIZE)."""
+    if scene == "blender02":
+        return furniture_footprints2()
+    return {
+        name: footprint_box(x, y, yaw, *ASSET_SIZE[asset][:2])
+        for name, _, asset, (x, y), yaw, support in SCENES[scene]["objects"]
+        if not support
+    }
+
+
+def world_room_extras(scene: str) -> dict:
+    """objects.json fields of a polygon scene in the world frame (x, z = Blender x, -y):
+    ceiling_zones (outline and ceiling plane y = h[0] x + h[1] z + h[2]) and columns_xz
+    (x0, z0, x1, z1 boxes)."""
+    cfg = SCENES[scene]
+    return {
+        "ceiling_zones": [
+            {
+                "outline_xz": [[float(x), float(-y)] for x, y in poly],
+                "height": [float(a), float(-b), float(c)],
+            }
+            for poly, (a, b, c) in cfg["zones"]
+        ],  # fmt: skip
+        "columns_xz": [[x0, -y1, x1, -y0] for x0, y0, x1, y1 in cfg.get("columns") or []],
+    }
+
+
+def scene_obstacles(scene: str) -> dict[str, tuple[float, ...]]:
+    """Furniture footprints plus free-standing columns, Blender (x0, y0, x1, y1)."""
+    out = furniture_footprints(scene)
+    for i, box in enumerate(SCENES[scene].get("columns") or []):
+        out[f"column_{i}"] = tuple(box)
     return out
 
 
@@ -639,6 +1047,72 @@ def build_room_outline(assets: Path, outline: list, h: float, panels: list) -> d
     return {"floor": floor, "wall": walls, "ceiling": ceiling}
 
 
+def _poly_object(name: str, faces: list, tile: float, mat):
+    """Mesh object from planar polygons (any vertex count, given counter-clockwise from the
+    side the normal faces). UVs are metres / tile measured from the world origin: x, y on
+    level faces, horizontal and vertical axes on walls, so neighbouring faces tile without
+    a seam and textures keep their real-world size."""
+    bpy = _bpy()
+    import bmesh  # noqa: PLC0415
+
+    me = bpy.data.meshes.new(name)
+    bm = bmesh.new()
+    uv = bm.loops.layers.uv.new()
+    for face in faces:
+        p = np.asarray(face, dtype=float)
+        n = np.cross(p, np.roll(p, -1, axis=0)).sum(0)
+        n = n / np.linalg.norm(n)
+        if abs(n[2]) > 0.99:
+            u, v = np.array([1.0, 0.0, 0.0]), np.array([0.0, 1.0, 0.0])
+        else:
+            u = np.cross([0.0, 0.0, 1.0], n)
+            u = u / np.linalg.norm(u)
+            v = np.cross(n, u)
+        f = bm.faces.new([bm.verts.new(q) for q in p])
+        for loop in f.loops:
+            d = np.array(loop.vert.co)
+            loop[uv].uv = (float(d @ u) / tile, float(d @ v) / tile)
+    bm.to_mesh(me)
+    bm.free()
+    obj = bpy.data.objects.new(name, me)
+    bpy.context.collection.objects.link(obj)
+    me.materials.append(mat)
+    return obj
+
+
+def build_room_zones(assets: Path, zones: list, columns: list, panels: list) -> dict:
+    """Room shell of a polygon scene from shell_faces: floor, walls (with step faces),
+    ceiling (flat or sloped) and, if any, free-standing columns, which take the wall
+    texture and their own GT index."""
+    bpy = _bpy()
+    faces = shell_faces(zones, columns)
+    wall_mat = _pbr_mat("wall", assets / "beige_wall_001")
+    structure = {
+        "floor": _poly_object(
+            "floor", faces["floor"], 1.7, _pbr_mat("floor", assets / "laminate_floor_02")
+        ),
+        "wall": _poly_object("wall", faces["wall"], 3.0, wall_mat),
+        "ceiling": _poly_object(
+            "ceiling", faces["ceiling"], 3.0, _new_mat("ceiling", (0.8, 0.8, 0.78), rough=0.9)
+        ),
+    }
+    if "column" in faces:
+        structure["column"] = _poly_object("column", faces["column"], 3.0, wall_mat)
+    for key, obj in structure.items():
+        obj.pass_index = STRUCTURE[key]
+    for i, (x, y) in enumerate(panels):
+        light = bpy.data.lights.new(f"ceiling_panel_{i}", "AREA")
+        light.size, light.energy, light.color = 1.0, 160.0, (1.0, 0.95, 0.88)
+        obj = bpy.data.objects.new(light.name, light)
+        obj.location = (x, y, ceiling_height(zones, x, y) - 0.02)
+        bpy.context.collection.objects.link(obj)
+    world = bpy.data.worlds.new("world")
+    world.use_nodes = True
+    world.node_tree.nodes["Background"].inputs["Strength"].default_value = 0.0
+    bpy.context.scene.world = world
+    return structure
+
+
 def build_floor_lamp():
     """Floor lamp (base, pole, fabric shade) as one mesh, plus a bulb light."""
     bpy = _bpy()
@@ -727,6 +1201,8 @@ def build_scene(assets: Path, gt: Path, scene: str = SCENE_ID) -> None:
     cfg = SCENES[scene]
     if cfg["outline"] is None:
         structure = build_room(assets)
+    elif cfg.get("zones"):
+        structure = build_room_zones(assets, cfg["zones"], cfg["columns"], cfg["panels"])
     else:
         structure = build_room_outline(assets, cfg["outline"], cfg["room"][2], cfg["panels"])
     placed: dict = {}
@@ -778,6 +1254,8 @@ def build_scene(assets: Path, gt: Path, scene: str = SCENE_ID) -> None:
     extra = {}
     if cfg["outline"] is not None:  # world (x, z) = Blender (x, -y); blender01 stays as it was
         extra["room_outline_xz"] = [[float(x), float(-y)] for x, y in cfg["outline"]]
+    if cfg.get("zones"):  # polygon scenes: ceiling planes and columns in world terms
+        extra.update(world_room_extras(scene))
     (gt / "objects.json").write_text(
         json.dumps(
             {

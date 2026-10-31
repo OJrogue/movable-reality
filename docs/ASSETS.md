@@ -1,6 +1,6 @@
 # Third-party assets
 
-Assets used to build the **synthetic** ground-truth rooms `blender01` and `blender02`
+Assets used to build the **synthetic** ground-truth rooms `blender01` to `blender04`
 (`scripts/blender_room.py`). The room is a benchmark and a fallback demo scene; the real
 phone capture stays the main demo. All assets are CC0 (public domain) from
 [Poly Haven](https://polyhaven.com/license). None are committed: `scripts/blender_assets.py`
@@ -39,7 +39,17 @@ textures and the built floor lamp.
 | [Ceramic Vase 03](https://polyhaven.com/a/ceramic_vase_03) | model (1k) | James Ray Cock | CC0 | vase on the nightstand |
 | [Horse Statue 01](https://polyhaven.com/a/horse_statue_01) | model (1k) | Rico Cilliers | CC0 | horse figurine on the nightstand |
 
-Tool: Blender 4.5 LTS (GPL-3.0) renders the room. It is a tool only; nothing from Blender
+`blender03` (living room with an angled wall, a bay window and a free-standing column) and
+`blender04` (attic bedroom-study with sloped ceilings and a dormer, 31 Oct) add no new
+assets. They reuse models listed above in new places. The room shells, including the
+column, the slopes and the dormer, are built in `scripts/blender_room.py`.
+
+| Scene | Furniture (asset) | Items on furniture |
+|---|---|---|
+| `blender03` | sofa (Sofa 02), coffee table (Modern Coffee Table 01), side table (Side Table 01), floor lamp (built), cabinet (Painted Wooden Cabinet), potted plant (Potted Plant 01), bookshelf (Wooden Bookshelf Worn), armchair in the bay (Modern Arm Chair 01) | books, vase (Ceramic Vase 01), succulent, bowl |
+| `blender04` | bed (Vintage Day Bed) and nightstand under the west slope, floor lamp (built), bookshelf on the north gable, armchair (Arm Chair 01) and potted plant (Potted Plant 02) under the east slope, desk (Wooden Table 02) and chair (Dining Chair 02) in the dormer | vase (Ceramic Vase 03), horse figurine, books, succulent |
+
+Tool: Blender 4.5 LTS (GPL-3.0) renders the room (Blender 5.2.1 on the Mac). It is a tool only; nothing from Blender
 ships with the project. Cycles' denoiser, Intel OpenImageDenoise (Apache-2.0), is a
 learned network. It cleans the offline renders that make the test video; no product
 stage calls it (allowed by OJ, decision D19 in `docs/HANDOFF.md`).
