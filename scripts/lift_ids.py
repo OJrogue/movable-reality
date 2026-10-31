@@ -92,6 +92,12 @@ def main() -> int:
     metric.add_argument("--ceiling-height", type=float, help="tape-measured floor to ceiling, m")
     metric.add_argument("--scale", type=float, help="metric correction factor")
     ap.add_argument("--reuse-votes", action="store_true", help="skip SAM and the vote")
+    ap.add_argument(
+        "--skip",
+        default="",
+        help="comma-separated nouns not to segment (e.g. wall, whose SAM "
+        "stream dropped 6 of 6 times on blender01 and blender02)",
+    )
     args = ap.parse_args()
     root = scene_dir(args.scene)
     if (root / "ids" / "gaussian_ids.npy").exists() and not args.force:
@@ -111,7 +117,11 @@ def main() -> int:
         }
         if len(ids) != len(xyz):
             raise SystemExit("ids/assigned.npy does not match splat/scene.ply; run without it")
+        if args.skip:
+            print("--skip has no effect with --reuse-votes (the saved vote already has its nouns)")
     else:
+        skip = {n.strip().lower() for n in args.skip.split(",") if n.strip()}
+        inv = {**inv, "nouns": [n for n in inv["nouns"] if n.lower() not in skip]}
         names, ids = segment_and_vote(root, inv, p, cams, xyz, v, w, h)
     finish(args, root, p, names, ids, cams, xyz)
     return 0

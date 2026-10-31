@@ -4,9 +4,10 @@
 // URL parameters (all optional):
 //   ?mode=lod|naive        LOD (default) or naive: LOD off, full splats (the proof toggle)
 //   ?budget=1|0            budget controller (default on in LOD mode, off in bench mode)
+//   ?detail=0              hide the detail panel (auto checkbox + splat-count slider)
 //   ?target=<ms>           frame-time target (default: from the XR frame rate, else the
 //                          display rate within the device profile's range, else 13.9 in
-//                          XR and 16.7 on desktop and mobile; see devices/profile.ts)
+//                          XR, 33.3 on desktop, 16.7 on mobile; see devices/profile.ts)
 //   ?hz=<rate>             ask the XR session for this display rate (if supported)
 //   ?lodSplatCount=<n>     starting splat budget (the controller owns it when active)
 //   ?lodRenderScale=<f>    starting minimum splat size in pixels (1 to 5)
@@ -39,6 +40,7 @@ import {
   type FrameLogMeta,
   type RenderMode,
 } from "./frameLog";
+import { DetailControl } from "./detail";
 import { Hud, type HudData } from "./hud";
 import { PerfInput, type PerfAction } from "./input";
 import {
@@ -63,6 +65,8 @@ const HUD_INTERVAL_MS = 250;
 export interface PerfHandle {
   mode(): RenderMode;
   setMode(m: RenderMode): void;
+  /** Splat count by hand (stops the budget controller), or "auto" to hand it back. */
+  setDetail(count: number | "auto"): void;
   budget(): { active: boolean; level: number; phase: string; splatCount: number };
   bench(): ReturnType<BenchRunner["status"]> | null;
   /** Current recording as a log (null before the scene is ready). */
@@ -357,6 +361,26 @@ export function installPerf(ctx: ViewerContext): PerfHandle {
     recorder?.event(lastTime ?? 0, "budget", { active: budgetWanted });
     say(`budget controller ${budgetWanted ? "on" : "off (settings frozen)"}`);
   };
+  // Manual detail (OJ, 31 Oct): a slider sets the splat count and stops the controller;
+  // "auto" restarts the controller from the count in use.
+  const setDetail = (count: number | "auto") => {
+    if (bench) return say("detail is fixed in bench mode");
+    if (mode !== "lod") setMode("lod");
+    if (count === "auto") {
+      budgetWanted = true;
+      controller.restart(levelForSplatCount(lodSplatCount(spark).count, cfg));
+      applyBudget();
+      recorder?.event(lastTime ?? 0, "budget", { active: true });
+      return;
+    }
+    if (budgetWanted) recorder?.event(lastTime ?? 0, "budget", { active: false });
+    budgetWanted = false;
+    spark.lodSplatCount = Math.max(1, Math.round(count));
+    spark.lodRenderScale = 1;
+    recorder?.event(lastTime ?? 0, "detail", { splats: spark.lodSplatCount });
+  };
+  const detail =
+    p.get("detail") === "0" ? null : new DetailControl(setDetail, () => setDetail("auto"));
   const act = (a: PerfAction) => {
     if (a === "mode") setMode(mode === "lod" ? "naive" : "lod");
     else if (a === "hud") hud.toggle();
@@ -504,11 +528,17 @@ export function installPerf(ctx: ViewerContext): PerfHandle {
     };
     hud.update(data, now);
     button.style.display = data.xr || bench ? "none" : "";
+    if (detail) {
+      detail.setVisible(!data.xr && !bench);
+      const count = mode === "lod" ? lod.count : (totalSplats ?? lod.count);
+      detail.update({ auto: budgetActive(), count, total: totalSplats });
+    }
   });
 
   const handle: PerfHandle = {
     mode: () => mode,
     setMode,
+    setDetail,
     budget: () => ({ active: budgetActive(), ...controller.state() }),
     bench: () => bench?.status() ?? null,
     log: () => recorder?.finish() ?? null,

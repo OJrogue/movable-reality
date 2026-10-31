@@ -192,6 +192,10 @@ blender -b -P scripts/blender_room.py -- --scene blender03 --samples 16   # blen
 blender -b -P scripts/blender_room.py -- --scene blender04 --samples 16   # blender: attic (1 m knee walls, 45 deg slopes, dormer) -> data/raw/blender04*
 uv run python scripts/blender_capture_guide.py --scene blender04 --layout   # blender: top-down layout PNG (outline, furniture, both walks), no render needed
 uv run python scripts/blender_gt_eval.py --scene blender01   # blender: pose ATE (Sim3) vs GT; --labels <dir> adds per-object mask IoU
+uv run python scripts/blender_view_eval.py --scene blender01   # blender: GT test-walk cameras in the recon frame -> eval/views_test.json
+uv run modal run modal_jobs/reconstruct.py --scene blender01 --eval-walk test   # core: PSNR/SSIM/LPIPS of those views (eval only)
+# core reconstruct: --preset quality|fast (30k or 7k steps), --no-sfm (MapAnything cameras only), --max-steps <n>
+uv run python scripts/lift_ids.py --scene blender01 --skip wall   # core: leave nouns out of SAM (not with --reuse-votes)
 # ui viewer: click an object, drag it, Q/E rotate, Delete hides, R restores, Ctrl/Cmd+Z undo; Enter sends a command, hold Space to talk
 # ui viewer: ?onboarding=0|1 (panel), ?server=0 (local edits even when the server runs); window.mrUi.manifest() in the console
 # devices viewer: ?device=desktop|mobile|xr overrides the detected quality profile (an XR session always uses xr); window.mrDevice in the console

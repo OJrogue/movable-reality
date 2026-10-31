@@ -55,8 +55,10 @@ export const DEVICE_SETTINGS: Readonly<Record<DeviceName, Readonly<DeviceSetting
     // 400k to 6M splats; start at the top level (capped at the scene's own size once the
     // PLY headers are read), so a laptop that holds the frame rate shows every splat.
     budget: { splatMin: 400_000, splatMax: 6_000_000, startLevel: LEVELS },
-    defaultTargetMs: 16.7,
-    targetHz: { min: 30, max: 60 },
+    // Quality first (OJ, 31 Oct): 30 fps with every splat beats 60 fps with half of them,
+    // so the budget only steps down when a frame takes longer than 33.3 ms.
+    defaultTargetMs: 33.3,
+    targetHz: { min: 30, max: 30 },
     lowRateHz: null,
     sortRadial: true,
     minSortIntervalMs: 0,

@@ -103,17 +103,20 @@ describe("settings per profile", () => {
     expect(c.splatMax).toBeGreaterThan(DEFAULT_BUDGET.splatMax);
     expect(c.splatMin).toBeGreaterThan(DEFAULT_BUDGET.splatMin);
     expect(settingsForLevel(c.startLevel, c).splatCount).toBe(6_000_000);
-    expect(d.defaultTargetMs).toBe(16.7);
+    expect(d.defaultTargetMs).toBe(33.3);
   });
 
-  it("desktop and mobile follow the display rate but never aim above 60 Hz", () => {
-    for (const name of ["desktop", "mobile"] as const) {
-      const s = settingsFor(name);
-      expect(targetHzFor(s, 60)).toBe(60);
-      expect(targetHzFor(s, 120)).toBe(60);
-      expect(targetHzFor(s, 144)).toBe(60);
-      expect(targetHzFor(s, 24)).toBe(30);
-    }
+  it("mobile follows the display rate but never aims above 60 Hz", () => {
+    const s = settingsFor("mobile");
+    expect(targetHzFor(s, 60)).toBe(60);
+    expect(targetHzFor(s, 120)).toBe(60);
+    expect(targetHzFor(s, 144)).toBe(60);
+    expect(targetHzFor(s, 24)).toBe(30);
+  });
+
+  it("desktop aims at 30 Hz on every display, so it keeps every splat down to 30 fps", () => {
+    const s = settingsFor("desktop");
+    for (const hz of [24, 60, 120, 144]) expect(targetHzFor(s, hz)).toBe(30);
   });
 
   it("mobile: pixel ratio capped at 1.5 and a budget between xr and desktop", () => {
@@ -133,7 +136,7 @@ describe("settings per profile", () => {
     s.budget.splatMax = 1;
     s.targetHz!.max = 1;
     expect(DEVICE_SETTINGS.desktop.budget.splatMax).toBe(6_000_000);
-    expect(DEVICE_SETTINGS.desktop.targetHz!.max).toBe(60);
+    expect(DEVICE_SETTINGS.desktop.targetHz!.max).toBe(30);
   });
 });
 

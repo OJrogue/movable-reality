@@ -56,6 +56,33 @@ the demo (needs chunked `.RAD` or HTTP Range support, see `docs/LOD.md`).
 
 ## 3. Next steps
 
+### 3.00 Sat 31 Oct, after the night session (synthetic rooms end to end)
+State. blender01 and blender02 ran through every stage (reconstruct, inventory, SAM, lift,
+LOD, bake, coverage) and load in the browser. On blender01 the agent loop, including a
+verifier rejection and retry, works. Filming guides exist for blender01 and blender02
+(`data/raw/<scene>_guide_{main,test}.mp4`), and layouts for blender02 to 04
+(`data/raw/<scene>_layout.png`). blender03 (angled wall, bay, column) and blender04 (attic)
+render in a background loop. Then their guides follow.
+
+Open problems, in order of impact.
+1. **Pose quality and scale.** MapAnything (Apache weights) under-scales both synthetic rooms
+   by about 2x (Sim3 1.83 and 2.07) with GT intrinsics, and the ATE after Sim3 is 0.29 m and
+   0.50 m. The export uses the documented metric outputs, so this is the model on these
+   renders. The errors are even over the walk (no crouch spike). Update of 31 Oct: COLMAP SfM
+   (`sfm.py`) now refines the cameras and fits them into MapAnything's frame, ATE 3.3 mm on
+   blender01, so `pose_opt` is no longer needed. Still open is a metric reference that needs
+   no GT. `--ceiling-height` needs the ceiling reconstructed, which the blender01 upward loop
+   now gives in part. A tape measurement of one object or a camera-height
+   prior are the options. Test on a real room first, because real textures may behave better.
+2. **SAM 3.1 drops long streams** ("Connection error") for floor and wall on 150+ frame clips.
+   Floor succeeded on a retry after 731 s and 1200 s. Wall failed 9 of 9, so use
+   `lift_ids.py --skip wall`. A subsampled clip for structure nouns would fix it.
+3. **Object boxes** are 1.2x to 2x too large after scaling, because the splats are smeared by
+   the pose error. They should improve with item 1.
+4. **Coverage overlay** draws 170 to 206 gaps on these rooms and is unreadable. The gaps need
+   clustering or a minimum size for display (coverage lane).
+5. Film room01 with the guides, with `extract_frames.py --focal35 <phone main camera mm>`.
+
 ### 3.0 Later on Fri 30 Oct (written at the end of the PC session)
 1. **Modal billing**: add a payment method (modal.com, Settings, Usage & Billing) and set a
    workspace spend limit. Credits are still used first.
