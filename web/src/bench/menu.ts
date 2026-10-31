@@ -4,6 +4,7 @@
 // slow; this needs one short URL per device.
 // Options: ?duration=<s> (default 120), ?path=<name> (default walk), ?device=<label>,
 // ?hz=<rate> (default 72; requested from the XR session if the browser supports it).
+import { logLabelParam } from "../perf/frameLog";
 import { deviceLabel, isLogOf, modeTag } from "../perf/logName";
 
 export const R0_SCENES = [50_000, 150_000, 300_000, 600_000, 1_000_000].map((n) => `bench_${n}`);
@@ -33,7 +34,11 @@ export function r0Runs(params: URLSearchParams): MenuRun[] {
 }
 
 export async function showMenu(params: URLSearchParams): Promise<void> {
-  const label = deviceLabel(navigator.userAgent, navigator.webdriver === true, params.get("device"));
+  const label = deviceLabel(
+    navigator.userAgent,
+    navigator.webdriver === true,
+    logLabelParam(params.get("device")),
+  );
   let files: string[] = [];
   let endpoint = true;
   try {

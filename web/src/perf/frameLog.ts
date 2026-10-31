@@ -3,6 +3,7 @@
 // benchmarks/raw/<timestamp>_<device>_<scene>_<mode>.json (headless runs go to
 // benchmarks/headless/). scripts/bench_report.py reads these files.
 import { summarize, type FrameSummary } from "./stats";
+import { parseDeviceParam } from "../devices/profile";
 import { deviceLabel, logStem } from "./logName";
 
 export type RenderMode = "lod" | "naive";
@@ -61,6 +62,8 @@ export interface FrameLogMeta {
   /** "xr" (XRSession.frameRate), "estimate" (steady frame intervals), "url" or "default". */
   target_source: string;
   url: string;
+  /** Device profile at the start (lane devices: desktop, mobile or xr). */
+  device_profile?: string | null;
   total_splats: number | null;
   display: DisplayInfo;
   settings: LodSettings;
@@ -182,7 +185,8 @@ export function deviceInfo(gl: WebGL2RenderingContext | WebGLRenderingContext): 
     // Some browsers refuse the extension; the user agent still identifies the device.
   }
   return {
-    label: deviceLabel(nav.userAgent, nav.webdriver === true, params.get("device")),
+    // ?device=desktop|mobile|xr picks a device profile (devices/), not a log label.
+    label: deviceLabel(nav.userAgent, nav.webdriver === true, logLabelParam(params.get("device"))),
     user_agent: nav.userAgent,
     platform: nav.platform,
     hardware_concurrency: nav.hardwareConcurrency ?? null,
@@ -213,4 +217,9 @@ export function downloadLog(log: FrameLogJson): void {
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 10_000);
+}
+
+/** ?device= as a log label: profile names (desktop, mobile, xr) do not name a device. */
+export function logLabelParam(value: string | null): string | null {
+  return value && !parseDeviceParam(value) ? value : null;
 }

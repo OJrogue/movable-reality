@@ -1,4 +1,4 @@
-"""Compare pipeline outputs for a synthetic room (blender01, blender02) against its ground truth.
+"""Compare pipeline outputs for a synthetic room (blender01 to blender04) against its ground truth.
 
     uv run python scripts/blender_gt_eval.py --scene blender01
     uv run python scripts/blender_gt_eval.py --scene blender01 --labels data/scenes/blender01/<dir>
@@ -34,7 +34,7 @@ from PIL import Image
 from movable_reality.config import DATA_DIR, scene_dir
 
 GT_FPS = 30
-STRUCTURE_MIN_INDEX = 100  # GT indices >= 100 are floor, wall, ceiling
+STRUCTURE_MIN_INDEX = 100  # GT indices >= 100 are floor, wall, ceiling, column (104)
 
 
 # ---------------------------------------------------------------- COLMAP cameras
