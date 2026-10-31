@@ -149,6 +149,9 @@ describe("floorHz (30 Hz fallback)", () => {
     expect(floorHz(mobile, 33.3, 0, 0.9, 10_000)).toBeNull();
     expect(floorHz(settingsFor("xr"), 13.9, 0, 0.9, 10_000)).toBeNull();
   });
+  it("never lowers a desktop target: a laptop steps its budget down instead", () => {
+    expect(floorHz(settingsFor("desktop"), 16.7, 0, 0.9, 10_000)).toBeNull();
+  });
 });
 
 describe("desktop budget on the simulated display", () => {

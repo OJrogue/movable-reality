@@ -71,8 +71,8 @@ export class CommandBar {
       if (this.talking) void this.stopTalking();
     });
 
-    // Hold-to-talk by touch: press starts recording, lifting the finger (or sliding off
-    // the button) sends it.
+    // Hold-to-talk by touch: press starts recording, lifting the finger sends it. The
+    // button captures the pointer, so sliding off it keeps recording until the lift.
     const talk = this.talkButton;
     talk.addEventListener("pointerdown", (e) => {
       e.preventDefault(); // no focus change, no text selection

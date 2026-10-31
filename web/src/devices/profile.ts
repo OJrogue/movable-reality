@@ -35,6 +35,11 @@ export interface DeviceSettings {
    * 60 Hz target, so its splat budget is not cut to reach 120 fps. Null: no clamp (xr).
    */
   targetHz: { min: number; max: number } | null;
+  /**
+   * Lower rate for a device that misses most frames at the lowest budget level (floorHz
+   * below). Mobile only: a laptop keeps its display-rate target and steps the budget down.
+   */
+  lowRateHz: number | null;
   /** SparkRenderer sort options (Spark's defaults; listed so the HUD and tests see them). */
   sortRadial: boolean;
   minSortIntervalMs: number;
@@ -52,6 +57,7 @@ export const DEVICE_SETTINGS: Readonly<Record<DeviceName, Readonly<DeviceSetting
     budget: { splatMin: 400_000, splatMax: 6_000_000, startLevel: LEVELS },
     defaultTargetMs: 16.7,
     targetHz: { min: 30, max: 60 },
+    lowRateHz: null,
     sortRadial: true,
     minSortIntervalMs: 0,
   },
@@ -63,6 +69,7 @@ export const DEVICE_SETTINGS: Readonly<Record<DeviceName, Readonly<DeviceSetting
     budget: { splatMin: 100_000, splatMax: 1_500_000, startLevel: 13 },
     defaultTargetMs: 16.7,
     targetHz: { min: 30, max: 60 },
+    lowRateHz: 30,
     sortRadial: true,
     minSortIntervalMs: 0,
   },
@@ -73,6 +80,7 @@ export const DEVICE_SETTINGS: Readonly<Record<DeviceName, Readonly<DeviceSetting
     budget: {},
     defaultTargetMs: 13.9,
     targetHz: null,
+    lowRateHz: null,
     sortRadial: true,
     minSortIntervalMs: 0,
   },
@@ -137,8 +145,8 @@ export const FLOOR_MISSED_SHARE = 0.5;
 
 /**
  * Lower rate for a device that misses most frames even at the lowest budget level (a slow
- * phone that cannot hold 60 Hz). Returns the profile's minimum rate when the target should
- * drop to it, else null. Never in XR (targetHz null): the headset keeps its display rate.
+ * phone that cannot hold 60 Hz). Returns the profile's lowRateHz when the target should
+ * drop to it, else null. Only mobile has one: desktop and xr keep their display rate.
  */
 export function floorHz(
   s: DeviceSettings,
@@ -147,7 +155,7 @@ export function floorHz(
   missedShare: number,
   heldMs: number,
 ): number | null {
-  if (!s.targetHz || currentTargetMs >= 1000 / s.targetHz.min - 0.1) return null;
+  if (!s.lowRateHz || currentTargetMs >= 1000 / s.lowRateHz - 0.1) return null;
   if (level > 0 || missedShare < FLOOR_MISSED_SHARE || heldMs < FLOOR_HOLD_MS) return null;
-  return s.targetHz.min;
+  return s.lowRateHz;
 }

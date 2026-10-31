@@ -193,6 +193,14 @@ budget controller's level. In XR it is a panel fixed in front of the left eye, b
 centre of view. The target follows `XRSession.frameRate` when the browser reports it
 (13.9 ms at 72 Hz, 11.1 ms at 90 Hz), else the rate estimated from steady frames.
 
+Device profiles (lane devices, 31 Oct, `web/src/devices/profile.ts`). The HUD's first line
+names the profile. Outside XR the estimated rate is clamped to 30 to 60 Hz on the `desktop`
+and `mobile` profiles, so desktop and headless logs recorded after this change target
+16.7 ms on a 120 Hz screen where earlier logs targeted 8.3 ms. Their missed-frame shares
+are not comparable with older desktop logs. Inside an XR session the `xr` profile applies,
+with the budget range and targets described here. Logs carry `device_profile` and a
+`device` event when the profile changes.
+
 The toggle switches instantly when the meshes hold both their LOD tree and their full splat
 set (the default with load-time LOD); with precomputed `.RAD` trees it reloads the page
 with the other `?mode=`.

@@ -630,10 +630,16 @@ render runs $0.011, top-up rerun $0.055, distil about $0.01), Muse Image 11 call
 - Settings. Desktop has the full device pixel ratio and 400k to 6M splats, starts at the top
   level (capped by the scene's own size) and targets the display rate up to 60 Hz. Mobile
   has pixel ratio 1.5 at most and 100k to 1.5M splats, starts near 600k and targets 60 Hz.
-  It drops to 30 Hz after 3 s at the lowest level with over half the frames missed. XR uses
-  `DEFAULT_BUDGET` unchanged, 13.9 ms and pixel ratio 2, as before.
+  It drops to 30 Hz after 3 s at the lowest level with over half the frames missed, and stays
+  there until the profile changes (desktop never drops). XR uses `DEFAULT_BUDGET`, 13.9 ms
+  and pixel ratio 2, as before. One XR difference remains. The controller entering XR is a
+  new one, so it keeps the splat count on screen (the closest XR level) but not the failure
+  memory gathered in 2D. A headset browser outside XR runs the profile its user agent and
+  pointer give (the Steam Frame's "Linux aarch64" Chromium detects as desktop).
 - The renderer lane's `perf/index.ts` reads the profile through `ctx.device` and starts a
-  new budget controller when the profile changes (XR enter or exit). `context.ts` gained
+  new budget controller when the profile changes (XR enter or exit). Desktop and headless
+  logs now target at most 60 Hz, so their missed-frame shares are not comparable with
+  earlier desktop logs (`docs/DEVICES.md`, section 6). `context.ts` gained
   `device` and `onDeviceChange`. `?device=` keeps naming benchmark logs for any other value.
 - Touch (`web/src/devices/touch.ts`, `gestures.ts`): one finger looks around, two fingers
   pan, a pinch moves forward or back. It replaces SparkControls' touch handling, which
@@ -642,10 +648,14 @@ render runs $0.011, top-up rerun $0.055, distil about $0.01), Muse Image 11 call
   look that starts over an object turns the view. The command bar gets a hold-to-talk button
   and a full-width portrait layout under the mobile profile, and onboarding lists the touch
   gestures.
+- Reviewer fixes. A finger resting during a pan or pinch no longer counts as a tap (the
+  Editor matches the tap to its pointer and drops it when a second finger lands), the 30 Hz
+  floor is mobile only and costs nothing on other profiles, logs update `device_profile` on
+  a profile change, and the XR HUD shows the framebuffer scale instead of the canvas ratio.
 - The HUD's first line shows the profile and pixel ratio, for example `[desktop dpr 2.00]`.
   `window.mrDevice` exposes the profile, its settings, the source of the choice and touch
   gesture counts.
-- Verification. 26 new vitest tests (profile selection, settings, the 30 Hz floor, desktop
+- Verification. 27 new vitest tests (profile selection, settings, the 30 Hz floor, desktop
   budget on the simulated display, gesture maths). In the desktop app's Chromium on
   `demo`, the desktop pane selected `desktop` (dpr 2, controller at level 10 = 1.55M, the
   scene's ceiling) and mouse select and drag still produced a `place` edit. The mobile
@@ -653,7 +663,9 @@ render runs $0.011, top-up rerun $0.055, distil about $0.01), Muse Image 11 call
   events showed tap to select, tap on empty space to clear, a one-finger look over an
   unselected object (10 look steps, no edit), a drag of the selected table (one `place`
   edit), a second finger ignored during that drag, and two-finger pan and pinch. Frame
-  rates in the emulated pane mean nothing. Not tested: a real phone or tablet, real
+  rates in the emulated pane mean nothing. The browser checks were manual console scripts
+  (synthetic PointerEvents, with setPointerCapture stubbed because synthetic pointers cannot
+  be captured), not committed tests. Not tested: a real phone or tablet, real
   multi-touch, the microphone on a phone, an XR session switching profiles on a headset.
 - Next: open `?scene=demo` on a real phone over the LAN (`MR_HTTPS=1`), check gestures
   and frame rate, and check on the Steam Frame that entering XR logs the `xr` profile.

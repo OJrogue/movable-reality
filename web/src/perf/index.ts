@@ -214,11 +214,21 @@ export function installPerf(ctx: ViewerContext): PerfHandle {
   // handlers below then set the target as before.
   ctx.onDeviceChange((dev) => {
     cfg = { ...DEFAULT_BUDGET, ...dev.budget };
-    controller = new BudgetController({ ...cfg, targetMs: target.ms, startLevel: startLevelFor(cfg) });
+    // Once the scene is up, the new controller continues from the splat count on screen
+    // (the closest level of the new range), as the single controller did before profiles
+    // existed. Before that it starts at the profile's start level.
+    const startLevel = ready
+      ? levelForSplatCount(lodSplatCount(spark).count, cfg)
+      : startLevelFor(cfg);
+    controller = new BudgetController({ ...cfg, targetMs: target.ms, startLevel });
     if (totalSplats !== null) controller.setMaxLevel(ceilingForScene(totalSplats, cfg));
     if (target.source === "default" || target.source === "default-checked") resetTarget();
     if (ready && budgetActive()) applyBudget();
-    recorder?.event(lastTime ?? 0, "device", { profile: dev.name });
+    floorSince = null;
+    if (recorder) {
+      recorder.meta.device_profile = dev.name;
+      recorder.event(lastTime ?? 0, "device", { profile: dev.name });
+    }
   });
   ctx.renderer.xr.addEventListener("sessionstart", () => {
     const session = ctx.renderer.xr.getSession();
@@ -426,8 +436,9 @@ export function installPerf(ctx: ViewerContext): PerfHandle {
           recorder?.event(time, "budget", { ...step });
         }
         // Lane devices: a phone that misses most frames at the lowest level aims for the
-        // profile's lower rate (30 Hz) instead. Never in XR or with ?target=.
-        if (step.level > 0) floorSince = null;
+        // profile's lower rate (30 Hz) instead. Only profiles with a floor (mobile); never
+        // in XR or with ?target=. The lower target stays until the profile changes.
+        if (step.level > 0 || !ctx.device?.lowRateHz || target.source === "floor") floorSince = null;
         else {
           floorSince ??= time;
           const dev = ctx.device;
@@ -466,8 +477,11 @@ export function installPerf(ctx: ViewerContext): PerfHandle {
     const b = controller.state();
     const data: HudData = {
       mode,
+      // In XR three.js renders at the framebuffer scale, not the canvas pixel ratio.
       device: ctx.device
-        ? `${ctx.device.name} dpr ${ctx.renderer.getPixelRatio().toFixed(2)}`
+        ? ctx.renderer.xr.isPresenting
+          ? `${ctx.device.name} scale ${xrScale}`
+          : `${ctx.device.name} dpr ${ctx.renderer.getPixelRatio().toFixed(2)}`
         : undefined,
       xr: ctx.renderer.xr.isPresenting,
       targetMs: target.ms,
