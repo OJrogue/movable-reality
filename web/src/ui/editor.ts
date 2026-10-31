@@ -3,10 +3,14 @@
 // the grab point (height unchanged), Q/E rotate by 15 degrees, Delete or Backspace hides,
 // R restores the newest hidden object, Ctrl/Cmd+Z undoes, Escape clears the selection.
 // Drags on empty space reach SparkControls as before. Nothing here runs during an XR session.
+// Touch (lane devices): a tap selects the object under the finger (or clears the selection
+// on empty space), and only the selected object can be dragged, so a one-finger look that
+// starts over an object turns the view instead of moving the object (devices/touch.ts).
 import * as THREE from "three";
 import type { ViewerContext } from "../context";
 import type { SceneObject } from "../scene";
 import { halfSize, rayBoxDistance, type Pickable } from "../lod/pick";
+import { isTap, TAP_SLOP_PX } from "../devices/gestures";
 import { lastHidden, type EditRequest } from "./edits";
 
 export const ROTATE_STEP_DEG = 15;
@@ -36,7 +40,14 @@ export const isTyping = (t: EventTarget | null): boolean =>
 export class Editor {
   selected: string | null = null;
   private drag: Drag | null = null;
-  private emptyDown: { x: number; y: number } | null = null;
+  /** A press that may become a click: on empty space (id null) or, by touch, on an object. */
+  private emptyDown: {
+    pointerId: number;
+    x: number;
+    y: number;
+    id: string | null;
+    slop: number;
+  } | null = null;
   private readonly raycaster = new THREE.Raycaster();
   private readonly ndc = new THREE.Vector2();
   private readonly outline: THREE.LineSegments;
@@ -160,13 +171,20 @@ export class Editor {
 
   private onPointerDown(e: PointerEvent): void {
     if (this.xr || e.target !== this.canvas || e.button !== 0 || this.drag) return;
+    const touch = e.pointerType === "touch";
+    if (touch && !e.isPrimary) {
+      // A second finger makes this a pan or pinch (devices/touch.ts), never a tap.
+      this.emptyDown = null;
+      return;
+    }
     // preventDefault below would keep focus in the command bar, where Q, E, Delete and
     // Space would then type instead of editing.
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
     const ray = this.rayAt(e.clientX, e.clientY);
     const hit = this.pick(ray);
-    if (!hit) {
-      this.emptyDown = { x: e.clientX, y: e.clientY };
+    if (!hit || (touch && hit.id !== this.selected)) {
+      const slop = touch ? TAP_SLOP_PX : CLICK_SLOP_PX;
+      this.emptyDown = { pointerId: e.pointerId, x: e.clientX, y: e.clientY, id: hit?.id ?? null, slop };
       return;
     }
     e.stopPropagation(); // keep SparkControls from orbiting
@@ -208,13 +226,14 @@ export class Editor {
   }
 
   private onPointerUp(e: PointerEvent, cancelled = false): void {
-    const empty = this.emptyDown;
-    this.emptyDown = null;
+    const empty = this.emptyDown?.pointerId === e.pointerId ? this.emptyDown : null;
+    if (empty) this.emptyDown = null;
     const d = this.drag;
     if (!d) {
-      // A click (no drag) on empty space clears the selection; an orbit drag keeps it.
+      // A click (no drag) on empty space clears the selection; an orbit drag keeps it. A
+      // touch tap on an object selects it.
       if (empty && !cancelled && e.target === this.canvas) {
-        if (Math.hypot(e.clientX - empty.x, e.clientY - empty.y) < CLICK_SLOP_PX) this.select(null);
+        if (isTap(empty, { x: e.clientX, y: e.clientY }, empty.slop)) this.select(empty.id);
       }
       return;
     }

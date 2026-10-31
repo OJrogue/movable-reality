@@ -1,6 +1,7 @@
 // Lane ui, U2: the command bar. A text box at the bottom (Enter sends POST .../command) and
 // hold-to-talk on Space while the text box is not focused (WAV upload to .../voice). It shows
-// the transcript, the agent's progress messages from the WebSocket and the reply.
+// the transcript, the agent's progress messages from the WebSocket and the reply. On touch
+// devices (lane devices sets setTouch) a microphone button does hold-to-talk instead.
 import type { AgentStage, CommandResult, SceneServer } from "./api";
 import { isTyping } from "./editor";
 import { Recorder } from "./recorder";
@@ -25,6 +26,7 @@ export class CommandBar {
   private readonly input: HTMLInputElement;
   private readonly mic: HTMLSpanElement;
   private readonly badge: HTMLSpanElement;
+  readonly talkButton: HTMLButtonElement;
   private readonly recorder = new Recorder();
   private talking = false;
   private busy = false;
@@ -44,7 +46,11 @@ export class CommandBar {
     this.input.autocomplete = "off";
     this.input.spellcheck = false;
     this.badge = el("span", "mr-ui-badge");
-    row.append(this.mic, this.input, this.badge);
+    this.talkButton = el("button", "mr-ui-talk");
+    this.talkButton.type = "button";
+    this.talkButton.textContent = "Hold to talk";
+    this.talkButton.setAttribute("aria-label", "hold to talk");
+    row.append(this.mic, this.input, this.badge, this.talkButton);
     this.root.append(this.log, row);
     document.body.appendChild(this.root);
 
@@ -64,6 +70,32 @@ export class CommandBar {
     window.addEventListener("blur", () => {
       if (this.talking) void this.stopTalking();
     });
+
+    // Hold-to-talk by touch: press starts recording, lifting the finger sends it. The
+    // button captures the pointer, so sliding off it keeps recording until the lift.
+    const talk = this.talkButton;
+    talk.addEventListener("pointerdown", (e) => {
+      e.preventDefault(); // no focus change, no text selection
+      try {
+        talk.setPointerCapture(e.pointerId);
+      } catch {
+        // synthetic events have no pointer to capture
+      }
+      this.beginTalk();
+    });
+    const release = () => {
+      if (this.talking) void this.stopTalking();
+    };
+    talk.addEventListener("pointerup", release);
+    talk.addEventListener("pointercancel", release);
+    talk.addEventListener("contextmenu", (e) => e.preventDefault()); // long press menu
+  }
+
+  /** Touch layout: a hold-to-talk button and a shorter hint in the text box. */
+  setTouch(on: boolean): void {
+    if (on) this.root.dataset.touch = "1";
+    else delete this.root.dataset.touch;
+    this.input.placeholder = on ? "Type a command" : "Type a command, or hold Space to talk";
   }
 
   /** Called when the server state changes; `text` describes it. */
@@ -140,7 +172,12 @@ export class CommandBar {
       if (this.talking) void this.stopTalking();
       return;
     }
-    if (e.repeat || this.talking) return;
+    if (e.repeat) return;
+    this.beginTalk();
+  }
+
+  private beginTalk(): void {
+    if (this.talking) return;
     if (!this.deps.server || !this.deps.online()) {
       this.line("error", NEED_SERVER);
       return;
@@ -169,7 +206,7 @@ export class CommandBar {
       return; // start() failed and its handler has already shown the error
     }
     if (rec.seconds < MIN_TALK_S) {
-      this.line("info", "hold Space while you speak");
+      this.line("info", this.root.dataset.touch ? "hold the button while you speak" : "hold Space while you speak");
       return;
     }
     this.line("info", `sending ${rec.seconds.toFixed(1)} s of audio`);

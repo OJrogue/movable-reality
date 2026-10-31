@@ -3,6 +3,7 @@
 //   ?ply=<url>             quick look at a single PLY (OpenCV frame assumed)
 //   ?base=<url>            where scene folders live (default /scenes)
 //   ?xrScale=<f>           WebXR framebuffer scale, 0.25 to 1 (default 0.5, Spark's default)
+//   ?device=desktop|mobile|xr  quality profile outside XR (default: detected, see devices/)
 //   perf and bench parameters (?mode, ?budget, ?hud, ?bench, ...): see perf/index.ts
 // Owned by the renderer lane. Other lanes plug in through ViewerContext: export an
 // install...(ctx) function from your folder and add one call in the "Lane installs" block.
@@ -10,6 +11,7 @@ import * as THREE from "three";
 import { SparkControls, SparkRenderer, SparkXr, SplatMesh } from "@sparkjsdev/spark";
 import { createViewerContext } from "./context";
 import { installCoverage } from "./coverage";
+import { installDevices, installTouch } from "./devices";
 import { installLod } from "./lod";
 import { installPlanes } from "./planes";
 import { matrixFromRows, OPENCV_TO_Y_UP, SceneView, type SceneManifest } from "./scene";
@@ -24,7 +26,7 @@ const xrScaleParam = Number(params.get("xrScale"));
 const xrFramebufferScale = xrScaleParam >= 0.25 && xrScaleParam <= 1 ? xrScaleParam : 0.5;
 
 const renderer = new THREE.WebGLRenderer({ antialias: false });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+// Pixel ratio: set per device profile by installDevices (full ratio on desktop).
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
@@ -62,10 +64,12 @@ const status = (msg: string) => {
 };
 
 // ---- Lane installs (one call per lane, in this order) ----
+installDevices(ctx); // lane devices: desktop, mobile or xr quality profile (?device=)
 installPlanes(ctx); // lane bake
 installLod(ctx); // lane lod
 installCoverage(ctx); // lane coverage: gap overlay (?gaps=1, key G, XR squeeze)
 installUi(ctx); // lane ui: desktop editing, command bar, onboarding (?onboarding=0)
+installTouch(ctx); // lane devices: touch look, pan and pinch (after ui, see devices/touch.ts)
 installPerf(ctx); // lane renderer: HUD, frame log, budget controller, bench mode
 // ----------------------------------------------------------
 
