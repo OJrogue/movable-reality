@@ -82,7 +82,7 @@ OBJECTS = [
     ("bowl", "bowl", "wooden_bowl_01", (0.3, 0.92), 0, "coffee_table"),
 ]
 
-WALKS = {"main": 38.0, "test": 20.0}
+WALKS = {"main": 50.0, "test": 20.0}  # main: 38 s of loops + 12 s ceiling pass (31 Oct)
 
 # Scene blender02: an L-shaped bedroom-study (D13), 4.5 x 5 m overall with the north-east
 # 1.5 x 2 m corner cut out. A 4.5 x 3 m study in the south, a 3 x 2 m bed alcove in the
@@ -225,6 +225,34 @@ def _main_eye_target(t: float) -> tuple[np.ndarray, np.ndarray]:
         (e0, g0), (e1, g1) = high(t), knee(0.0)
         return (1 - u) * e0 + u * e1, (1 - u) * g0 + u * g1
     return knee(t - t_loop - t_trans)
+
+
+def with_ceiling_pass(base, t_base: float, spot, t_rise: float = 2.0, t_turn: float = 10.0,
+                      height: float = 1.5, pitch_deg=(15.0, 45.0)):  # fmt: skip
+    """Extend a walk with a ceiling pass: after t_base, stand up at `spot` (Blender x, y) over
+    t_rise seconds, then turn once on the spot while the pitch rises from pitch_deg[0] to
+    pitch_deg[1] above the horizon. The 22 deg downward loops never see the ceiling or the
+    upper walls (blender01 trained them black, 31 Oct). Above ~45 deg a frame holds only blank
+    ceiling, which SfM cannot register, so the wall-ceiling edge stays in view."""
+    eye = np.array([spot[0], spot[1], height])
+
+    def turn(u: float):
+        a = 2 * np.pi * u - np.pi / 2  # start facing south (-y), turn counter-clockwise
+        pitch = math.radians(pitch_deg[0] + (pitch_deg[1] - pitch_deg[0]) * u)
+        d = np.array([math.cos(a) * math.cos(pitch), math.sin(a) * math.cos(pitch),
+                      math.sin(pitch)])  # fmt: skip
+        return eye, eye + 1.5 * d
+
+    def walk(t: float):
+        if t <= t_base:
+            return base(t)
+        if t <= t_base + t_rise:
+            u = smoothstep((t - t_base) / t_rise)
+            (e0, g0), (e1, g1) = base(t_base), turn(0.0)
+            return (1 - u) * e0 + u * e1, (1 - u) * g0 + u * g1
+        return turn(smoothstep(min((t - t_base - t_rise) / t_turn, 1.0)))
+
+    return walk
 
 
 def _test_eye_target(t: float) -> tuple[np.ndarray, np.ndarray]:
@@ -659,7 +687,10 @@ SCENES = {
         "outline": None,
         "room": (ROOM_X, ROOM_Y, ROOM_H),
         "walks": WALKS,
-        "eye_target": {"main": _main_eye_target, "test": _test_eye_target},
+        "eye_target": {
+            "main": with_ceiling_pass(_main_eye_target, 38.0, (0.0, -0.6)),
+            "test": _test_eye_target,
+        },
         "seeds": {"main": 7, "test": 11},
         "panels": [(0.0, 1.0), (0.0, -1.2)],  # documentation only: build_room hard-codes them
     },
