@@ -208,6 +208,8 @@ MR_SESSIONS=1 uv run python -m movable_reality.server   # core: hosted mode (per
 uv run modal deploy modal_jobs/sam3d.py        # core M4: SAM 3D Objects (+ MapAnything pointmap) on an L40S, once per code change
 uv run python scripts/insert_object.py --scene m4test "small wooden stool" --x 0.3 --z -0.6   # core M4: gen#<n> (cached)
 uv run python scripts/complete_objects.py --scene room01   # core M4: obj_<id>_completed.ply per object (--only <id>, --force)
+uv run python scripts/complete_objects.py --scene room01 --mesh   # core: + obj_<id>_mesh.glb (SAM 3D mesh, vertex colours, 100k faces, --mesh-faces)
+# core viewer: ?objects=auto|scan|completed|mesh compares scanned splats, SAM 3D splats and SAM 3D meshes; key V or the label cycles
 ```
 
 Lanes add their own commands here in their PR.

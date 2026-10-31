@@ -891,3 +891,37 @@ test-walk metrics, `sfm.json`, GT pose ATE). Every row predates the lighting cha
   for the new objects, so the viewer reads the PLYs.
 - Next: drop or re-register the bad upward-loop poses, keep small items that rest on an
   object (the bowl) with it, rebuild LOD, and the new lighting for blender02 to blender04.
+
+## 2026-10-31 (night), lane core: SAM 3D Objects meshes next to the splats
+
+- OJ asked for objects as 3D models instead of splats, or both, kept alongside the scan so
+  they can be compared. SAM 3D Objects (Meta, already deployed on Modal) also has a mesh
+  decoder. `modal_jobs/sam3d.py` now takes `mesh=True`, adds "mesh" to the pipeline's
+  `decode_formats` for that call and returns the GLB that its `to_glb` builds, with vertex
+  colours. Texture baking stays off because it renders 100 views through PyTorch3D, which
+  is a CPU build in this image.
+- `scripts/complete_objects.py --mesh` writes `objects/obj_<id>_mesh.glb` beside
+  `obj_<id>_completed.ply` and sets the new optional `SceneObject.mesh` (scene.py and
+  scene.ts). The mesh uses the same registration matrix as the completed splats. The
+  rotation from the GLB's y-up frame back to the Gaussians' frame is picked by nearest-point
+  distance (`meshes.to_gaussian_frame`), and every object picked the inverse of `to_glb`'s
+  z-up to y-up turn. The raw meshes have 85k to 1.02M faces. Quadric decimation
+  (fast-simplification, MIT, no learned weights) cuts each one to at most 100k faces,
+  2.4 MB per object and 23 MB for the ten.
+- Run on blender01. All 10 objects took about 3.5 min of L40S time (about $0.15) on a warm
+  container, plus 48 s of model load. ICP RMS after registration was 7 to 47 mm. Mesh and
+  completed splats agree in world bounds to within about 5 cm (`benchmarks/recon/blender01/completion.json`).
+- Viewer. `?objects=auto|scan|completed|mesh` and key V (or the label under the detail
+  panel) switch the style. auto is the old behaviour (scan, SAM 3D splats once moved).
+  scan pins the scan, completed pins SAM 3D's splats, and mesh draws the GLBs (unlit,
+  opaque, under each object's pivot, so edits move them) and hides that object's splats.
+  The scan and the per-object training are unchanged.
+- Checked in the browser on blender01 with the 15 edits that were in scene.json. The
+  scanned cabinet shows its unseen back as streaks. The SAM 3D splats and mesh show a
+  closed cabinet with a plausible back (`objects_scan.jpg`, `objects_completed.jpg`,
+  `objects_mesh.jpg` in `benchmarks/recon/blender01/`). Frame times in the hidden browser
+  pane are throttled (1 fps), so mesh mode was not timed. It is not tested on a headset.
+- Next: textured meshes (texture baking with a GPU PyTorch3D or nvdiffrast build), the
+  generated look of SAM 3D colours against the scan's, and timing the mesh mode on the
+  Steam Frame.
+
