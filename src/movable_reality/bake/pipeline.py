@@ -222,7 +222,6 @@ def bake_scene(
             (np.asarray(o.bbox_min), np.asarray(o.bbox_max))
             for o in scene.objects
             if on_floor
-            and o.visible
             and o.label.split("#")[0].strip().lower() not in STRUCTURE_LABELS
             and abs(float(plane.signed_distance(np.asarray([o.bbox_min]))[0])) <= opts.support_gap
         ]
@@ -273,7 +272,7 @@ def bake_scene(
             extras={"label": label, "texel_m": texel, "frame": "recon"},
         )
         removed_idx[label] = sel_idx[bake_local | behind_local]
-        slabs[label] = (plane, rect, texel)
+        slabs[label] = (plane, rect, texel, supports)
 
         pr.inliers = int(plane.inliers.sum())
         pr.baked = int(bake_local.sum())
@@ -320,13 +319,18 @@ def bake_scene(
     hit_all = np.zeros(len(bg_verts), dtype=bool)
     for p in planes:
         hit = gaussians.match_positions(bg_verts, verts[removed_idx[p.label]])
-        # Retrained backgrounds (core objtrain.py) no longer share the joint splat's centres.
-        # Background splats on or behind the opaque quad are hidden by it anyway, so they
-        # go by position too: within the rect and at most `threshold` in front of the plane.
-        plane, rect, texel = slabs[p.label]
-        on = rect.contains(bg_world, margin=texel)
-        on &= plane.signed_distance(bg_world) < opts.threshold
-        hit = hit | on
+        # Retrained backgrounds (core objtrain.py) no longer share the joint splat's centres,
+        # so splats the quad hides also go by position: those behind it, and those in its
+        # band under an object, where no view saw the floor (blender01: blue and yellow
+        # under the sofa). Unlabelled splats in the band elsewhere (a rug, skirting) stay.
+        plane, rect, texel, supports = slabs[p.label]
+        inside = rect.contains(bg_world, margin=texel)
+        off = plane.signed_distance(bg_world)
+        under = np.zeros(len(bg_world), dtype=bool)
+        for lo, hi in supports:
+            under |= ((bg_world[:, 0] >= lo[0]) & (bg_world[:, 0] <= hi[0])
+                      & (bg_world[:, 2] >= lo[2]) & (bg_world[:, 2] <= hi[2]))  # fmt: skip
+        hit = hit | (inside & ((off <= -opts.threshold) | (under & (off < opts.threshold))))
         p.removed_splats = int((hit & ~hit_all).sum())
         hit_all |= hit
         missing = len(removed_idx[p.label]) - int(hit.sum())

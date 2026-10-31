@@ -172,3 +172,30 @@ def test_scene_without_ids_fails_clearly(tmp_path):
     Scene(scene_id="demo").save(tmp_path / "scene.json")
     with pytest.raises(FileNotFoundError, match="gaussian_ids.npy"):
         bake_scene(tmp_path, OPTS, log=lambda _: None)
+
+
+def test_retrained_background_goes_by_position(tmp_path):
+    """A background retrained by core objtrain.py shares no centres with the joint splat.
+    The bake then removes by position what the quad hides (below it, and in its band under
+    an object) and keeps unlabelled splats on the floor elsewhere (a rug)."""
+    gt = synthetic.make_room(tmp_path, floor_spacing=0.08, ceiling_spacing=0.1, wall_spacing=0.2)
+    path = tmp_path / "objects" / "background.ply"
+    ply = G.read_ply(path)
+    v = G.vertices(ply).copy()
+    v["x"] += 1e-4  # retrained: the exact match finds nothing
+    recon_from_world = np.linalg.inv(gt.world_from_recon)
+    probes = {"rug": (1.7, 0.01, 0.0), "below": (1.7, -0.1, 0.0), "under sofa": (0.5, 0.01, -2.0)}
+    extra = np.repeat(v[:1], len(probes))
+    for row, p in zip(extra, probes.values(), strict=True):
+        r = recon_from_world[:3, :3] @ np.array(p) + recon_from_world[:3, 3]
+        row["x"], row["y"], row["z"] = r
+    G.PlyData([G.PlyElement.describe(np.concatenate([v, extra]), "vertex")]).write(str(path))
+
+    bake_scene(tmp_path, BakeOptions(texel=0.04, image_format="png", labels=("floor",)),
+               log=lambda _: None)  # fmt: skip
+
+    out = G.vertices(G.read_ply(tmp_path / "objects" / "background_baked.ply"))
+    xyz = world(gt, np.stack([out["x"], out["y"], out["z"]], 1).astype(np.float64))
+    left = {k: bool((np.linalg.norm(xyz - np.array(p), axis=1) < 1e-3).any())
+            for k, p in probes.items()}  # fmt: skip
+    assert left == {"rug": True, "below": False, "under sofa": False}
