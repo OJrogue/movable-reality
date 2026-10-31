@@ -81,6 +81,12 @@ export function installUi(ctx: UiContext): UiHandle {
     xr: () => ctx.renderer.xr.isPresenting,
   });
 
+  // Lane devices: the mobile profile lays the bar out for a narrow portrait screen with a
+  // hold-to-talk button (style.ts, body[data-device="mobile"]).
+  const touchUi = () => ctx.device?.name === "mobile";
+  bar.setTouch(touchUi());
+  ctx.onDeviceChange(() => bar.setTouch(touchUi()));
+
   const setOnline = (on: boolean) => {
     const was = online;
     online = on;
@@ -164,6 +170,7 @@ export function installUi(ctx: UiContext): UiHandle {
 
   installOnboarding({
     params: ctx.params,
+    touch: touchUi(),
     fill: (t) => bar.fill(t),
     // The coverage lane toggles its overlay on key G; main.ts keeps no handle to it.
     toggleGaps: () => document.dispatchEvent(new KeyboardEvent("keydown", { code: "KeyG", key: "g" })),

@@ -14,7 +14,8 @@ Movable Reality turns a ~30 s phone video of a room into a metric 3D Gaussian Sp
 room the video did not cover and fills them, either with a short top-up video or with Meta
 generative models, and tags what was generated. It renders the whole room on a standalone
 VR headset at a locked 72 FPS, and the user rearranges it by voice. The same viewer also runs in a desktop browser with
-mouse and keyboard and typed or spoken commands (scope change of 30 Oct). It is an entry in the
+mouse and keyboard and typed or spoken commands (scope change of 30 Oct). It runs on any device,
+from laptop to phone to headset, each at the best quality it can hold (scope change of 31 Oct). It is an entry in the
 Meta Global AI Developer Hackathon (Indie Developer track, theme "Push the Frontier").
 Team "Gaussian Movers", solo developer OJ.
 
@@ -122,12 +123,13 @@ web/                    Vite + three.js + Spark viewer (desktop and WebXR)
   src/coverage/         lane: coverage  gap overlay, "show generated" toggle, recapture prompt
   src/planes/           lane: bake      loading baked planes, opaque pass
   src/ui/               lane: ui        desktop picking and dragging, command bar, hold-to-talk, onboarding
+  src/devices/          lane: devices   device profiles (desktop, mobile, xr), touch controls
   src/scene.ts          core (shared)
 data/                   gitignored: raw videos, scenes, API cache
 benchmarks/             committed: raw frame-time logs (JSON) and result tables
 ```
 
-Lanes: **renderer** (R0-R4), **lod**, **coverage** (C1-C3), **bake**, **ui** (U1-U4), and **core** (M1-M5:
+Lanes: **renderer** (R0-R4), **lod**, **coverage** (C1-C3), **bake**, **ui** (U1-U4), **devices**, and **core** (M1-M5:
 reconstruction, objects, agent, server, voice). The core lane owns `scripts/`,
 `modal_jobs/reconstruct.py`, `src/movable_reality/{sam,clients}.py` and the future
 `agent/` and `server.py`. The **blender** lane (synthetic ground-truth rooms `blender01`, `blender02`)
@@ -189,6 +191,7 @@ uv run python scripts/blender_capture_guide.py --scene blender02   # blender: fi
 uv run python scripts/blender_gt_eval.py --scene blender01   # blender: pose ATE (Sim3) vs GT; --labels <dir> adds per-object mask IoU
 # ui viewer: click an object, drag it, Q/E rotate, Delete hides, R restores, Ctrl/Cmd+Z undo; Enter sends a command, hold Space to talk
 # ui viewer: ?onboarding=0|1 (panel), ?server=0 (local edits even when the server runs); window.mrUi.manifest() in the console
+# devices viewer: ?device=desktop|mobile|xr overrides the detected quality profile (an XR session always uses xr); window.mrDevice in the console
 uv run python -m movable_reality.server          # core: scene server + agent on :8000 (Vite proxies /api, /ws)
 uv run python scripts/inventory.py --scene room01   # core: Muse Wonder lists objects -> inventory.json
 uv run python scripts/lift_ids.py --scene room01    # core: SAM 3.1 per noun, lift to Gaussians, floor alignment, objects/

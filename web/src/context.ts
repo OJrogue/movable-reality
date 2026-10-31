@@ -3,12 +3,14 @@
 // Owned by the renderer lane; other lanes import it but do not change it without a PR note.
 import * as THREE from "three";
 import type { SparkRenderer } from "@sparkjsdev/spark";
+import type { DeviceSettings } from "./devices/profile";
 import type { SceneManifest, SceneView } from "./scene";
 
 export type FrameCallback = (time: number, frame: XRFrame | undefined) => void;
 /** `cpuMs`: main-thread time from the start of the animation callback to after render(). */
 export type FrameEndCallback = (time: number, frame: XRFrame | undefined, cpuMs: number) => void;
 export type ManifestCallback = (manifest: SceneManifest, view: SceneView) => void;
+export type DeviceCallback = (settings: DeviceSettings) => void;
 
 export interface ViewerContext {
   readonly renderer: THREE.WebGLRenderer;
@@ -41,6 +43,13 @@ export interface ViewerContext {
   onFrameEnd(cb: FrameEndCallback): void;
   /** Called after the first manifest loads and after every live change. */
   onManifest(cb: ManifestCallback): void;
+  /**
+   * Active device profile (lane devices, devices/profile.ts); null until installDevices
+   * runs. Lanes read their quality knobs from it.
+   */
+  device: DeviceSettings | null;
+  /** Called when the profile changes (XR enter or exit, a resize across the mobile limit). */
+  onDeviceChange(cb: DeviceCallback): void;
 }
 
 export function createViewerContext(init: {
@@ -55,20 +64,24 @@ export function createViewerContext(init: {
   runFrame(time: number, frame: XRFrame | undefined): void;
   runFrameEnd(time: number, frame: XRFrame | undefined, cpuMs: number): void;
   runManifest(manifest: SceneManifest, view: SceneView): void;
+  runDeviceChange(settings: DeviceSettings): void;
 } {
   const frameCbs: FrameCallback[] = [];
   const frameEndCbs: FrameEndCallback[] = [];
   const manifestCbs: ManifestCallback[] = [];
+  const deviceCbs: DeviceCallback[] = [];
   return {
     ...init,
     sceneBase: null,
     view: null,
     manifest: null,
+    device: null,
     controlsEnabled: true,
     status: "loading…",
     onFrame: (cb) => void frameCbs.push(cb),
     onFrameEnd: (cb) => void frameEndCbs.push(cb),
     onManifest: (cb) => void manifestCbs.push(cb),
+    onDeviceChange: (cb) => void deviceCbs.push(cb),
     runFrame(time, frame) {
       for (const cb of frameCbs) cb(time, frame);
     },
@@ -79,6 +92,10 @@ export function createViewerContext(init: {
       this.manifest = manifest;
       this.view = view;
       for (const cb of manifestCbs) cb(manifest, view);
+    },
+    runDeviceChange(settings) {
+      this.device = settings;
+      for (const cb of deviceCbs) cb(settings);
     },
   };
 }

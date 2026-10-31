@@ -4,13 +4,16 @@
 // URL parameters (all optional):
 //   ?mode=lod|naive        LOD (default) or naive: LOD off, full splats (the proof toggle)
 //   ?budget=1|0            budget controller (default on in LOD mode, off in bench mode)
-//   ?target=<ms>           frame-time target (default: from the XR frame rate, else 13.9)
+//   ?target=<ms>           frame-time target (default: from the XR frame rate, else the
+//                          display rate within the device profile's range, else 13.9 in
+//                          XR and 16.7 on desktop and mobile; see devices/profile.ts)
 //   ?hz=<rate>             ask the XR session for this display rate (if supported)
 //   ?lodSplatCount=<n>     starting splat budget (the controller owns it when active)
 //   ?lodRenderScale=<f>    starting minimum splat size in pixels (1 to 5)
 //   ?hud=0                 start with the HUD hidden
 //   ?hudPanel=1            also show the in-headset HUD panel on the desktop
-//   ?device=<label>        device name for log file names (default: from the user agent)
+//   ?device=<label>        device name for log file names (default: from the user agent);
+//                          desktop, mobile and xr select a device profile instead (devices/)
 //   ?keepFull=0            LOD mode: do not keep the full splat set for the instant toggle
 //   ?bench=1&scene=<id>&mode=lod|naive&duration=<s>&path=<name>   bench mode (bench/)
 // Keys and controller buttons: see input.ts.
@@ -18,7 +21,14 @@ import * as THREE from "three";
 import type { SplatMeshOptions } from "@sparkjsdev/spark";
 import type { ViewerContext } from "../context";
 import { applyPose, BenchRunner, parseBench } from "../bench";
-import { BudgetController, ceilingForScene, DEFAULT_BUDGET, levelForSplatCount } from "./budget";
+import { floorHz, targetHzFor } from "../devices/profile";
+import {
+  BudgetController,
+  ceilingForScene,
+  DEFAULT_BUDGET,
+  levelForSplatCount,
+  type BudgetConfig,
+} from "./budget";
 import {
   deviceInfo,
   downloadLog,
@@ -107,16 +117,18 @@ export function installPerf(ctx: ViewerContext): PerfHandle {
 
   const explicitTarget = Number(p.get("target"));
   const target = {
-    ms: explicitTarget > 0 ? explicitTarget : DEFAULT_TARGET_MS,
+    ms: explicitTarget > 0 ? explicitTarget : (ctx.device?.defaultTargetMs ?? DEFAULT_TARGET_MS),
     source: explicitTarget > 0 ? "url" : "default",
     hz: null as number | null,
   };
+  // Budget range per device profile (lane devices): DEFAULT_BUDGET in XR, a wider range
+  // that starts at the top on desktop, a smaller one on mobile.
+  let cfg: BudgetConfig = { ...DEFAULT_BUDGET, ...(ctx.device?.budget ?? {}) };
   // Spark's own default (2.5M on the Steam Frame, 1M on the Pico 4) starts far above
   // what a headset holds, and the first seconds of every log would be missed frames.
-  const startLevel = hasUrlCount
-    ? levelForSplatCount(urlCount, DEFAULT_BUDGET)
-    : DEFAULT_BUDGET.startLevel;
-  const controller = new BudgetController({ targetMs: target.ms, startLevel });
+  const startLevelFor = (c: BudgetConfig) =>
+    hasUrlCount ? levelForSplatCount(urlCount, c) : c.startLevel;
+  let controller = new BudgetController({ ...cfg, targetMs: target.ms, startLevel: startLevelFor(cfg) });
   const budgetActive = () => budgetWanted && mode === "lod";
   const applyBudget = () => {
     const s = controller.settings();
@@ -166,7 +178,7 @@ export function installPerf(ctx: ViewerContext): PerfHandle {
       sum += n;
     }
     totalSplats = sum;
-    controller.setMaxLevel(ceilingForScene(sum, DEFAULT_BUDGET));
+    controller.setMaxLevel(ceilingForScene(sum, cfg));
   };
   ctx.onManifest((m) => {
     if (!ctx.sceneBase) return;
@@ -195,7 +207,19 @@ export function installPerf(ctx: ViewerContext): PerfHandle {
       recorder.event(lastTime ?? 0, "target", { ms, source, hz });
     }
   };
-  const resetTarget = () => setTarget(DEFAULT_TARGET_MS, "default", null);
+  const defaultTargetMs = () => ctx.device?.defaultTargetMs ?? DEFAULT_TARGET_MS;
+  const resetTarget = () => setTarget(defaultTargetMs(), "default", null);
+  // A new profile (XR enter or exit, a resize across the mobile limit) brings its own
+  // budget range: start a controller for it. The renderer's sessionstart and sessionend
+  // handlers below then set the target as before.
+  ctx.onDeviceChange((dev) => {
+    cfg = { ...DEFAULT_BUDGET, ...dev.budget };
+    controller = new BudgetController({ ...cfg, targetMs: target.ms, startLevel: startLevelFor(cfg) });
+    if (totalSplats !== null) controller.setMaxLevel(ceilingForScene(totalSplats, cfg));
+    if (target.source === "default" || target.source === "default-checked") resetTarget();
+    if (ready && budgetActive()) applyBudget();
+    recorder?.event(lastTime ?? 0, "device", { profile: dev.name });
+  });
   ctx.renderer.xr.addEventListener("sessionstart", () => {
     const session = ctx.renderer.xr.getSession();
     if (!session) return;
@@ -255,6 +279,7 @@ export function installPerf(ctx: ViewerContext): PerfHandle {
     target_ms: target.ms,
     target_source: target.source,
     url: location.href,
+    device_profile: ctx.device?.name ?? null,
     total_splats: totalSplats,
     display: displayInfo(),
     settings: lodSettings(spark, budgetActive()),
@@ -316,7 +341,7 @@ export function installPerf(ctx: ViewerContext): PerfHandle {
     if (mode !== "lod") return say("budget controller works in LOD mode only");
     budgetWanted = !budgetWanted;
     if (budgetWanted) {
-      controller.restart(levelForSplatCount(lodSplatCount(spark).count, DEFAULT_BUDGET));
+      controller.restart(levelForSplatCount(lodSplatCount(spark).count, cfg));
       applyBudget();
     }
     recorder?.event(lastTime ?? 0, "budget", { active: budgetWanted });
@@ -337,6 +362,7 @@ export function installPerf(ctx: ViewerContext): PerfHandle {
   const window2s = new RollingWindow(2000);
   let lastTime: number | null = null;
   let lastDt = 0;
+  let floorSince: number | null = null; // time the budget reached level 0 (lane devices)
   let ready = false;
   let hudAt = -Infinity;
   const resetWindows = (why: string) => {
@@ -388,7 +414,9 @@ export function installPerf(ctx: ViewerContext): PerfHandle {
       // A device that misses every frame gives no estimate, and the default stays.
       if (target.source === "default" || target.source === "default-checked") {
         const hz = rate.push(dt);
-        if (hz) setTarget(targetForHz(hz), "estimate", hz);
+        // The profile caps the rate a target follows (desktop and mobile: 60 Hz at most).
+        const aim = hz && ctx.device ? targetHzFor(ctx.device, hz) : hz;
+        if (hz && aim) setTarget(targetForHz(aim), "estimate", hz);
         else if (hz === null) target.source = "default-checked";
       }
       if (budgetActive() && target.source !== "default") {
@@ -396,6 +424,19 @@ export function installPerf(ctx: ViewerContext): PerfHandle {
         if (step.reason) {
           applyBudget();
           recorder?.event(time, "budget", { ...step });
+        }
+        // Lane devices: a phone that misses most frames at the lowest level aims for the
+        // profile's lower rate (30 Hz) instead. Never in XR or with ?target=.
+        if (step.level > 0) floorSince = null;
+        else {
+          floorSince ??= time;
+          const dev = ctx.device;
+          const missed = window2s.summary(target.ms).missedShare;
+          const hz = dev ? floorHz(dev, target.ms, step.level, missed, time - floorSince) : null;
+          if (hz && target.source !== "url" && target.source !== "xr") {
+            setTarget(targetForHz(hz), "floor", target.hz);
+            floorSince = null;
+          }
         }
       }
       if (recorder && (bench || recorder.frames < MAX_FREE_FRAMES)) {
@@ -425,6 +466,9 @@ export function installPerf(ctx: ViewerContext): PerfHandle {
     const b = controller.state();
     const data: HudData = {
       mode,
+      device: ctx.device
+        ? `${ctx.device.name} dpr ${ctx.renderer.getPixelRatio().toFixed(2)}`
+        : undefined,
       xr: ctx.renderer.xr.isPresenting,
       targetMs: target.ms,
       hz: target.hz,

@@ -616,3 +616,44 @@ render runs $0.011, top-up rerun $0.055, distil about $0.01), Muse Image 11 call
   longer touches `coverage.generated_splats`, which stays with the coverage lane.
 - Next: run `complete_objects.py` once `lift_ids.py` has written masks for a real scene,
   then the viewer swap to `completed_ply` (lod lane, L1).
+
+## 2026-10-31 (lane: devices)
+
+- Decision D20 (OJ, 31 Oct): the viewer must work on any device (laptop or desktop browser,
+  phone or tablet browser, standalone headset), each at the best quality it can hold.
+- `web/src/devices/profile.ts`: three profiles. A running WebXR session selects `xr`.
+  Otherwise `?device=desktop|mobile|xr` wins, then a coarse pointer on a screen whose short
+  side is at most 1024 CSS px, or a mobile user agent, selects `mobile`, and anything else
+  is `desktop`. Per profile it sets the pixel ratio cap, the budget controller's splat range
+  and start level, the default frame target, the range a measured display rate may set the
+  target to, and Spark's sort options (Spark's defaults for now).
+- Settings. Desktop has the full device pixel ratio and 400k to 6M splats, starts at the top
+  level (capped by the scene's own size) and targets the display rate up to 60 Hz. Mobile
+  has pixel ratio 1.5 at most and 100k to 1.5M splats, starts near 600k and targets 60 Hz.
+  It drops to 30 Hz after 3 s at the lowest level with over half the frames missed. XR uses
+  `DEFAULT_BUDGET` unchanged, 13.9 ms and pixel ratio 2, as before.
+- The renderer lane's `perf/index.ts` reads the profile through `ctx.device` and starts a
+  new budget controller when the profile changes (XR enter or exit). `context.ts` gained
+  `device` and `onDeviceChange`. `?device=` keeps naming benchmark logs for any other value.
+- Touch (`web/src/devices/touch.ts`, `gestures.ts`): one finger looks around, two fingers
+  pan, a pinch moves forward or back. It replaces SparkControls' touch handling, which
+  needs both fingers to land within a few milliseconds and rolls the camera on a pinch. The
+  ui lane's Editor now selects on a tap and only drags the selected object by touch, so a
+  look that starts over an object turns the view. The command bar gets a hold-to-talk button
+  and a full-width portrait layout under the mobile profile, and onboarding lists the touch
+  gestures.
+- The HUD's first line shows the profile and pixel ratio, for example `[desktop dpr 2.00]`.
+  `window.mrDevice` exposes the profile, its settings, the source of the choice and touch
+  gesture counts.
+- Verification. 26 new vitest tests (profile selection, settings, the 30 Hz floor, desktop
+  budget on the simulated display, gesture maths). In the desktop app's Chromium on
+  `demo`, the desktop pane selected `desktop` (dpr 2, controller at level 10 = 1.55M, the
+  scene's ceiling) and mouse select and drag still produced a `place` edit. The mobile
+  preset (375 x 812, Android user agent) selected `mobile` (dpr 1.5). Synthetic touch
+  events showed tap to select, tap on empty space to clear, a one-finger look over an
+  unselected object (10 look steps, no edit), a drag of the selected table (one `place`
+  edit), a second finger ignored during that drag, and two-finger pan and pinch. Frame
+  rates in the emulated pane mean nothing. Not tested: a real phone or tablet, real
+  multi-touch, the microphone on a phone, an XR session switching profiles on a headset.
+- Next: open `?scene=demo` on a real phone over the LAN (`MR_HTTPS=1`), check gestures
+  and frame rate, and check on the Steam Frame that entering XR logs the `xr` profile.
