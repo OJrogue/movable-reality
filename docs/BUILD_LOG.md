@@ -765,3 +765,23 @@ render runs $0.011, top-up rerun $0.055, distil about $0.01), Muse Image 11 call
 - Next: pose quality on synthetic renders (more frames, or keyframe spacing), a metric
   reference that works without GT (camera height prior or a measured object), gap
   clustering for the overlay, then blender02 to 04 through the same pipeline.
+
+## 2026-10-31 (early morning), lane core: blender02 end to end
+
+- blender02 (L-shaped bedroom-study, 160 frames, GT intrinsics through `--focal35 26` before
+  the 4:3-diagonal fix, which matches Blender's convention). MapAnything 123 s, gsplat 143 s
+  on the L40S. Pose ATE 0.50 m after Sim3, median rotation error 3.2 deg, Sim3 scale 2.07.
+- MapAnything's COLMAP export at the pinned SHA uses `pts3d` and `camera_poses`, which
+  `infer` documents as already metric. The 2x under-scale is the model on these renders, not
+  the export.
+- SAM on blender02. 14 nouns are cached, floor succeeded on its second attempt after 1200 s,
+  and wall failed on every attempt with "Connection error". `lift_ids.py --skip wall` now
+  leaves nouns out. Lift with `--scale 2.07` (GT-assisted) gave 10 objects, then LOD (11
+  trees), bake (floor plane, 16,016 splats removed) and coverage (206 gaps). Object sizes are
+  only roughly right (bookshelf 2.32 x 2.70 x 2.66 m against 0.58 x 2.06 x 1.37 m), in line
+  with the pose error.
+- Browser check at `?scene=blender02`. The room loads under the `desktop` profile (dpr 2,
+  219k splats drawn). The ceiling is black because the walk never looked up.
+- Filming guides `data/raw/blender02_guide_main.mp4` (40 s) and `_test.mp4` (20 s) were made
+  and sent to OJ.
+- Next: section 3.00 of docs/HANDOFF.md.
