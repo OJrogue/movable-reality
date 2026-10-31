@@ -144,6 +144,17 @@ def largest_cluster(xyz: np.ndarray, voxel: float) -> np.ndarray:
     return comp[inv.ravel()] == int(np.argmax(sizes))
 
 
+def trim_outliers(xyz: np.ndarray, pct: float = 2.0, margin: float = 0.1) -> np.ndarray:
+    """Bool mask of the points inside the object's pct..100-pct box, widened by `margin` of its
+    size per side. Stray splats that touch the object's cluster stretched blender01's boxes
+    (coffee table 1.10 m tall against 0.39 m) although the 2D masks matched (IoU 0.91)."""
+    if len(xyz) < 20:
+        return np.ones(len(xyz), dtype=bool)
+    lo, hi = np.percentile(xyz, pct, axis=0), np.percentile(xyz, 100 - pct, axis=0)
+    pad = (hi - lo) * margin
+    return np.all((xyz >= lo - pad) & (xyz <= hi + pad), axis=1)
+
+
 def floor_alignment(
     floor_xyz: np.ndarray, cam_centres: np.ndarray, wall_xyz: np.ndarray | None = None
 ) -> np.ndarray:
@@ -178,7 +189,9 @@ def ceiling_scale(ceiling_y: np.ndarray, height: float) -> float:
     y of the "ceiling" Gaussians, floor at y = 0) at `height` metres. MapAnything's scale
     came out 1.4x to 1.8x too small on blender01 and smoke01 (31 Oct)."""
     if len(ceiling_y) < 100:
-        raise ValueError(f"only {len(ceiling_y)} ceiling Gaussians; pass --scale instead")
+        raise ValueError(
+            f"only {len(ceiling_y)} ceiling Gaussians (ceiling not reconstructed); pass --scale"
+        )
     measured = float(np.median(ceiling_y))
     if measured <= 0:
         raise ValueError(f"ceiling at y = {measured:.3f}, below the floor")
@@ -197,6 +210,12 @@ def ceiling_from_histogram(
     edges = np.arange(above.min(), above.max() + bin_m, bin_m)
     counts, edges = np.histogram(above, bins=edges)
     peak = int(np.argmax(counts))
+    # A real ceiling is a spike. On blender01 (camera tilted 28 deg down) the ceiling was never
+    # reconstructed and the heights above the cameras only tail off: refuse that case.
+    away = int(round(0.1 / bin_m))
+    near = [counts[i] for i in (peak - away, peak + away) if 0 <= i < len(counts)]
+    if not near or counts[peak] < 2 * max(near):
+        return above[:0]
     lo, hi = edges[max(peak - 2, 0)], edges[min(peak + 3, len(edges) - 1)]
     return above[(above >= lo) & (above <= hi)]
 

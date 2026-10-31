@@ -44,6 +44,7 @@ from movable_reality.lift import (
     largest_cluster,
     scaled,
     support,
+    trim_outliers,
     vote,
 )
 from movable_reality.lod.split import write_split
@@ -65,9 +66,13 @@ async def segment_all(video, nouns: list[str]):
                     inst = await segment_video(video, noun)
                     break
                 except Exception as exc:  # noqa: BLE001 - APITimeoutError, stream errors
+                    cause = f"{type(exc).__name__}: {exc.__cause__ or exc}"
+                    if attempt == 2 and noun in STRUCTURE:  # walls only refine the yaw
+                        print(f"  SAM '{noun}' failed 3 times ({cause}); continuing without it")
+                        return noun, []
                     if attempt == 2:
                         raise
-                    print(f"  SAM '{noun}' failed ({type(exc).__name__}), retrying")
+                    print(f"  SAM '{noun}' failed ({cause}), retrying")
                     await asyncio.sleep(10 * (attempt + 1))
             print(f"  SAM '{noun}': {len({i.object_id for i in inst})} object(s), "
                   f"{len(inst)} masks, {time.time() - t0:.0f} s")  # fmt: skip
@@ -186,6 +191,7 @@ def finish(args, root, p, names, ids, cams, xyz) -> None:
     for k in objects:
         m = np.nonzero(ids == k)[0]
         keep = largest_cluster(world[m], p.voxel)
+        keep[keep] = trim_outliers(world[m[keep]])
         ids[m[~keep]] = -1
         if keep.sum() < MIN_SPLATS:
             ids[m] = -1

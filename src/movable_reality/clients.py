@@ -12,7 +12,8 @@ def meta_client() -> OpenAI:
 
 
 def meta_async_client() -> AsyncOpenAI:
-    return AsyncOpenAI(base_url=META_BASE_URL, api_key=require_env("MODEL_API_KEY"))
+    # SAM 3.1 video requests stream for over 10 min on 152 frames (floor: 731 s, 31 Oct).
+    return AsyncOpenAI(base_url=META_BASE_URL, api_key=require_env("MODEL_API_KEY"), timeout=1800.0)
 
 
 def baseten_client() -> OpenAI:
