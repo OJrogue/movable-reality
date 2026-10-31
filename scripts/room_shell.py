@@ -26,6 +26,7 @@ from movable_reality.coverage.colmap import read_model
 from movable_reality.lift import STRUCTURE, ceiling_from_histogram
 from movable_reality.roommesh import source_background
 from movable_reality.roomshell import (
+    ON_WALL,
     Projector,
     View,
     finish,
@@ -57,7 +58,7 @@ def main() -> int:
 
     labels = json.loads((root / "ids" / "masks" / "labels.json").read_text())
     noun = {int(k): n.split("#")[0] for k, n in labels.items()}
-    blockers = np.array([k for k, n in noun.items() if n not in STRUCTURE])
+    blockers = np.array([k for k, n in noun.items() if n not in STRUCTURE + ON_WALL])
     floor_vals = np.array([k for k, n in noun.items() if n == "floor"])
     Winv = np.linalg.inv(W)
     frames = []  # (camera, world R, world t, mask path)

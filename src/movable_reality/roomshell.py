@@ -38,6 +38,10 @@ import numpy as np
 
 from .bake import texture
 
+# Flat things in the plane of a wall: their pixels texture the wall instead of being
+# skipped as furniture, so a window or a door is drawn on the shell where it is.
+ON_WALL = ("window", "door", "blinds", "curtain", "picture", "painting", "poster", "mirror")
+
 
 @dataclass
 class Surface:
