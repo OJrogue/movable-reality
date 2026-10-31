@@ -1,5 +1,6 @@
 // Lane ui: styles for the DOM overlays (selection label, command bar, onboarding panel).
-// The panel sits below the perf lane's "save log" button (top right).
+// The panel sits below the perf lane's "save log" button (top right). The touch rules at
+// the end come from lane devices (mobile profile, command bar data-touch).
 // Injected once by installUi; every class starts with mr-ui- so nothing else is affected.
 export const UI_CSS = `
 .mr-ui-label {
@@ -65,4 +66,30 @@ export const UI_CSS = `
   position: fixed; right: 12px; top: 48px; width: 28px; height: 28px; padding: 0;
   border-radius: 50%; background: rgba(0, 0, 0, 0.6); font: 600 14px system-ui, sans-serif;
 }
+.mr-ui-talk { display: none; }
+/* Touch layout (lane devices, mobile profile): narrow portrait screens. */
+.mr-ui-bar[data-touch] {
+  left: 8px; right: 8px; width: auto; transform: none;
+  bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+}
+.mr-ui-bar[data-touch] .mr-ui-mic { display: none; }
+.mr-ui-bar[data-touch] .mr-ui-row { padding: 6px; gap: 6px; }
+/* 16 px stops iOS Safari from zooming the page when the box gets focus. */
+.mr-ui-bar[data-touch] .mr-ui-input { font-size: 16px; padding: 8px 4px; }
+.mr-ui-bar[data-touch] .mr-ui-badge {
+  max-width: 18vw; font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.mr-ui-bar[data-touch] .mr-ui-line:nth-last-child(n + 4) { display: none; }
+.mr-ui-bar[data-touch] .mr-ui-talk {
+  display: block; flex: none; min-width: 64px; min-height: 44px; padding: 0 12px;
+  border-radius: 22px; border: 1px solid rgba(255, 255, 255, 0.25); color: #fff;
+  background: rgba(255, 255, 255, 0.14); font: 600 13px system-ui, sans-serif;
+  touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+}
+.mr-ui-bar[data-touch][data-talking] .mr-ui-talk { background: #d93636; border-color: #ff4d4d; }
+body[data-device="mobile"] .mr-ui-onboarding {
+  left: 8px; right: 8px; width: auto; max-height: 45vh; font-size: 13px;
+}
+body[data-device="mobile"] .mr-ui-help { width: 40px; height: 40px; font-size: 16px; }
+body[data-device="mobile"] .mr-ui-onboarding button { padding: 6px 10px; }
 `;

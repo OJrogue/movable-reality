@@ -10,6 +10,8 @@ import * as THREE from "three";
 
 export interface HudData {
   mode: string;
+  /** Device profile and pixel ratio, e.g. "desktop dpr 2.00" (lane devices). */
+  device?: string;
   xr: boolean;
   targetMs: number;
   hz: number | null;
@@ -44,7 +46,8 @@ export function hudLines(d: HudData): string[] {
   const hz = d.hz ? `${d.hz} Hz` : "? Hz";
   const over = d.p99 > d.targetMs * 1.2 ? "  OVER" : "";
   const lines = [
-    `${d.mode.toUpperCase()}${d.xr ? " XR" : ""}  ${hz}  target ${d.targetMs.toFixed(1)} ms`,
+    `${d.mode.toUpperCase()}${d.xr ? " XR" : ""}${d.device ? `  [${d.device}]` : ""}  ${hz}` +
+      `  target ${d.targetMs.toFixed(1)} ms`,
     `frame ${ms(d.lastMs)}  p50 ${ms(d.p50)}  p99 ${ms(d.p99)} ms${over}`,
     `fps ${d.fps.toFixed(1)}  missed ${(d.missedShare * 100).toFixed(1)}%`,
     `splats drawn ${fmtCount(d.drawn)}  cut ${fmtCount(d.cut)}  total ${fmtCount(d.total)}`,

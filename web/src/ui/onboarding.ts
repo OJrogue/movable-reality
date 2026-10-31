@@ -26,6 +26,17 @@ const CONTROLS: [string, string][] = [
   ["G", "coverage gap overlay"],
 ];
 
+/** Phones and tablets (lane devices, mobile profile). */
+export const TOUCH_CONTROLS: [string, string][] = [
+  ["Drag one finger", "look around"],
+  ["Drag two fingers", "move sideways and up"],
+  ["Pinch", "move forward or back"],
+  ["Tap an object", "select it"],
+  ["Drag the selected object", "move it on the floor"],
+  ["Tap empty space", "clear the selection"],
+  ["Hold to talk", "speak a command"],
+];
+
 /** Read access to localStorage that never throws (private windows, blocked storage). */
 export interface KeyValue {
   getItem(key: string): string | null;
@@ -52,6 +63,8 @@ export function shouldShowOnboarding(params: URLSearchParams, storage: KeyValue 
 
 export interface OnboardingDeps {
   params: URLSearchParams;
+  /** Show the touch controls instead of mouse and keyboard (mobile profile). */
+  touch?: boolean;
   fill(text: string): void;
   toggleGaps(): void;
   /** Placeholder until generated splats exist (M4); returns the new state. */
@@ -77,7 +90,7 @@ export function installOnboarding(deps: OnboardingDeps): void {
   intro.textContent = "A room scanned from a 30 s phone video. Every object is its own splat, so you can rearrange it.";
 
   const table = el("table", "mr-ui-ob-keys");
-  for (const [key, what] of CONTROLS) {
+  for (const [key, what] of deps.touch ? TOUCH_CONTROLS : CONTROLS) {
     const tr = el("tr", "");
     const k = el("td", "");
     const w = el("td", "");
