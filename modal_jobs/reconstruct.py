@@ -270,9 +270,15 @@ def main(
     no_sfm: bool = False,
     eval_walk: str = "",
     grow_grad2d: float = 0.0003,
+    objects: bool = False,
+    obj_steps: int = 4000,
+    bg_steps: int = 8000,
 ):
     if eval_walk:  # only render and score eval/views_<walk>.json (scripts/blender_view_eval.py)
         eval_views(scene, eval_walk)
+        return
+    if objects:  # only the per-object training (src/movable_reality/objtrain.py)
+        train_objects_local(scene, obj_steps, bg_steps)
         return
     local = Path(__file__).resolve().parents[1] / "data" / "scenes" / scene
     if not skip_upload:
@@ -437,3 +443,46 @@ def eval_views(scene: str, walk: str = "test"):
             for chunk in scenes_vol.read_file(entry.path):
                 f.write(chunk)
     print(f"downloaded to {dest}")
+
+
+@app.function(gpu=GPU, volumes={VOLUME_ROOT: scenes_vol}, timeout=2 * 60 * 60)
+def train_objects(scene_id: str, obj_steps: int, bg_steps: int) -> dict:
+    """Every object and the background fine-tuned on their own pixels (objtrain.py)."""
+    scenes_vol.reload()
+    root = Path(VOLUME_ROOT) / "scenes" / scene_id
+    out = root / "objects_trained"
+    shutil.rmtree(out, ignore_errors=True)
+    seconds = _run(["python", "-m", "movable_reality.objtrain", f"--scene_dir={root}",
+                    f"--obj_steps={obj_steps}", f"--bg_steps={bg_steps}"])  # fmt: skip
+    scenes_vol.commit()
+    return {"seconds": seconds, **json.loads((out / "report.json").read_text())}
+
+
+def train_objects_local(scene: str, obj_steps: int, bg_steps: int):
+    """Upload the lift outputs, train on Modal, download objects_trained/ and install it."""
+    from movable_reality.objtrain import install  # noqa: PLC0415
+
+    local = Path(__file__).resolve().parents[1] / "data" / "scenes" / scene
+    # Always lift from the joint split: a second run must not start from trained PLYs.
+    src = local / "objects_lifted" if (local / "objects_lifted").exists() else local / "objects"
+    try:
+        scenes_vol.remove_file(f"/scenes/{scene}/ids", recursive=True)
+    except Exception:  # noqa: BLE001 - nothing uploaded yet
+        pass
+    with scenes_vol.batch_upload(force=True) as batch:
+        batch.put_directory(local / "ids" / "masks", f"/scenes/{scene}/ids/masks")
+        batch.put_file(local / "ids" / "object_labels.json",
+                       f"/scenes/{scene}/ids/object_labels.json")  # fmt: skip
+        batch.put_directory(src, f"/scenes/{scene}/objects")
+        batch.put_file(local / "scene.json", f"/scenes/{scene}/scene.json")
+    print("uploaded masks, objects and scene.json", flush=True)
+    report = train_objects.remote(scene, obj_steps, bg_steps)
+    print(json.dumps(report, indent=1))
+    dest = local / "objects_trained"
+    shutil.rmtree(dest, ignore_errors=True)
+    dest.mkdir(parents=True)
+    for entry in scenes_vol.listdir(f"/scenes/{scene}/objects_trained"):
+        with open(dest / Path(entry.path).name, "wb") as f:
+            for chunk in scenes_vol.read_file(entry.path):
+                f.write(chunk)
+    print("installed:", install(local))

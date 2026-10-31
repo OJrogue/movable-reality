@@ -3,16 +3,16 @@
   "walk": "main",
   "synthetic": true,
   "pose": {
-    "n_cameras": 152,
-    "ate_rmse_m": 0.2868399705240349,
-    "ate_mean_m": 0.2629769734862461,
-    "ate_median_m": 0.24249489302777696,
-    "ate_max_m": 0.703963784857116,
-    "rot_err_median_deg": 2.6871957893572835,
-    "rot_err_max_deg": 6.007450063231941,
-    "sim3_scale": 1.8284149272081247,
-    "gt_path_length_m": 18.933496367381224,
-    "n_frames_selected": 152
+    "n_cameras": 177,
+    "ate_rmse_m": 0.05086205144927599,
+    "ate_mean_m": 0.01157647322169171,
+    "ate_median_m": 0.005614144175020555,
+    "ate_max_m": 0.6566878705996458,
+    "rot_err_median_deg": 0.21607581257468303,
+    "rot_err_max_deg": 10.362315062677913,
+    "sim3_scale": 1.812078941887125,
+    "gt_path_length_m": 25.73150574184679,
+    "n_frames_selected": 224
   },
   "completion": "not run: needs M4 completions (obj_<id>_completed.ply)"
 }

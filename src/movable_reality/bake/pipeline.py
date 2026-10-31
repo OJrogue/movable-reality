@@ -186,6 +186,7 @@ def bake_scene(
     report = BakeReport(status="baked")
     planes: list[BakedPlane] = []
     removed_idx: dict[str, np.ndarray] = {}
+    slabs: dict[str, tuple] = {}
     for label in opts.labels:
         t0 = time.time()
         sel_idx = np.flatnonzero(np.isin(ids, label_ids.get(label, [])))
@@ -214,20 +215,29 @@ def bake_scene(
         covs = np.einsum("ij,njk,lk->nil", lin, g.covariances(), lin)
         view = raster.OrthoView(rect.origin, rect.u, rect.v, rect.normal, texel, width, height)
         premult, alpha = raster_fn(pts[bake_local], covs, g.opacities, g.rgb, view)
+        # Objects standing on a floor prove the floor under them exists. Only objects
+        # whose bbox bottom lies on the plane count, and never structure labels.
+        on_floor = float(np.dot(plane.normal, up_world)) > 0.9
+        supports = [
+            (np.asarray(o.bbox_min), np.asarray(o.bbox_max))
+            for o in scene.objects
+            if on_floor
+            and o.label.split("#")[0].strip().lower() not in STRUCTURE_LABELS
+            and abs(float(plane.signed_distance(np.asarray([o.bbox_min]))[0])) <= opts.support_gap
+        ]
+        # No view saw the floor under them, so the splats there carry stray colours (blender01:
+        # blue and yellow under the sofa). Push-pull fills those texels from the floor around.
+        if supports:
+            c = mask.cell_centres(rect.origin, rect.u, rect.v, texel, alpha.shape)
+            under = np.zeros(alpha.shape, dtype=bool)
+            for lo, hi in supports:
+                under |= ((c[..., 0] >= lo[0]) & (c[..., 0] <= hi[0])
+                          & (c[..., 2] >= lo[2]) & (c[..., 2] <= hi[2]))  # fmt: skip
+            premult = np.where(under[..., None], 0.0, premult)
+            alpha = np.where(under, 0.0, alpha)
         rgb = texture.push_pull(premult, alpha)
         keep = np.ones(alpha.shape, dtype=bool)
         if opts.alpha_mask:
-            # Objects standing on a floor prove the floor under them exists. Only objects
-            # whose bbox bottom lies on the plane count, and never structure labels.
-            on_floor = float(np.dot(plane.normal, up_world)) > 0.9
-            supports = [
-                (np.asarray(o.bbox_min), np.asarray(o.bbox_max))
-                for o in scene.objects
-                if on_floor
-                and o.label.split("#")[0].strip().lower() not in STRUCTURE_LABELS
-                and abs(float(plane.signed_distance(np.asarray([o.bbox_min]))[0]))
-                <= opts.support_gap
-            ]
             # Background splats 0.2 to 1.5 m off the plane are walls (and clutter). The
             # mask cuts a border region only where they run along the surface's edge.
             off = plane.signed_distance(bg_world)
@@ -262,6 +272,7 @@ def bake_scene(
             extras={"label": label, "texel_m": texel, "frame": "recon"},
         )
         removed_idx[label] = sel_idx[bake_local | behind_local]
+        slabs[label] = (plane, rect, texel, supports)
 
         pr.inliers = int(plane.inliers.sum())
         pr.baked = int(bake_local.sum())
@@ -308,6 +319,18 @@ def bake_scene(
     hit_all = np.zeros(len(bg_verts), dtype=bool)
     for p in planes:
         hit = gaussians.match_positions(bg_verts, verts[removed_idx[p.label]])
+        # Retrained backgrounds (core objtrain.py) no longer share the joint splat's centres,
+        # so splats the quad hides also go by position: those behind it, and those in its
+        # band under an object, where no view saw the floor (blender01: blue and yellow
+        # under the sofa). Unlabelled splats in the band elsewhere (a rug, skirting) stay.
+        plane, rect, texel, supports = slabs[p.label]
+        inside = rect.contains(bg_world, margin=texel)
+        off = plane.signed_distance(bg_world)
+        under = np.zeros(len(bg_world), dtype=bool)
+        for lo, hi in supports:
+            under |= ((bg_world[:, 0] >= lo[0]) & (bg_world[:, 0] <= hi[0])
+                      & (bg_world[:, 2] >= lo[2]) & (bg_world[:, 2] <= hi[2]))  # fmt: skip
+        hit = hit | (inside & ((off <= -opts.threshold) | (under & (off < opts.threshold))))
         p.removed_splats = int((hit & ~hit_all).sum())
         hit_all |= hit
         missing = len(removed_idx[p.label]) - int(hit.sum())
