@@ -785,3 +785,52 @@ render runs $0.011, top-up rerun $0.055, distil about $0.01), Muse Image 11 call
 - Filming guides `data/raw/blender02_guide_main.mp4` (40 s) and `_test.mp4` (20 s) were made
   and sent to OJ.
 - Next: section 3.00 of docs/HANDOFF.md.
+
+## 2026-10-31 (day), lanes core, renderer, devices, blender: photoreal reconstruction
+
+- OJ found blender01 not presentable. Three causes were measured.
+  - The first blender01 splat trained for only 7,000 steps (the quick-look preset) and had
+    180k Gaussians. Held-out PSNR was 25.5 dB.
+  - MapAnything's poses were 0.29 m off after a Sim3 fit.
+  - MapAnything's COLMAP export writes its own predicted intrinsics even when known ones are
+    given: fx 1050 px against the true 1387 px. Every earlier run trained with it.
+- New SfM stage `src/movable_reality/sfm.py`. pycolmap 4.2.1 runs SIFT, sequential matching
+  and incremental mapping with fixed intrinsics in its own CPU image on Modal. pycolmap 3.13,
+  which gsplat's requirements install, registered none of the 152 frames. One Sim3 fits the
+  model onto MapAnything's metric frame and writes `recon/` in MapAnything's convention, so
+  later stages read it unchanged. Frames it cannot register are dropped (50% minimum). On
+  blender01 it registered all 152 frames with a 0.59 px reprojection error, 3.3 mm ATE and a
+  0.08 deg median rotation error.
+- Training presets in `modal_jobs/reconstruct.py`. `quality` (the default) runs 30k steps
+  with absolute-gradient densification (grow_grad2d 0.0003) and antialiasing. `mcmc` relocated
+  about 99% of 3M Gaussians every 100 steps on blender01 and ran out of memory at step 22k.
+  `fast` is the old 7k run.
+- Novel-view check `scripts/blender_view_eval.py` plus `--eval-walk test`. It renders the
+  test walk, which training never saw, from GT cameras moved into the reconstruction frame,
+  and scores PSNR, SSIM and LPIPS against the Blender renders.
+
+| scene | run | Gaussians | held-out PSNR | test-walk PSNR | test-walk LPIPS |
+| --- | --- | --- | --- | --- | --- |
+| blender01 | 7k, MapAnything poses | 180k | 25.5 | not run | not run |
+| blender01 | 30k, SfM, grow 0.0008 | 187k | 40.8 | 32.6 | 0.194 |
+| blender01 | 30k, SfM, grow 0.0003 | 763k | 41.4 | 33.1 | 0.179 |
+| blender01 | + upward loop (224 frames, 178 registered) | 848k | 40.9 | 34.3 | 0.179 |
+| blender02 | 30k, SfM, grow 0.0003 | 1.25M | 40.5 | 31.1 | 0.140 |
+
+- Ceiling. The capture walks pitch 22 deg down, so the ceiling and the upper walls trained
+  black. A turn on the spot at 20 to 65 deg up was tried first. Without parallax, SfM placed
+  none of its frames, and MapAnything's poses for them were up to 178 deg off. blender01's
+  main walk (`scripts/blender_room.py`) now ends with a second 16 s perimeter loop facing
+  inwards, 15 deg up (56 s in all). SfM registers 26 of its 72 frames. The rest look at
+  plain paint and are dropped.
+- Viewer. The desktop profile now targets 33.3 ms, because OJ prefers every splat at 30 fps.
+  The old 60 Hz target had cut blender02 to 458k of 920k splats. A detail panel adds an
+  auto checkbox and a log-scale splat-count slider from 50k to every splat, so OJ can set
+  the detail by hand.
+- New blender01 downstream. Lift `--skip wall --scale 1.657` (GT-assisted) gave 11 objects.
+  The ceiling plane fit came out 25 deg off level over a 2.83 x 0.91 m strip, so the bake
+  uses `--labels floor` only. In the browser the room draws all 594k splats at 60 fps under
+  the desktop profile, with the ceiling and upper walls present. Smudges remain where the
+  upward loop was dropped (plain wall).
+- Next: the upward loop in blender02 to blender04 and in the real-room filming guide, the
+  splats left behind when an object moves, and object box sizes (armchair#0 is 0.07 m wide).
