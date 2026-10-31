@@ -192,7 +192,8 @@ class Sam3D:
         t0 = time.time()
         config = OmegaConf.load(f"{CKPT_DIR}/pipeline.yaml")
         config.depth_model = None  # no MoGe network: the pointmap comes from MapAnything
-        # Both Gaussian decoders (32 or 4 splats per voxel); no mesh decode, no texture bake.
+        # Both Gaussian decoders (32 or 4 splats per voxel). The mesh decoder runs only when
+        # a call asks for it (run(mesh=True)), through the pipeline's decode_formats argument.
         config.decode_formats = ["gaussian", "gaussian_4"]
         config.rendering_engine = "pytorch3d"
         config.compile_model = False
@@ -231,9 +232,16 @@ class Sam3D:
         return pts, K, tuple(pts.shape[:2])
 
     @modal.method()
-    def run(self, image_bytes: bytes, mask_png: bytes, seed: int = 42, dense: bool = False) -> dict:
+    def run(
+        self, image_bytes: bytes, mask_png: bytes, seed: int = 42, dense: bool = False,
+        mesh: bool = False,
+    ) -> dict:  # fmt: skip
         """dense=False returns the 4-splats-per-voxel decode (about 120k splats for a stool,
-        8x fewer than dense), which suits the headset budget."""
+        8x fewer than dense), which suits the headset budget. mesh=True also decodes the
+        object as a triangle mesh with vertex colours and returns it as GLB bytes ("glb", in
+        the GLB's y-up canonical frame, which to_glb rotates from the Gaussians' z-up one).
+        Texture baking is off: it renders 100 views through PyTorch3D, which is a CPU build
+        here."""
         import numpy as np  # noqa: PLC0415
         import torch  # noqa: PLC0415
         from PIL import Image  # noqa: PLC0415
@@ -254,6 +262,7 @@ class Sam3D:
             rgba, None, seed, stage1_only=False, with_mesh_postprocess=False,
             with_texture_baking=False, with_layout_postprocess=False, use_vertex_color=True,
             pointmap=pointmap,
+            decode_formats=["gaussian", "gaussian_4", "mesh"] if mesh else None,
         )  # fmt: skip
         t_gen = time.time() - t1
 
@@ -271,9 +280,14 @@ class Sam3D:
             "generate_s": round(t_gen, 1),
             "peak_gib": round(torch.cuda.max_memory_allocated() / 2**30, 1),
         }
+        glb = None
+        if mesh and out.get("glb") is not None:
+            glb = out["glb"].export(file_type="glb")
+            timings["mesh_faces"] = int(len(out["glb"].faces))
         print("sam3d run", timings, f"{len(ply) / 1e6:.1f} MB")
         return {
             "ply": ply,
+            "glb": glb,
             # Pose of the canonical Gaussians in the camera frame (PyTorch3D axes, row-vector
             # convention): x_cam = (s * x_local) @ R(q) + t, with q = (w, x, y, z).
             "rotation": vec("rotation"),
@@ -286,11 +300,17 @@ class Sam3D:
 
 
 @app.local_entrypoint()
-def main(image: str, mask: str, out: str = "sam3d_out.ply", seed: int = 42, dense: bool = False):
+def main(
+    image: str, mask: str, out: str = "sam3d_out.ply", seed: int = 42, dense: bool = False,
+    mesh: bool = False,
+):  # fmt: skip
     import json
 
     t0 = time.time()
-    res = Sam3D().run.remote(Path(image).read_bytes(), Path(mask).read_bytes(), seed, dense)
+    res = Sam3D().run.remote(Path(image).read_bytes(), Path(mask).read_bytes(), seed, dense, mesh)
     Path(out).write_bytes(res.pop("ply"))
+    glb = res.pop("glb", None)
+    if glb:
+        Path(out).with_suffix(".glb").write_bytes(glb)
     Path(out).with_suffix(".json").write_text(json.dumps(res, indent=2))
     print(json.dumps(res, indent=2), f"\nwall {time.time() - t0:.0f} s -> {out}")

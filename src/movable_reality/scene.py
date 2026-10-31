@@ -44,6 +44,10 @@ class SceneObject(BaseModel):
     completed_ply: str | None = None
     lod: str | None = None  # lane lod: Spark .RAD tree for this object, relative path
     completed_lod: str | None = None  # lane lod: .RAD tree for completed_ply, relative path
+    # Triangle mesh of the completed object (.glb, recon frame like the PLYs, vertex colours),
+    # written by complete_objects.py --mesh. The viewer shows it instead of the splats in
+    # its mesh mode (?objects=mesh).
+    mesh: str | None = None
     bbox_min: Vec3  # world frame, before `transform`
     bbox_max: Vec3
     transform: Transform = Field(default_factory=Transform)
