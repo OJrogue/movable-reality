@@ -637,7 +637,7 @@ render runs $0.011, top-up rerun $0.055, distil about $0.01), Muse Image 11 call
   past the knee wall, 2.3 m flat ceiling). The bed, nightstand, armchair and plant stand
   under the slopes. Every footprint sits at least 5 cm below the ceiling (test). Main walk
   43 s. The chest loop enters the dormer mouth. The 16 s knee loop reaches under both
-  slopes, where the ceiling is below 1.7 m.
+  slopes, to a ceiling of 1.68 m in the east and 1.79 m in the west.
 - `objects.json` of the polygon scenes adds `ceiling_zones` (world outline and ceiling
   plane) and `columns_xz`. The capture guide draws the polygon, the zone edges and the
   columns, and has instructions for both new scenes. `--layout` writes
@@ -653,7 +653,9 @@ render runs $0.011, top-up rerun $0.055, distil about $0.01), Muse Image 11 call
 - Previews at 8 samples (Blender 5.2.1, Metal, M5) are in `data/raw/preview/<scene>/`,
   every 150th frame of both walks. The first `blender03` preview had the column in the middle
   of both loops, so it filled many frames. The column moved north, off-centre, and a fourth
-  ceiling light went in behind it.
+  ceiling light went in behind it, so its north face is no longer a dark slab. The chest and
+  test walks still pass 0.44 to 0.5 m from the column, where it fills a third to a half of a
+  frame. That is kept on purpose as an occlusion case.
 - Full renders (16 samples) of both scenes, then the guide videos and layouts, are queued
   by `data/raw/render_loop_blender03_04.sh`. It waits for the running `blender02` render
   to finish. Not yet verified.

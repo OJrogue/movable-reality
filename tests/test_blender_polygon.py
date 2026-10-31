@@ -161,6 +161,18 @@ def test_blender03_bay_header_and_column():
         assert not (x0 < c[0] + 0.01 * n[0] < x1 and y0 < c[1] + 0.01 * n[1] < y1)
 
 
+def test_shell_faces_reject_crossing_ceilings_and_split_columns():
+    zones = [
+        ([(0, 0), (1, 0), (1, 1), (0, 1)], (0.0, 1.0, 2.0)),  # rises along the shared edge
+        ([(1, 0), (2, 0), (2, 1), (1, 1)], (0.0, -1.0, 3.0)),  # falls along it
+    ]
+    with pytest.raises(ValueError, match="cross"):
+        br.shell_faces(zones)
+    flat = [(p, (0.0, 0.0, 2.5)) for p, _ in zones]
+    with pytest.raises(ValueError, match="one zone"):
+        br.shell_faces(flat, [(0.8, 0.4, 1.2, 0.6)])
+
+
 def test_shell_faces_match_the_blender02_outline():
     """The zone builder covers the axis-aligned case: blender02's bands as zones give the
     same floor area and wall run as its own builder."""
@@ -328,7 +340,7 @@ def test_blender04_walks_enter_the_dormer_and_go_under_the_slopes():
     assert any(br.point_in_polygon(p[:2], dormer) for p in chest)
     low = np.array([br.ceiling_height(z, p[0], p[1]) for p in knee])
     assert (low < 1.7).any()  # under a slope, where you cannot stand
-    assert ((knee[:, 0] < -1.4) & (low < 2.0)).any() and ((knee[:, 0] > 1.4) & (low < 2.0)).any()
+    assert (low[knee[:, 0] < 0] < 1.8).any() and (low[knee[:, 0] > 0] < 1.8).any()  # both slopes
 
 
 # ---------------------------------------------------------------- capture guide

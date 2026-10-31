@@ -191,7 +191,7 @@ def room_outline(objs: dict) -> list[tuple[float, float]]:
 
 class Plan:
     """Top-down floor plan, north (world -z) up, in a size x size panel. Polygon rooms add
-    ceiling zones (drawn as thin lines where the ceiling changes) and columns."""
+    ceiling zones (every zone edge drawn as a thin line) and columns."""
 
     def __init__(
         self,

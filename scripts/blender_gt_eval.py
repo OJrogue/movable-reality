@@ -34,7 +34,7 @@ from PIL import Image
 from movable_reality.config import DATA_DIR, scene_dir
 
 GT_FPS = 30
-STRUCTURE_MIN_INDEX = 100  # GT indices >= 100 are floor, wall, ceiling
+STRUCTURE_MIN_INDEX = 100  # GT indices >= 100 are floor, wall, ceiling, column (104)
 
 
 # ---------------------------------------------------------------- COLMAP cameras

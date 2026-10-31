@@ -465,12 +465,16 @@ def shell_faces(zones, columns=()) -> dict[str, list[list[tuple[float, float, fl
                     lo0, lo1 = plane_z(zones[j][1], *p0), plane_z(zones[j][1], *p1)
                     if max(hi0 - lo0, hi1 - lo1) < 1e-6:
                         continue  # the neighbour is higher or level: it draws the step
+                    if min(hi0 - lo0, hi1 - lo1) < -1e-6:
+                        raise ValueError(f"ceilings of zones {i} and {j} cross on a shared edge")
                     lo0, lo1 = min(lo0, hi0), min(lo1, hi1)
                 f = _face([(*p1, lo1), (*p0, lo0), (*p0, hi0), (*p1, hi1)])
                 if len(f) >= 3:
                     wall.append(f)
     for x0, y0, x1, y1 in columns:
         ring = [(x0, y0), (x0, y1), (x1, y1), (x1, y0)]  # clockwise: the room is outside
+        if not any(all(point_in_polygon(c, poly) for c in ring) for poly, _ in zones):
+            raise ValueError(f"column {(x0, y0, x1, y1)} must lie inside one zone")
         for a, b in zip(ring, ring[1:] + ring[:1], strict=True):
             ha, hb = ceiling_height(zones, *a), ceiling_height(zones, *b)
             column.append(_face([(*b, 0.0), (*a, 0.0), (*a, ha), (*b, hb)]))
