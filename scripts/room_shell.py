@@ -24,7 +24,7 @@ from movable_reality.bake import gaussians, glb
 from movable_reality.config import scene_dir
 from movable_reality.coverage.colmap import read_model
 from movable_reality.lift import STRUCTURE, ceiling_from_histogram
-from movable_reality.roommesh import source_background
+from movable_reality.roommesh import source_background, unit_m
 from movable_reality.roomshell import (
     ON_WALL,
     Projector,
@@ -43,11 +43,16 @@ def main() -> int:
     ap.add_argument("--texel", type=float, default=0.006, help="metres per texel")
     ap.add_argument("--height", type=float, help="ceiling height in metres (default: estimate)")
     ap.add_argument("--views", type=int, default=3, help="best views kept per texel")
+    ap.add_argument("--force", action="store_true", help="rebuild an existing shell")
     args = ap.parse_args()
     t0 = time.time()
     root = scene_dir(args.scene)
+    if (root / "room" / "shell.json").exists() and not args.force:
+        print("room/shell.json exists, skipping (--force rebuilds)")
+        return 0
     scene = Scene.load(root / "scene.json")
     W = np.asarray(scene.world_from_recon, dtype=np.float64)
+    unit = unit_m(W)  # world metres per recon unit; camera depths are in recon units
     lin, trans = W[:3, :3], W[:3, 3]
     bg_rel = source_background(scene.model_dump())
     g = gaussians.gaussians_from_vertices(gaussians.vertices(gaussians.read_ply(root / bg_rel)))
@@ -73,6 +78,9 @@ def main() -> int:
         fm = np.isin(np.asarray(Image.open(mpath)), floor_vals)
         if fm.any():
             hits.append(floor_points(c.K, R, t, fm))
+    if not hits:
+        print("no frame has floor pixels (the lift needs a 'floor' noun), no shell")
+        return 1
     boxes = [(np.asarray(o.bbox_min)[[0, 2]], np.asarray(o.bbox_max)[[0, 2]])
              for o in scene.objects]  # fmt: skip
     poly = room_outline(hits, boxes)
@@ -84,8 +92,8 @@ def main() -> int:
             height, how = float(np.median(layer)), "densest layer above the cameras"
         else:
             height, how = float(np.percentile(m[solid, 1], 99)), "99th percentile"
-    size = np.ptp(poly, axis=0)
-    print(f"outline {len(poly)} corners, {size[0]:.2f} x {size[1]:.2f} m, "
+    walls = np.linalg.norm(np.roll(poly, -1, axis=0) - poly, axis=1)
+    print(f"outline {len(poly)} corners, walls {' '.join(f'{w:.2f}' for w in walls)} m, "
           f"height {height:.2f} m ({how})")  # fmt: skip
 
     surfs = surfaces(poly, height)
@@ -95,7 +103,7 @@ def main() -> int:
     for c, R, t, mpath in frames:
         image = np.asarray(Image.open(root / "frames" / c.name).convert("RGB"))
         blocked = np.isin(np.asarray(Image.open(mpath)), blockers)
-        view = View(c.K, R, t, c.center @ lin.T + trans, image, blocked)
+        view = View(c.K, R, t, c.center @ lin.T + trans, image, blocked, near=0.1 / unit)
         for pr in proj:
             pr.add(view)
         used += 1
@@ -107,6 +115,7 @@ def main() -> int:
         old.unlink()
     rels, report = [], {"background_ply": bg_rel, "floor_frames": len(hits),
                         "outline_xz": np.round(poly, 3).tolist(),
+                        "wall_lengths_m": np.round(walls, 3).tolist(),
                         "height_m": round(height, 3), "height_from": how, "frames": used,
                         "texel_m": args.texel, "surfaces": []}  # fmt: skip
     counts: dict[str, int] = {}

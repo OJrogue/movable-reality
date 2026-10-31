@@ -23,6 +23,11 @@ export function nextStyle(s: ObjectStyle): ObjectStyle {
   return OBJECT_STYLES[(OBJECT_STYLES.indexOf(s) + 1) % OBJECT_STYLES.length];
 }
 
+/** Room files for the meshonly style: the shell quads, else the fused room mesh, else none. */
+export function roomFiles(m: Pick<SceneManifest, "room_planes" | "room_mesh">): string[] {
+  return m.room_planes?.length ? m.room_planes : m.room_mesh ? [m.room_mesh] : [];
+}
+
 interface MeshEntry {
   url: string;
   group: THREE.Group; // offset(-centre) ─ recon ─ glTF scene, child of the pivot
@@ -71,10 +76,7 @@ export function installObjects(ctx: ViewerContext): ObjectsHandle {
   // the planes. `url` is the list of files joined, so a changed list reloads.
   let room: { url: string; group: THREE.Group; loaded: boolean } | null = null;
   const hiddenSplats = new Set<THREE.Object3D>();
-  const roomUrls = (m: SceneManifest): string[] => {
-    const files = m.room_planes?.length ? m.room_planes : m.room_mesh ? [m.room_mesh] : [];
-    return files.map((f) => `${ctx.sceneBase}/${f}`);
-  };
+  const roomUrls = (m: SceneManifest): string[] => roomFiles(m).map((f) => `${ctx.sceneBase}/${f}`);
 
   const loadRoom = (urls: string[], m: SceneManifest) => {
     if (!view) return;
@@ -245,6 +247,9 @@ function dispose(root: THREE.Object3D): void {
     const mesh = o as THREE.Mesh;
     if (!mesh.isMesh) return;
     mesh.geometry.dispose();
-    for (const mat of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) mat.dispose();
+    for (const mat of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) {
+      (mat as THREE.MeshBasicMaterial).map?.dispose(); // the shell quads are textured
+      mat.dispose();
+    }
   });
 }

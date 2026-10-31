@@ -1,0 +1,18 @@
+{
+  "background_ply": "objects/background.ply",
+  "cameras": 177,
+  "render_scale": 0.5,
+  "alpha_min": 0.95,
+  "mean_kept_share": 0.697,
+  "neighbours": 12,
+  "min_agree": 3,
+  "agree": 0.01,
+  "voxel_m": 0.015,
+  "faces_raw": 698032,
+  "faces_after_small_pieces": 672817,
+  "small_pieces_removed": 2227,
+  "faces": 672817,
+  "vertices": 345195,
+  "fuse_s": 31.6,
+  "total_s": 34.2
+}

@@ -19,6 +19,12 @@
       0.819
     ]
   ],
+  "wall_lengths_m": [
+    4.005,
+    5.029,
+    4.005,
+    5.029
+  ],
   "height_m": 2.69,
   "height_from": "99th percentile",
   "frames": 159,
@@ -109,5 +115,5 @@
       "bytes": 29576
     }
   ],
-  "seconds": 44.8
+  "seconds": 47.5
 }

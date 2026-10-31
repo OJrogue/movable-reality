@@ -186,3 +186,15 @@ def test_undo_remove_twice_restores_previous_visibility():
 def test_apply_edit_rejects_nan():
     with pytest.raises(ValueError):
         make_scene().apply_edit("move", "chair#1", {"dx": float("nan")})
+
+
+def test_room_fields_roundtrip(tmp_path):
+    s = make_scene()
+    assert s.room_mesh is None and s.room_planes == []
+    s.room_mesh = "room/room_mesh.glb"
+    s.room_planes = ["room/shell_floor_0.glb", "room/shell_wall_0.glb"]
+    path = tmp_path / "scene.json"
+    s.save(path)
+    loaded = Scene.load(path)
+    assert loaded.room_mesh == "room/room_mesh.glb"
+    assert loaded.room_planes == s.room_planes

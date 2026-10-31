@@ -115,3 +115,30 @@ def test_room_outline_l_shape_and_angled_wall_kept():
     # A 45 deg wall 1.4 m long across one corner stays a wall.
     pts = np.array([[0, 0], [3, 0], [3, 2], [2, 3], [0, 3.0]])
     assert len(roomshell.rectify(pts)) == 5
+
+
+def test_projector_through_similarity():
+    """room_shell.py composes recon cameras with world_from_recon (scale 2.4, a turn and a
+    shift). A world point must land on the pixel its recon point lands on."""
+    th = np.radians(30)
+    W = np.eye(4)
+    W[:3, :3] = 2.4 * np.array(
+        [[np.cos(th), 0, np.sin(th)], [0, 1, 0], [-np.sin(th), 0, np.cos(th)]]
+    )
+    W[:3, 3] = [0.3, -0.2, 1.0]
+    Winv = np.linalg.inv(W)
+    K = np.array([[300.0, 0, 160], [0, 300, 120], [0, 0, 1]])
+    Rc, tc = np.eye(3), np.array([0.0, 0.0, 2.0])  # recon camera
+    p_recon = np.array([0.1, -0.05, 0.4])
+    q = Rc @ p_recon + tc
+    pix = (K @ q)[:2] / q[2]
+    R, t = Rc @ Winv[:3, :3], Rc @ Winv[:3, 3] + tc
+    p_world = W[:3, :3] @ p_recon + W[:3, 3]
+    img = np.zeros((240, 320, 3), np.uint8)
+    img[int(pix[1]), int(pix[0])] = (10, 200, 30)
+    centre = W[:3, :3] @ (-Rc.T @ tc) + W[:3, 3]
+    normal = (centre - p_world) / np.linalg.norm(centre - p_world)
+    pr = roomshell.Projector(p_world[None], normal, k=1)
+    assert pr.add(roomshell.View(K, R, t, centre, img, None, near=0.1 / 2.4)) == 1
+    rgb, _ = pr.result((1, 1))
+    assert np.allclose(rgb[0, 0] * 255, (10, 200, 30))

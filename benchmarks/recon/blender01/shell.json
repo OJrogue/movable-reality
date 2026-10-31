@@ -1,0 +1,119 @@
+{
+  "background_ply": "objects/background.ply",
+  "floor_frames": 157,
+  "outline_xz": [
+    [
+      -1.907,
+      -4.403
+    ],
+    [
+      2.154,
+      -4.279
+    ],
+    [
+      2.0,
+      0.748
+    ],
+    [
+      -2.06,
+      0.624
+    ]
+  ],
+  "wall_lengths_m": [
+    4.063,
+    5.029,
+    4.063,
+    5.029
+  ],
+  "height_m": 2.598,
+  "height_from": "densest layer above the cameras",
+  "frames": 177,
+  "texel_m": 0.006,
+  "surfaces": [
+    {
+      "glb": "room/shell_floor_0.glb",
+      "kind": "floor",
+      "size_m": [
+        4.214,
+        5.151
+      ],
+      "texture_px": [
+        702,
+        858
+      ],
+      "seen_share": 0.971,
+      "bytes": 838660
+    },
+    {
+      "glb": "room/shell_ceiling_0.glb",
+      "kind": "ceiling",
+      "size_m": [
+        4.214,
+        5.151
+      ],
+      "texture_px": [
+        702,
+        858
+      ],
+      "seen_share": 0.995,
+      "bytes": 420452
+    },
+    {
+      "glb": "room/shell_wall_0.glb",
+      "kind": "wall",
+      "size_m": [
+        4.063,
+        2.598
+      ],
+      "texture_px": [
+        677,
+        433
+      ],
+      "seen_share": 0.94,
+      "bytes": 31212
+    },
+    {
+      "glb": "room/shell_wall_1.glb",
+      "kind": "wall",
+      "size_m": [
+        5.029,
+        2.598
+      ],
+      "texture_px": [
+        838,
+        433
+      ],
+      "seen_share": 1.0,
+      "bytes": 25840
+    },
+    {
+      "glb": "room/shell_wall_2.glb",
+      "kind": "wall",
+      "size_m": [
+        4.063,
+        2.598
+      ],
+      "texture_px": [
+        677,
+        433
+      ],
+      "seen_share": 0.884,
+      "bytes": 24956
+    },
+    {
+      "glb": "room/shell_wall_3.glb",
+      "kind": "wall",
+      "size_m": [
+        5.029,
+        2.598
+      ],
+      "texture_px": [
+        838,
+        433
+      ],
+      "seen_share": 0.944,
+      "bytes": 26020
+    }
+  ],
+  "seconds": 36.4
+}

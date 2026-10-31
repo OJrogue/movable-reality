@@ -32,6 +32,7 @@ or close to it: a wall that hides another from a camera is not tested for.
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -350,6 +351,7 @@ class View:
     centre: np.ndarray
     image: np.ndarray  # (H, W, 3) uint8
     blocked: np.ndarray | None  # (H, W) bool, pixels that hide the room (furniture)
+    near: float = 0.1  # nearest camera depth used, in the units of R, t
 
 
 class Projector:
@@ -369,7 +371,7 @@ class Projector:
         cos = (to_cam @ self.normal) / np.maximum(dist, 1e-9)
         pc = self.pts @ view.R.T + view.t
         z = pc[:, 2]
-        ok = (cos > self.min_cos) & (z > 0.1)
+        ok = (cos > self.min_cos) & (z > view.near)
         uv = pc[:, :2] / np.maximum(z, 1e-9)[:, None] @ view.K[:2, :2].T + view.K[:2, 2]
         h, w = view.image.shape[:2]
         u, v = np.floor(uv[:, 0]).astype(int), np.floor(uv[:, 1]).astype(int)
@@ -389,7 +391,8 @@ class Projector:
         """(H, W, 3) median colour and (H, W) coverage (1 where any view saw the texel)."""
         have = self.score > 0
         col = np.where(have[..., None], self.col, np.nan)
-        with np.errstate(all="ignore"):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)  # all-NaN rows are unseen texels
             med = np.nanmedian(col, axis=1)
         seen = have.any(1)
         med[~seen] = 0

@@ -17,8 +17,8 @@ brings the mesh down to `--faces`.
 Input is the background before any plane bake (plane_bake.source_background_ply, else
 background_ply), so the floor is part of the mesh. Cameras are recon_full/ (the frame of
 the PLYs). Writes room/room_mesh.ply (recon frame, sRGB vertex colours) and
-room/report.json. Needs CUDA and gsplat (the Modal image). scripts/room_mesh.py runs it on
-Modal and converts the result to room/room_mesh.glb for the viewer.
+room/report.json. Needs CUDA and gsplat (the Modal image). `modal_jobs/reconstruct.py
+--room-mesh` runs it on Modal and converts the result to room/room_mesh.glb for the viewer.
 """
 
 from __future__ import annotations
