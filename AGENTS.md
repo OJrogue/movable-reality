@@ -192,6 +192,7 @@ uv run python scripts/blender_capture_guide.py --scene blender02   # blender: fi
 blender -b -P scripts/blender_room.py -- --scene blender03 --samples 16   # blender: polygon living room (angled wall, bay, column) -> data/raw/blender03*
 blender -b -P scripts/blender_room.py -- --scene blender04 --samples 16   # blender: attic (1 m knee walls, 45 deg slopes, dormer) -> data/raw/blender04*
 uv run python scripts/blender_capture_guide.py --scene blender04 --layout   # blender: top-down layout PNG (outline, furniture, both walks), no render needed
+blender -b -P scripts/blender_room.py -- --scene blender05 --samples 16   # blender: blender01's room with two windows (closed blinds) and two doors -> data/raw/blender05*
 uv run python scripts/blender_gt_eval.py --scene blender01   # blender: pose ATE (Sim3) vs GT; --labels <dir> adds per-object mask IoU
 uv run python scripts/blender_view_eval.py --scene blender01   # blender: GT test-walk cameras in the recon frame -> eval/views_test.json
 uv run modal run modal_jobs/reconstruct.py --scene blender01 --eval-walk test   # core: PSNR/SSIM/LPIPS of those views (eval only)
