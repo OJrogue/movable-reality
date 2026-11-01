@@ -24,6 +24,7 @@ const CONTROLS: [string, string][] = [
   ["Ctrl+Z / Cmd+Z", "undo"],
   ["Hold Space", "speak a command"],
   ["G", "coverage gap overlay"],
+  ["Alt+click twice", "measure in metres"],
 ];
 
 /** Phones and tablets (lane devices, mobile profile). */

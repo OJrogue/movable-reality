@@ -170,7 +170,8 @@ export class Editor {
   // ------------------------------------------------------------ pointer
 
   private onPointerDown(e: PointerEvent): void {
-    if (this.xr || e.target !== this.canvas || e.button !== 0 || this.drag) return;
+    // Alt+click belongs to the tape measure (measure.ts).
+    if (this.xr || e.target !== this.canvas || e.button !== 0 || this.drag || e.altKey) return;
     const touch = e.pointerType === "touch";
     if (touch && !e.isPrimary) {
       // A second finger makes this a pan or pinch (devices/touch.ts), never a tap.
