@@ -13,6 +13,8 @@ from pathlib import Path
 import numpy as np
 from plyfile import PlyData, PlyElement
 
+from ..fsutil import replace_file
+
 SH_C0 = 0.28209479177387814
 
 
@@ -143,7 +145,7 @@ def write_subset(path: Path, ply: PlyData, keep: np.ndarray) -> int:
         comments=list(ply.comments),
         obj_info=list(ply.obj_info),
     ).write(str(tmp))
-    tmp.replace(path)
+    replace_file(tmp, path)
     return len(data)
 
 
