@@ -23,6 +23,38 @@ export function nextStyle(s: ObjectStyle): ObjectStyle {
   return OBJECT_STYLES[(OBJECT_STYLES.indexOf(s) + 1) % OBJECT_STYLES.length];
 }
 
+/** room/shell.json as scripts/room_shell.py writes it (only the fields read here). */
+export interface ShellReport {
+  outline_xz?: number[][];
+  surfaces?: { glb: string; kind: string; seen_share: number }[];
+}
+
+/** Shell ceilings the capture never saw (their texture is the upper wall colour). */
+export function unseenCeilings(r: ShellReport, minSeen = 0.02): string[] {
+  return (r.surfaces ?? []).filter((s) => s.kind === "ceiling" && s.seen_share < minSeen).map((s) => s.glb);
+}
+
+/** The backdrop the splat styles draw behind the scan: the shell walls and any unseen
+ * ceiling. A walk that never looks up leaves no splats above about 2 m, so the room was
+ * open to black there, with the background's stray splats hanging in it (blender01, 1 Nov). */
+export function backdropFiles(r: ShellReport): string[] {
+  const walls = (r.surfaces ?? []).filter((s) => s.kind === "wall").map((s) => s.glb);
+  return [...walls, ...unseenCeilings(r)];
+}
+
+/** World-space scale about the outline's centre that moves every wall `push` metres out,
+ * so the wall splats stay in front of the backdrop and hide it wherever the scan has them. */
+export function backdropScale(outline: number[][], push = 0.05): { cx: number; cz: number; sx: number; sz: number } | null {
+  if (outline.length < 3) return null;
+  const xs = outline.map((p) => p[0]);
+  const zs = outline.map((p) => p[1]);
+  const [x0, x1, z0, z1] = [Math.min(...xs), Math.max(...xs), Math.min(...zs), Math.max(...zs)];
+  const hx = (x1 - x0) / 2;
+  const hz = (z1 - z0) / 2;
+  if (hx <= 0 || hz <= 0) return null;
+  return { cx: x0 + hx, cz: z0 + hz, sx: 1 + push / hx, sz: 1 + push / hz };
+}
+
 /** Room files for the meshonly style: the shell quads, else the fused room mesh, else none. */
 export function roomFiles(m: Pick<SceneManifest, "room_planes" | "room_mesh">): string[] {
   return m.room_planes?.length ? m.room_planes : m.room_mesh ? [m.room_mesh] : [];
@@ -133,6 +165,7 @@ export function installObjects(ctx: ViewerContext): ObjectsHandle {
       view.setSplatsShown(o.id, !showMesh);
     }
     if (room) room.group.visible = style === "meshonly" && room.loaded;
+    if (cap) cap.group.visible = style !== "meshonly"; // meshonly draws the whole shell
     const planes = view.root.getObjectByName("baked-planes");
     if (planes) planes.visible = style !== "meshonly"; // the room mesh has its own floor
     if (style === "meshonly") hideSplats();
@@ -184,9 +217,50 @@ export function installObjects(ctx: ViewerContext): ObjectsHandle {
       });
   };
 
+  // Backdrop for the splat styles (backdropFiles), pushed out behind the wall splats
+  // (backdropScale). `key` is the shell's file list, so a rebuilt shell reloads it.
+  let cap: { key: string; group: THREE.Group } | null = null;
+  const loadCap = (m: SceneManifest) => {
+    const key = (m.room_planes ?? []).join(" ");
+    if (!view || cap?.key === key) return;
+    if (cap) {
+      cap.group.removeFromParent();
+      dispose(cap.group);
+    }
+    const group = new THREE.Group(); // world frame: centre, scale, back
+    group.name = "room-backdrop";
+    const back = new THREE.Group();
+    const recon = new THREE.Group();
+    recon.matrixAutoUpdate = false;
+    recon.matrix.copy(matrixFromRows(m.world_from_recon));
+    group.add(back);
+    back.add(recon);
+    view.root.add(group);
+    const entry = { key, group };
+    cap = entry;
+    if (!key) return;
+    fetch(`${ctx.sceneBase}/room/shell.json`, { cache: "no-store" })
+      .then((r) => (r.ok ? (r.json() as Promise<ShellReport>) : {}))
+      .then((r: ShellReport) => {
+        const sc = backdropScale(r.outline_xz ?? []);
+        if (!sc) return [];
+        group.position.set(sc.cx, 0, sc.cz);
+        group.scale.set(sc.sx, 1, sc.sz);
+        back.position.set(-sc.cx, 0, -sc.cz);
+        return Promise.all(backdropFiles(r).map((f) => loader.loadAsync(`${ctx.sceneBase}/${f}`)));
+      })
+      .then((gltfs) => {
+        if (cap !== entry) return;
+        for (const g of gltfs) recon.add(g.scene);
+        if (gltfs.length) console.info(`[objects] room backdrop: ${gltfs.length} shell surface(s)`);
+      })
+      .catch((err) => console.warn(`[objects] room backdrop: ${String(err)}`));
+  };
+
   // Meshes load on first use of the mesh style, so the other styles cost nothing extra.
   const sync = () => {
     if (!view || !manifest || !ctx.sceneBase) return;
+    loadCap(manifest);
     const urls = roomUrls(manifest);
     if (style === "meshonly" && urls.length) {
       if (room && room.url !== urls.join(" ")) {

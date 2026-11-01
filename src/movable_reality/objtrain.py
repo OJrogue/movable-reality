@@ -163,6 +163,30 @@ def label_hits(means, cams, obj_index, obj_masks, n_obj: int):
     return n_in, n_free, hits, seen
 
 
+def struct_share(means, cams, struct_masks):
+    """Per Gaussian centre: the share of the views in frame where it lands on a floor, wall or
+    ceiling pixel. Wall is segmented on every third frame only, so a wall splat scores about
+    a third; an item no noun named scores near 0 (its pixels are unlabelled)."""
+    import torch  # noqa: PLC0415
+
+    n_in = torch.zeros(len(means), dtype=torch.int32, device=means.device)
+    n_st = torch.zeros_like(n_in)
+    for cam, sm in zip(cams, struct_masks, strict=True):
+        vm, K = cam["viewmat"], cam["K"]
+        pc = means @ vm[:3, :3].T + vm[:3, 3]
+        z = pc[:, 2]
+        uv = (pc[:, :2] / z.clamp(min=1e-6)[:, None]) @ K[:2, :2].T + K[:2, 2]
+        u, v = uv[:, 0].long(), uv[:, 1].long()
+        ok = (z > 0.05) & (u >= 0) & (u < cam["W"]) & (v >= 0) & (v < cam["H"])
+        idx = ok.nonzero()[:, 0]
+        n_in[idx] += 1
+        n_st[idx] += sm[v[idx], u[idx]].int()
+    return n_st.float() / n_in.clamp(min=1).float()
+
+
+ITEM_STRUCT_SHARE = 0.15  # below this, an in-box background splat is an unnamed item
+
+
 BG_FILL_WEIGHT = 1.0  # colour-only pass, so the fill cannot add geometry
 
 
@@ -535,11 +559,34 @@ def main() -> None:
     m = torch.tensor(scene["world_from_recon"], dtype=torch.float32, device=dev)
     world = bg["means"] @ m[:3, :3].T + m[:3, 3]
     inside = torch.zeros_like(ghost)
+    in_box = {}
     for o in oids:
         w = seeds[o]["means"].to(dev) @ m[:3, :3].T + m[:3, 3]
         lo, hi = torch.quantile(w[:: max(1, len(w) // 100_000)], torch.tensor([0.01, 0.99],
                                 device=dev), dim=0)  # fmt: skip
-        inside |= ((world > lo - 0.02) & (world < hi + 0.02)).all(1) & (world[:, 1] > FLOOR_CLEAR)
+        in_box[o] = ((world > lo - 0.02) & (world < hi + 0.02)).all(1) & (world[:, 1] > FLOOR_CLEAR)
+        inside |= in_box[o]
+    # Items no noun named (blender01's bowl and succulent on the coffee table) are unlabelled
+    # in every view, so neither the cut nor the ghost rule takes them, and they stayed in the
+    # background: moving the table left a copy of them behind (1 Nov). Items resting on
+    # furniture belong to it (D12): an in-box splat that rarely lands on floor or wall joins
+    # the object whose box holds it.
+    with torch.no_grad():
+        share = struct_share(bg["means"], cams, [torch.isin(mk, struct_vals) for mk in masks])
+    items = inside & ~gone & (share < ITEM_STRUCT_SHARE)
+    joined = 0
+    for o in oids:
+        sel = (items & in_box[o]).nonzero()[:, 0]
+        items[sel] = False
+        if not len(sel):
+            continue
+        gone[sel] = True
+        for key in seeds[o]:
+            seeds[o][key] = torch.cat([seeds[o][key], bg[key][sel].detach().cpu()])
+        moved[o] += len(sel)
+        joined += len(sel)
+    report["items_joined"] = joined
+    print(f"background: {joined} GSs of unnamed items joined the object under them", flush=True)
     junk = (ghost | (best >= 0.25)) & ~gone & inside
     gone |= junk
     report["junk_removed"] = int(junk.sum())
