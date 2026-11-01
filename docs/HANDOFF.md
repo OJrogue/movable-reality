@@ -89,6 +89,8 @@ Found in the 1 Nov blender01 run (`docs/BUILD_LOG.md`), to fix first:
 - ~~Agent and verifier disagree on collisions~~: fixed. The agent moves as far as it fits
   and says so, the verifier sees that reply and accepts it (rerun on blender01: verified).
 - ~~`measure` reports box heights~~: fixed, `top_above_floor_m` (sofa 0.74 m against 0.71 m GT).
+- **Windows: stop the Vite dev server before a bake rerun.** It holds the served
+  `background_baked.ply` open and the bake's rename fails with `PermissionError`.
 - Ceiling stays dark when the walk never looks up. The filming guide's upward loop fixes
   it; the shell could also tint unseen ceiling texels from the top of the walls.
 

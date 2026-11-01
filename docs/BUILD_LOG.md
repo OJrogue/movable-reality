@@ -1009,6 +1009,17 @@ test-walk metrics, `sfm.json`, GT pose ATE). Every row predates the lighting cha
   frames rerun without a video. The shell's height fallbacks apply only to a metric scene
   (`ids/scale.json` method not "none"). Instances of one noun share one scale weight, so six
   chairs do not outvote the sofa. The plan logic moved to `decide()` with unit tests.
+- Lift rerun on blender01 with the per-label vote (SAM and Muse Spark from the cache, 141 s):
+  wall Gaussians went from 5 to 16,661 of 800k, unlabelled from 130k to 114k, and wall
+  splats no longer join the furniture. Sofa 1.78 x 0.71 x 0.98 m (was 1.30 m tall, GT
+  0.71), vase 0.44 m tall (was 0.84, GT 0.40). The auto scale stays x2.101. Numbers from
+  `ids/assigned.npy` and `logs/lift.log`, before and after.
+  Then `run_pipeline.py --from objects` retrained and rebuilt everything (18 min). After
+  per-object training the boxes match the first run within a few cm (sofa 1.75 x 0.64 x
+  0.82 m, top 0.74), because training already trimmed the wall splats; the gain is the
+  untrained split and the wall labels. The bake failed twice on Windows with
+  `PermissionError` on the `background_baked.ply` rename: the Vite dev server held the old
+  file open. Stopping the dev server, then `--from bake --to lod`, fixed it.
 - Timings above come from the local stage logs (`data/scenes/blender01/logs/`, not
   committed); the scale evidence is committed under `benchmarks/metric/`.
 - Tests: `pytest` 327 passed, 8 skipped; vitest 169 passed; ruff clean; build passes.
