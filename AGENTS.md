@@ -124,6 +124,7 @@ web/                    Vite + three.js + Spark viewer (desktop and WebXR)
   src/planes/           lane: bake      loading baked planes, opaque pass
   src/ui/               lane: ui        desktop picking and dragging, command bar, hold-to-talk, onboarding
   src/devices/          lane: devices   device profiles (desktop, mobile, xr), touch controls
+  src/objects/          lane: core      object styles (scan, SAM 3D splats, SAM 3D meshes), mesh loading
   src/scene.ts          core (shared)
 data/                   gitignored: raw videos, scenes, API cache
 benchmarks/             committed: raw frame-time logs (JSON) and result tables
@@ -191,6 +192,7 @@ uv run python scripts/blender_capture_guide.py --scene blender02   # blender: fi
 blender -b -P scripts/blender_room.py -- --scene blender03 --samples 16   # blender: polygon living room (angled wall, bay, column) -> data/raw/blender03*
 blender -b -P scripts/blender_room.py -- --scene blender04 --samples 16   # blender: attic (1 m knee walls, 45 deg slopes, dormer) -> data/raw/blender04*
 uv run python scripts/blender_capture_guide.py --scene blender04 --layout   # blender: top-down layout PNG (outline, furniture, both walks), no render needed
+blender -b -P scripts/blender_room.py -- --scene blender05 --samples 16   # blender: blender01's room with two windows (closed blinds) and two doors -> data/raw/blender05*
 uv run python scripts/blender_gt_eval.py --scene blender01   # blender: pose ATE (Sim3) vs GT; --labels <dir> adds per-object mask IoU
 uv run python scripts/blender_view_eval.py --scene blender01   # blender: GT test-walk cameras in the recon frame -> eval/views_test.json
 uv run modal run modal_jobs/reconstruct.py --scene blender01 --eval-walk test   # core: PSNR/SSIM/LPIPS of those views (eval only)
@@ -208,6 +210,10 @@ MR_SESSIONS=1 uv run python -m movable_reality.server   # core: hosted mode (per
 uv run modal deploy modal_jobs/sam3d.py        # core M4: SAM 3D Objects (+ MapAnything pointmap) on an L40S, once per code change
 uv run python scripts/insert_object.py --scene m4test "small wooden stool" --x 0.3 --z -0.6   # core M4: gen#<n> (cached)
 uv run python scripts/complete_objects.py --scene room01   # core M4: obj_<id>_completed.ply per object (--only <id>, --force)
+uv run python scripts/complete_objects.py --scene room01 --mesh   # core: + obj_<id>_mesh.glb (SAM 3D mesh, vertex colours, 100k faces, --mesh-faces)
+# core viewer: ?objects=auto|scan|completed|mesh|meshonly compares scanned splats, SAM 3D splats and SAM 3D meshes; meshonly also draws the room as a mesh and hides every splat; key V or the label cycles
+uv run python scripts/room_shell.py --scene blender01   # core: room as textured wall, floor and ceiling quads from the frames -> room/shell_*.glb, scene.room_planes (--texel, --height)
+uv run modal run modal_jobs/reconstruct.py --scene blender01 --room-mesh   # core: TSDF room mesh from the background splats -> room/room_mesh.glb (meshonly fallback)
 ```
 
 Lanes add their own commands here in their PR.

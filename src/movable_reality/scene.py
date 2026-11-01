@@ -44,6 +44,10 @@ class SceneObject(BaseModel):
     completed_ply: str | None = None
     lod: str | None = None  # lane lod: Spark .RAD tree for this object, relative path
     completed_lod: str | None = None  # lane lod: .RAD tree for completed_ply, relative path
+    # Triangle mesh of the completed object (.glb, recon frame like the PLYs, vertex colours),
+    # written by complete_objects.py --mesh. The viewer shows it instead of the splats in
+    # its mesh mode (?objects=mesh).
+    mesh: str | None = None
     bbox_min: Vec3  # world frame, before `transform`
     bbox_max: Vec3
     transform: Transform = Field(default_factory=Transform)
@@ -169,6 +173,13 @@ class Scene(BaseModel):
         default_factory=lambda: [r[:] for r in OPENCV_TO_Y_UP]
     )
     background_ply: str = "objects/background.ply"
+    # The room as one vertex-coloured mesh (.glb, recon frame), from
+    # `modal run modal_jobs/reconstruct.py --scene <id> --room-mesh`. The viewer's mesh-only
+    # style (?objects=meshonly) draws it instead of every splat.
+    room_mesh: str | None = None
+    # Its large planes (floor, ceiling, walls) as textured quads (.glb, recon frame), from
+    # scripts/room_shell.py, drawn with room_mesh in the mesh-only style.
+    room_planes: list[str] = Field(default_factory=list)
     background_lod: str | None = None  # lane lod: Spark .RAD tree for the background
     objects: list[SceneObject] = Field(default_factory=list)
     planes: list[BakedPlane] = Field(default_factory=list)  # lane bake

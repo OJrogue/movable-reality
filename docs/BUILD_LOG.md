@@ -891,3 +891,58 @@ test-walk metrics, `sfm.json`, GT pose ATE). Every row predates the lighting cha
   for the new objects, so the viewer reads the PLYs.
 - Next: drop or re-register the bad upward-loop poses, keep small items that rest on an
   object (the bowl) with it, rebuild LOD, and the new lighting for blender02 to blender04.
+
+## 2026-10-31 (night), lane core: SAM 3D Objects meshes next to the splats
+
+- OJ asked for objects as 3D models instead of splats, or both, kept alongside the scan so
+  they can be compared. SAM 3D Objects (Meta, already deployed on Modal) also has a mesh
+  decoder. `modal_jobs/sam3d.py` now takes `mesh=True`, adds "mesh" to the pipeline's
+  `decode_formats` for that call and returns the GLB that its `to_glb` builds, with vertex
+  colours. Texture baking stays off because it renders 100 views through PyTorch3D, which
+  is a CPU build in this image.
+- `scripts/complete_objects.py --mesh` writes `objects/obj_<id>_mesh.glb` beside
+  `obj_<id>_completed.ply` and sets the new optional `SceneObject.mesh` (scene.py and
+  scene.ts). The mesh uses the same registration matrix as the completed splats. The
+  rotation from the GLB's y-up frame back to the Gaussians' frame defaults to the inverse
+  of `to_glb`'s z-up to y-up turn, and `meshes.to_gaussian_frame` logs the nearest-point
+  distance of every candidate. The default fitted best on all 10 objects, but only by
+  0.0295 against 0.0299 on `books#0`, a near-box, so another candidate must win by 2x to
+  replace it. The raw meshes have 85k to 1.02M faces. Quadric decimation
+  (fast-simplification, MIT, no learned weights) cuts each one to at most 100k faces,
+  2.05 to 2.40 MB per object and 23.66 MB for the ten (`mesh_bytes` in the report).
+- Run on blender01. SAM 3D's generate step summed to 92.6 s over the 10 objects, plus 48.5 s
+  of model load, on one L40S (under $0.20). ICP RMS after registration was 7 to 47 mm. Per
+  object, the mesh's world bounds and the completed splats' 1st to 99th percentile bounds
+  differ by 1.2 to 16 cm, median about 4.5 cm. The largest gaps are on `sofa#0` (16 cm)
+  and `armchair#0` (11 cm), where the percentile trim cuts more of the splats' extent
+  (`completed_bounds_world`, `mesh_bounds_world` in `benchmarks/recon/blender01/completion.json`).
+- A completed PLY and its mesh always come from one SAM 3D run. A run without `--mesh`
+  reuses the cached mesh run when there is one, and clears `mesh` when there is none.
+- Viewer. `?objects=auto|scan|completed|mesh` and key V (or the label under the detail
+  panel) switch the style. auto is the old behaviour (scan, SAM 3D splats once moved).
+  scan pins the scan, completed pins SAM 3D's splats, and mesh draws the GLBs (unlit,
+  opaque, under each object's pivot, so edits move them) and hides that object's splats.
+  The scan and the per-object training are unchanged.
+- Checked in the browser on blender01 with the 15 edits that were in scene.json. The
+  scanned cabinet shows its unseen back as streaks. The SAM 3D splats and mesh show a
+  closed cabinet with a plausible back (`objects_scan.jpg`, `objects_completed.jpg`,
+  `objects_mesh.jpg` in `benchmarks/recon/blender01/`). Frame times in the hidden browser
+  pane are throttled (1 fps), so mesh mode was not timed. It is not tested on a headset.
+- Next: textured meshes (texture baking with a GPU PyTorch3D or nvdiffrast build), the
+  generated look of SAM 3D colours against the scan's, and timing the mesh mode on the
+  Steam Frame.
+
+
+## 2026-10-31 (late), lane core and blender: mesh-only view, room as a textured shell, blender05
+
+- Request (OJ, 31 Oct). Make the modes fully separate, with a mesh-only mode in which the room is a mesh too and no Gaussian is visible, and test it on a room with windows (closed blinds allowed) and doors.
+- Viewer. `?objects=meshonly` (key V cycles to it after `mesh`) hides every `SplatMesh` in the scene each frame, hides the baked planes, draws each object's SAM 3D mesh and loads the room from `scene.room_planes`. Leaving the style shows the splats it hid. `web/src/objects/index.ts`.
+- Room shell (`src/movable_reality/roomshell.py`, `scripts/room_shell.py`). The SAM floor-mask pixels of every frame are cast onto the plane y = 0. A 5 cm cell counts as floor when 3 or more frames hit it, and object footprints are added. Closing, hole filling, the largest region and an orthogonally convex fill give a region, whose traced border is simplified (Douglas-Peucker, 8 cm) and rectified to the main wall direction. The height is the densest splat layer above the cameras (`lift.ceiling_from_histogram`), or the 99th percentile of splat heights when that layer has under 100 splats. Walls are vertical quads along the outline, and floor and ceiling are quads with an alpha mask. Every texel is coloured with the median of its 3 best frame samples (cosine over distance), skipping pixels SAM labelled as furniture. Windows, doors, blinds, curtains, pictures and mirrors are not skipped (`ON_WALL`), so they texture the wall. Unseen texels are filled by push-pull. No learned model is involved beyond the SAM masks already computed.
+- Rectify fix. A test found that a slightly turned rectangle kept a 0.46 m diagonal at one corner (5 corners). Diagonal edges shorter than twice the 0.4 m step are now dropped, while a 1.4 m angled wall is kept (`tests/test_core_roomshell.py`, 9 tests).
+- TSDF room mesh (`src/movable_reality/roommesh.py`, `reconstruct.py --room-mesh`). gsplat colour and depth from every camera, a multi-view depth agreement filter (3 of 12 neighbours within 1%) and open3d TSDF fusion at 1.5 cm. On blender01 it kept 69.7% of pixels and gave 673k faces, but the ceiling and the upper walls stayed open, so the shell is the default and the TSDF mesh is the fallback when `room_planes` is empty.
+- blender01. Shell outline 4 corners, walls 4.06 and 5.03 m (ground truth 4.0 x 5.0 m), height 2.60 m from the densest layer. Screenshot `benchmarks/recon/blender01/objects_meshonly.jpg`, reports `benchmarks/recon/blender01/shell.json` and `room_mesh_report.json`.
+- blender05 (blender lane, `scripts/blender_room.py`). blender01's room with two 1.2 x 1.4 m windows with closed venetian blinds (north, east) and two 0.85 x 2.05 m doors (west, south). Render at 16 samples took about 1 h 40 min for both walks. Pipeline (reports in `benchmarks/recon/blender05/`): 200 frames, reconstruct (MapAnything 161 s, SfM 345 s, gsplat 530 s), Muse Wonder inventory with 13 nouns (no window or door), lift `--skip wall --ceiling-height 2.6`, per-object training, SAM 3D completions with meshes (10 objects, ICP RMS 0.008 to 0.041 m after registration).
+- blender05 scale. The ceiling rule gave x2.715 and the shell came out 4.77 x 5.90 x 3.05 m. Pose evaluation against ground truth gives a Sim(3) scale of 2.390 (ATE median 3.3 cm, RMSE 15.2 cm), so `world_from_recon` was scaled by 2.390 / 2.715 (GT-assisted, as for blender01). The rebuilt shell has walls of 4.01 and 5.03 m. Its height of 2.69 m against 2.60 m comes from the 99th-percentile fallback, because the densest-layer rule found too few ceiling splats.
+- blender05 result. In mesh-only mode both windows with their blinds and the west door appear on the walls in the right place (`benchmarks/recon/blender05/meshonly_*.jpg`, with `splats_north_window.jpg` from the same camera). Defects seen: a horizontal seam across the north window where neighbouring frames disagree, dark blotches on the floor around the coffee table, and the vase and the succulent missing, because the lift merged them into the side table and the coffee table and SAM 3D completed only the larger object. SAM found no bowl. The window and door placement was judged by eye only.
+- Review (reviewer agent). No geometry errors. Fixed: wall lengths instead of the bounding box in the report, `--force` and a clear exit without floor pixels in `room_shell.py`, the near-depth cut in metres, shell textures freed on reload, tests for the schema fields, `roomFiles` and the world-recon composition. Open: frames with bad poses (ATE max 1.46 m on blender05) still paint the shell, leaving meshonly while generated splats are toggled off shows them again, and `rectify` drops both corners between two parallel walls more than 0.4 m apart.
+- Next: dropping badly posed frames from the projection, an occlusion test in the shell projection (walls hidden by other walls in an L-shaped room), seams across views, keeping merged small items as separate meshes, and the ceiling-rule scale error on blender05.

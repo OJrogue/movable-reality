@@ -1,17 +1,21 @@
-"""Synthetic Blender rooms with ground truth (blender01 to blender04): build, render, export.
+"""Synthetic Blender rooms with ground truth (blender01 to blender05): build, render, export.
 
     "C:/Program Files/Blender Foundation/Blender 4.5/blender.exe" -b -P scripts/blender_room.py \
         -- --out data/raw/blender01                       # build + render both walks + GT + mp4
     ... -- --out data/raw/blender01 --walk test --frames 0:30 --stage render,gt   # quick check
     ... -- --scene blender02                              # the L-shaped room, data/raw/blender02
     ... -- --scene blender04 --walk test --frames 0:600:100 --stage build,render --samples 8
+    ... -- --scene blender05 --walk main --frames 0:1680:120 --stage build,render --samples 8
 
 Scenes: blender01 (default) is a 4 x 5 m living room. blender02 is an L-shaped
 bedroom-study, 4.5 x 5 m overall with the north-east 1.5 x 2 m corner cut out, 40 s main walk.
 blender03 is a living room with an angled wall, a bay window and a free-standing column
 (non-convex outline, 40 s main walk). blender04 is an attic room with 1 m knee walls, 45 deg
 slopes to a 2.6 m ceiling and a dormer recess (43 s main walk). Both are built from zones,
-convex floor polygons with their own ceiling plane (shell_faces).
+convex floor polygons with their own ceiling plane (shell_faces). blender05 is blender01's
+room, furniture, light and walks (same cameras) with two windows (north and east walls,
+casing, sill and closed venetian blinds) and two closed doors (west and south walls, casing,
+panelled slab, lever handle), see OPENINGS5.
 
 A synthetic ground-truth scene for benchmarks and a fallback demo; the real phone capture
 stays the main demo. Assets are CC0 from Poly Haven (scripts/blender_assets.py, docs/ASSETS.md);
@@ -22,12 +26,15 @@ Outputs (out = data/raw/<scene>, e.g. data/raw/blender01):
   <out>.mp4 (main walk, 38 to 43 s), <out>_test.mp4 (test walk, 20 s)   H.264, sensor noise
   <out>_gt/objects.json                 index -> id, noun, asset, support, world bbox
                                         (+ room_outline_xz, world x, z, for blender02-04,
-                                        + ceiling_zones and columns_xz for blender03-04)
+                                        + ceiling_zones and columns_xz for blender03-04,
+                                        + openings for blender05)
   <out>_gt/meshes/<name>.ply            each object's mesh in world coordinates
   <out>_gt/<walk>/cameras.json          K and cam_to_world per frame (OpenCV camera)
   <out>_gt/<walk>/depth/000000.png      uint16 z-depth in mm (0 = no hit)
-  <out>_gt/<walk>/masks/000000.png      uint8 object index (0 none, 101-104 floor, wall,
-                                        ceiling, column)
+  <out>_gt/<walk>/masks/000000.png      uint8 object index (0 none, 101-106 floor, wall,
+                                        ceiling, column, window, door). The window index
+                                        covers casing, sill and blinds, the door index
+                                        casing, slab and handle.
 Frame i of each video is GT frame i (time i / 30 s). cameras.json holds the shutter-centre
 pose; Cycles writes depth and index from one sample per pixel, at a random time within the
 0.3-frame shutter, so GT edges can be off by ~1-2 px and depth by ~2 mm on fast motion.
@@ -58,7 +65,7 @@ FPS = 30
 WIDTH, HEIGHT = 1920, 1080
 FOCAL_MM, SENSOR_MM = 26.0, 36.0  # ~69 deg horizontal FOV, a phone main camera
 ROOM_X, ROOM_Y, ROOM_H = 4.0, 5.0, 2.6  # Blender x (width), y (length), z (height)
-STRUCTURE = {"floor": 101, "wall": 102, "ceiling": 103, "column": 104}
+STRUCTURE = {"floor": 101, "wall": 102, "ceiling": 103, "column": 104, "window": 105, "door": 106}
 
 WORLD_FROM_BLENDER = np.array(
     [[1, 0, 0, 0], [0, 0, 1, 0], [0, -1, 0, 0], [0, 0, 0, 1]], dtype=np.float64
@@ -675,6 +682,155 @@ RING4 = smooth_loop([(-1.7, -1.8), (-1.8, 1.9), (0.0, 2.1), (2.3, 1.3), (2.6, 0.
                      (1.8, -1.9)], iters=3)  # fmt: skip
 WALKS4 = {"main": 43.0, "test": 20.0}
 
+# Scene blender05: blender01's room, furniture, walks and light, plus two windows and two
+# closed doors on the walls. No hole is cut in a wall. Each opening is a set of boxes on the
+# wall plane. A window has a casing 3.5 cm proud of the wall, a sill (stool) 6.5 cm proud, an
+# apron below it and closed venetian blinds that fill the opening, so no exterior and no
+# glass are needed. A door has a casing 3.5 cm proud, a slab 2.5 cm proud with two raised
+# panels and a lever handle. Positions run along the wall (x on the north and south walls,
+# y on the west and east walls). handle = +1 puts the latch at the + end of the door. The
+# sofa below the north window is 0.71 m tall, under its 0.9 m sill.
+OPENINGS5 = [
+    {"kind": "window", "wall": "north", "centre": 0.0, "width": 1.2, "height": 1.4,
+     "bottom": 0.9},  # above the sofa
+    {"kind": "window", "wall": "east", "centre": 0.2, "width": 1.2, "height": 1.4,
+     "bottom": 0.9},  # between the plant and the side table
+    {"kind": "door", "wall": "west", "centre": -1.05, "width": 0.85, "height": 2.05,
+     "bottom": 0.0, "handle": -1},  # south of the armchair
+    {"kind": "door", "wall": "south", "centre": -1.1, "width": 0.85, "height": 2.05,
+     "bottom": 0.0, "handle": 1},  # west of the cabinet
+]  # fmt: skip
+CASING_W, CASING_D = 0.07, 0.035  # casing board width, depth proud of the wall (m)
+SLAT_W, SLAT_T, SLAT_PITCH, SLAT_TILT = 0.05, 0.002, 0.0415, 70.0  # blinds, tilt from level
+DOOR_D = 0.025  # door slab depth proud of the wall
+
+
+def wall_point(wall: str, a: float, d: float, z: float, half=(ROOM_X / 2, ROOM_Y / 2)):
+    """Blender (x, y, z) of a point on a wall of the box room. The point lies a along the
+    wall (x on the north and south walls, y on the west and east walls), d into the room
+    from the wall plane and z above the floor."""
+    hx, hy = half
+    return {
+        "south": (a, -hy + d, z),
+        "north": (a, hy - d, z),
+        "west": (-hx + d, a, z),
+        "east": (hx - d, a, z),
+    }[wall]
+
+
+def _box_local(lo, hi, tilt: float = 0.0) -> list[list[tuple[float, float, float]]]:
+    """Six quads of a box in wall-local (a, d, z) coordinates, rotated by tilt degrees about
+    the a axis through its centre (blind slats)."""
+    lo, hi = np.asarray(lo, dtype=float), np.asarray(hi, dtype=float)
+    c = (lo + hi) / 2
+    corners = np.array([[x, y, z] for x in (lo[0], hi[0]) for y in (lo[1], hi[1])
+                        for z in (lo[2], hi[2])])  # fmt: skip
+    t = math.radians(tilt)
+    rot = np.array([[1, 0, 0], [0, math.cos(t), -math.sin(t)], [0, math.sin(t), math.cos(t)]])
+    corners = (corners - c) @ rot.T + c
+    idx = [(0, 1, 3, 2), (4, 6, 7, 5), (0, 4, 5, 1), (2, 3, 7, 6), (0, 2, 6, 4), (1, 5, 7, 3)]
+    return [[tuple(corners[i]) for i in f] for f in idx]
+
+
+def _prism_local(centre, axis: int, r: float, length: float, n: int = 16) -> list:
+    """Closed n-sided cylinder in wall-local (a, d, z) coordinates along axis 0 (a) or 1
+    (d), centred on centre, made of n side quads and two n-gon caps."""
+    c = np.asarray(centre, dtype=float)
+    u, v = [i for i in range(3) if i != axis]
+    rings = []
+    for s in (-length / 2, length / 2):
+        ring = []
+        for k in range(n):
+            p = c.copy()
+            p[axis] += s
+            p[u] += r * math.cos(2 * math.pi * k / n)
+            p[v] += r * math.sin(2 * math.pi * k / n)
+            ring.append(tuple(p))
+        rings.append(ring)
+    sides = [[rings[0][k], rings[0][(k + 1) % n], rings[1][(k + 1) % n], rings[1][k]]
+             for k in range(n)]  # fmt: skip
+    return [*sides, rings[0], rings[1]]
+
+
+def _orient_outward(faces: list) -> list:
+    """Order each face of a convex part counter-clockwise seen from outside (normal away
+    from the part's centroid). The wall mapping mirrors some walls, which flips faces."""
+    pts = np.array([p for f in faces for p in f], dtype=float)
+    c = pts.mean(0)
+    out = []
+    for f in faces:
+        p = np.asarray(f, dtype=float)
+        n = np.cross(p, np.roll(p, -1, axis=0)).sum(0)
+        out.append([tuple(q) for q in (p if n @ (p.mean(0) - c) > 0 else p[::-1])])
+    return out
+
+
+def opening_parts(op: dict, half=(ROOM_X / 2, ROOM_Y / 2)) -> dict[str, list]:
+    """Faces (Blender coordinates, outward normals) of one window or door, grouped by
+    material into casing (frame boards and sill), blind (slats and rails), door (slab and
+    panels) and metal (handle)."""
+    a0, w, h, z0 = op["centre"], op["width"], op["height"], op["bottom"]
+    cw, cd = CASING_W, CASING_D
+    parts: dict[str, list] = {"casing": [], "blind": [], "door": [], "metal": []}
+
+    def add(group: str, local_faces: list) -> None:
+        world = [[wall_point(op["wall"], a, d, z, half) for a, d, z in f] for f in local_faces]
+        parts[group] += _orient_outward(world)
+
+    a_lo, a_hi, top = a0 - w / 2, a0 + w / 2, z0 + h
+    add("casing", _box_local((a_lo - cw, 0, z0), (a_lo, cd, top)))  # side casings
+    add("casing", _box_local((a_hi, 0, z0), (a_hi + cw, cd, top)))
+    add("casing", _box_local((a_lo - cw, 0, top), (a_hi + cw, cd, top + cw)))  # head casing
+    if op["kind"] == "window":
+        sill_lo, sill_hi = (a_lo - cw - 0.04, 0, z0 - 0.025), (a_hi + cw + 0.04, 0.065, z0)
+        add("casing", _box_local(sill_lo, sill_hi))  # sill (stool), 6.5 cm proud
+        apron_lo, apron_hi = (a_lo - cw + 0.03, 0, z0 - 0.095), (a_hi + cw - 0.03, 0.02, z0 - 0.025)
+        add("casing", _box_local(apron_lo, apron_hi))  # apron under the sill
+        bl, br_ = a_lo + 0.004, a_hi - 0.004  # blind ends
+        add("blind", _box_local((bl, 0.004, top - 0.045), (br_, 0.034, top - 0.002)))  # headrail
+        add("blind", _box_local((bl, 0.012, z0 + 0.002), (br_, 0.026, z0 + 0.02)))  # bottom rail
+        z_lo, z_hi = z0 + 0.02, top - 0.045
+        n = max(1, round((z_hi - z_lo) / SLAT_PITCH))
+        for k in range(n):
+            zc = z_lo + (k + 0.5) * (z_hi - z_lo) / n
+            add("blind", _box_local((bl + 0.006, 0.02 - SLAT_T / 2, zc - SLAT_W / 2),
+                                    (br_ - 0.006, 0.02 + SLAT_T / 2, zc + SLAT_W / 2),
+                                    tilt=90.0 - SLAT_TILT))  # fmt: skip
+    else:
+        gap = 0.003
+        sl, sr = a_lo + gap, a_hi - gap
+        add("door", _box_local((sl, 0, z0 + 0.01), (sr, DOOR_D, top - gap)))  # slab
+        for zp0, zp1 in ((0.15, 0.95), (1.1, 1.9)):  # raised panels, 6 mm
+            add("door", _box_local((sl + 0.12, DOOR_D, z0 + zp0), (sr - 0.12, DOOR_D + 0.006,
+                                                                    z0 + zp1)))  # fmt: skip
+        side = op.get("handle", 1)
+        al = (sr if side > 0 else sl) - side * 0.07  # latch axis, 7 cm from the slab edge
+        zh = z0 + 1.0
+        add("metal", _prism_local((al, DOOR_D + 0.004, zh), 1, 0.026, 0.008))  # rose
+        add("metal", _prism_local((al, DOOR_D + 0.025, zh), 1, 0.009, 0.034))  # neck
+        add("metal", _prism_local((al - side * 0.065, DOOR_D + 0.045, zh), 0, 0.01, 0.13))  # lever
+    return {k: v for k, v in parts.items() if v}
+
+
+def world_openings(scene: str) -> list[dict]:
+    """objects.json "openings" of a scene in the world frame (x, z = Blender x, -y). Each
+    entry gives kind, GT index, wall, the opening's two ends on the wall (outline_xz, casing
+    excluded), bottom and top heights and the normal into the room."""
+    out = []
+    for op in SCENES[scene].get("openings") or []:
+        a0, w = op["centre"], op["width"]
+        ends = [wall_point(op["wall"], a, 0.0, 0.0) for a in (a0 - w / 2, a0 + w / 2)]
+        inner = np.subtract(
+            wall_point(op["wall"], a0, 1.0, 0.0), wall_point(op["wall"], a0, 0.0, 0.0)
+        )
+        out.append(
+            {"kind": op["kind"], "index": STRUCTURE[op["kind"]], "wall": op["wall"],
+             "outline_xz": [[round(x, 4), round(-y, 4) + 0.0] for x, y, _ in ends],
+             "bottom": op["bottom"], "top": round(op["bottom"] + op["height"], 4),
+             "normal_xz": [float(inner[0]) + 0.0, float(-inner[1]) + 0.0]}
+        )  # fmt: skip
+    return out
+
 
 # Per scene: id -> objects, outline (None = the blender01 box), size, walks and shake seeds.
 # Polygon scenes add zones (floor pieces with ceiling planes), columns and asset sizes.
@@ -727,6 +883,19 @@ SCENES = {
         },  # fmt: skip
         "seeds": {"main": 41, "test": 43},
         "panels": [(0.0, -1.2), (0.0, 1.0), (2.0, 0.0)],
+    },
+    "blender05": {  # blender01 with OPENINGS5, same objects, walks, seeds and cameras
+        "objects": OBJECTS,
+        "outline": None,
+        "room": (ROOM_X, ROOM_Y, ROOM_H),
+        "walks": WALKS,
+        "eye_target": {
+            "main": _main_up_eye_target,
+            "test": _test_eye_target,
+        },
+        "seeds": {"main": 7, "test": 11},
+        "panels": [],
+        "openings": OPENINGS5,
     },
 }
 
@@ -1143,6 +1312,48 @@ def build_room_zones(assets: Path, zones: list, columns: list, panels: list) -> 
     return structure
 
 
+def build_openings(openings: list) -> dict:
+    """Windows and doors of a box scene (opening_parts) as one mesh object per kind. All
+    windows go in "window" and all doors in "door", with a material per part group."""
+    bpy = _bpy()
+    import bmesh  # noqa: PLC0415
+
+    mats = {
+        "casing": _new_mat("casing_paint", (0.80, 0.80, 0.77), rough=0.45),
+        "door": _new_mat("door_paint", (0.74, 0.73, 0.69), rough=0.35),
+        "blind": _new_mat("blind_slats", (0.52, 0.49, 0.42), rough=0.55),  # light beige
+        "metal": _new_mat("handle_metal", (0.62, 0.62, 0.60), rough=0.3, metal=1.0),
+    }
+    out = {}
+    for kind in ("window", "door"):
+        groups: dict[str, list] = {}
+        for op in openings:
+            if op["kind"] == kind:
+                for key, faces in opening_parts(op).items():
+                    groups.setdefault(key, []).extend(faces)
+        if not groups:
+            continue
+        me = bpy.data.meshes.new(kind)
+        bm = bmesh.new()
+        uv = bm.loops.layers.uv.new()
+        keys = list(groups)
+        for mi, key in enumerate(keys):
+            for face in groups[key]:
+                f = bm.faces.new([bm.verts.new(p) for p in face])
+                f.material_index = mi
+                for loop in f.loops:  # UVs are unused (flat paint), set for completeness
+                    loop[uv].uv = (loop.vert.co.x + loop.vert.co.y, loop.vert.co.z)
+        bm.to_mesh(me)
+        bm.free()
+        for key in keys:
+            me.materials.append(mats[key])
+        obj = bpy.data.objects.new(kind, me)
+        bpy.context.collection.objects.link(obj)
+        obj.pass_index = STRUCTURE[kind]
+        out[kind] = obj
+    return out
+
+
 def build_floor_lamp():
     """Floor lamp (base, pole, fabric shade) as one mesh, unlit."""
     bpy = _bpy()
@@ -1270,6 +1481,8 @@ def build_scene(assets: Path, gt: Path, scene: str = SCENE_ID) -> None:
                 "bbox_max": [round(float(v), 4) for v in hi],
             }
         )
+    if cfg.get("openings"):  # windows and doors, one GT object per kind
+        structure.update(build_openings(cfg["openings"]))
     for key, obj in structure.items():
         _export_mesh(obj, meshes / f"{key}.ply")
         objects.append(
@@ -1282,6 +1495,8 @@ def build_scene(assets: Path, gt: Path, scene: str = SCENE_ID) -> None:
         extra["room_outline_xz"] = [[float(x), float(-y)] for x, y in cfg["outline"]]
     if cfg.get("zones"):  # polygon scenes: ceiling planes and columns in world terms
         extra.update(world_room_extras(scene))
+    if cfg.get("openings"):
+        extra["openings"] = world_openings(scene)
     (gt / "objects.json").write_text(
         json.dumps(
             {

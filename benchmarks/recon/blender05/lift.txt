@@ -1,0 +1,26 @@
+  SAM 'coffee table': 1 object(s), 109 masks, 234 s
+  SAM 'armchair': 3 object(s), 131 masks, 256 s
+  SAM 'side table': 1 object(s), 44 masks, 30 s
+  SAM 'sofa': 2 object(s), 160 masks, 277 s
+  SAM 'vase': 3 object(s), 90 masks, 32 s
+  SAM 'floor lamp': 2 object(s), 77 masks, 63 s
+  SAM 'bowl': 0 object(s), 0 masks, 13 s
+  SAM 'cabinet': 1 object(s), 63 masks, 74 s
+  SAM 'books': 2 object(s), 54 masks, 19 s
+  SAM 'potted plant': 3 object(s), 152 masks, 64 s
+  SAM 'ceiling': 1 object(s), 62 masks, 148 s
+  SAM 'floor': 1 object(s), 140 masks, 202 s
+voted over 159 views, 1124775 Gaussians in 5 s; 97% seen in >= 3 views
+metric scale x2.715
+  vase#2 rests on side table#0: merged
+  potted plant#0 rests on coffee table#0: merged
+  armchair#0                   6527 splats  size 0.51 x 0.65 x 0.38 m
+  sofa#0                      47811 splats  size 2.02 x 1.40 x 1.07 m
+  sofa#1                       9075 splats  size 0.63 x 1.20 x 0.55 m
+  coffee table#0              61917 splats  size 1.42 x 0.83 x 0.84 m
+  side table#0                14520 splats  size 0.80 x 1.30 x 0.75 m
+  floor lamp#0                24921 splats  size 0.53 x 2.13 x 0.68 m
+  cabinet#0                  100975 splats  size 1.38 x 1.97 x 0.89 m
+  potted plant#1              43105 splats  size 0.63 x 1.86 x 0.75 m
+  potted plant#2                333 splats  size 0.35 x 0.59 x 0.32 m
+  books#0                     28859 splats  size 0.66 x 0.64 x 0.55 m

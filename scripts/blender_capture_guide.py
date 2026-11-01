@@ -12,8 +12,9 @@ else the room_size_m box), the path, the phone position and the direction it poi
 the current instruction, phone height, walking speed and turn rate.
 Writes data/raw/<scene>_guide_main.mp4 (training capture) and _test.mp4 (test walk).
 --layout writes data/raw/<scene>_layout.png instead: the floor plan with both walks, the
-furniture labels, columns and ceiling heights. It needs no render; without objects.json it
-takes the furniture footprints from the scene definition in blender_room.py.
+furniture labels, columns, ceiling heights and any windows and doors. It needs no render.
+Without objects.json it takes the furniture footprints from the scene definition in
+blender_room.py.
 CPU only, no API calls.
 """
 
@@ -139,7 +140,7 @@ PHASES_04 = {
     ],
 }  # fmt: skip
 PHASES = {"blender01": PHASES_01, "blender02": PHASES_02, "blender03": PHASES_03,
-          "blender04": PHASES_04}  # fmt: skip
+          "blender04": PHASES_04, "blender05": PHASES_01}  # fmt: skip
 TIPS = [
     "Before filming: lock focus and exposure (long-press on iPhone), 1080p60 or 4K30,",
     "lamps on, curtains still, no people or pets, screens off. Move slowly, no fast turns.",
@@ -208,6 +209,7 @@ class Plan:
         size: int = PLAN,
         zones: list[dict] | None = None,
         columns: list[list[float]] | None = None,
+        openings: list[dict] | None = None,
     ):
         pts = np.asarray(outline, dtype=float)
         lo, hi = pts.min(0), pts.max(0)
@@ -218,6 +220,7 @@ class Plan:
         self.objects = objects
         self.zones = zones or []
         self.columns = columns or []
+        self.openings = openings or []
 
     def px(self, x: float, z: float) -> tuple[float, float]:
         return (self.size / 2 + (x - self.centre[0]) * self.s,
@@ -234,6 +237,9 @@ class Plan:
         for x0, z0, x1, z1 in self.columns:
             d.rectangle([*self.px(x0, z0), *self.px(x1, z1)], fill=(220, 210, 195))
         d.line([*poly, poly[0]], fill=(220, 210, 195), width=6, joint="curve")
+        for op in self.openings:  # windows teal, doors brown, drawn over the wall line
+            colour = (70, 200, 190) if op["kind"] == "window" else (190, 130, 70)
+            d.line([self.px(*p) for p in op["outline_xz"]], fill=colour, width=12)
         f = font(15)
         big = [o for o in self.objects if o.get("support") is None]
         small = [o for o in self.objects if o.get("support") is not None]
@@ -336,7 +342,8 @@ def render(
         raise SystemExit(f"{rgb}: {len(frames)} of {len(c2w)} frames rendered")
     objs = json.loads((gt / "objects.json").read_text())
     plan = Plan(room_outline(objs), [o for o in objs["objects"] if "bbox_min" in o],
-                zones=objs.get("ceiling_zones"), columns=objs.get("columns_xz"))  # fmt: skip
+                zones=objs.get("ceiling_zones"), columns=objs.get("columns_xz"),
+                openings=objs.get("openings"))  # fmt: skip
     base = plan.base(path_all)
     phases = PHASES[scene][walk]
     ff = subprocess.Popen(
@@ -399,6 +406,8 @@ def scene_layout(scene: str, gt: Path, out: Path, size: int = 1400) -> Path:
             objs["room_outline_xz"] = [[x, -y] for x, y in cfg["outline"]]
         if cfg.get("zones"):
             objs.update(br.world_room_extras(scene))
+        if cfg.get("openings"):
+            objs["openings"] = br.world_openings(scene)
         foot = br.furniture_footprints(scene) if scene != "blender01" else {}
         objects = [
             {"noun": noun, "support": None, "bbox_min": [b[0], 0.0, -b[3]],
@@ -406,7 +415,7 @@ def scene_layout(scene: str, gt: Path, out: Path, size: int = 1400) -> Path:
             for name, noun, *_ in cfg["objects"] if (b := foot.get(name))
         ]  # fmt: skip
     plan = Plan(room_outline(objs), objects, size=size, zones=objs.get("ceiling_zones"),
-                columns=objs.get("columns_xz"))  # fmt: skip
+                columns=objs.get("columns_xz"), openings=objs.get("openings"))  # fmt: skip
     walks = {walk: poses(gt, walk, scene)[:, :3, 3] for walk in cfg["walks"]}
     img = plan.layout(walks, f"{scene}: layout (north up), {len(objects)} objects")
     out.parent.mkdir(parents=True, exist_ok=True)

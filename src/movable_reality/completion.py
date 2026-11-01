@@ -87,7 +87,8 @@ def register(
     by more than `max_scale_change`. Floaters are dropped from the scan first (`clean_scan`).
     ICP on the splat centres (scan matched to the model, trimmed, similarity) runs from the
     pose guess and from `coarse_starts`, and the start with the lowest trimmed RMS wins.
-    Returns splats with `generated` = 1 and a report (scale, ICP RMS before and after, m)."""
+    Returns splats with `generated` = 1 and a report (scale, ICP RMS before and after, m,
+    and the final recon_from_local matrix)."""
     W = np.asarray(world_from_recon, dtype=np.float64)
     W0 = W @ recon_from_local
     alpha = so.opacity(local)
@@ -115,4 +116,5 @@ def register(
         "starts": n_starts,
         "icp_rms_before_m": round(rms0, 4),
         "icp_rms_after_m": round(rms, 4),
+        "recon_from_local": recon_final.tolist(),  # the mesh of the same run uses it too
     }

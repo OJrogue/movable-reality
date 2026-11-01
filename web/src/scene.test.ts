@@ -54,6 +54,15 @@ describe("shownPly", () => {
     expect(shownPly({ ...obj, transform: t([0, 0, 0], 0, 1.2) })).toBe(done);
   });
 
+  it("shows the completed PLY unedited in the completed style", () => {
+    expect(shownPly(obj, "completed")).toBe(done);
+    expect(shownPly({ ...obj, completed_ply: null }, "completed")).toBe("objects/chair_1.ply");
+    expect(shownPly(obj, "mesh")).toBe("objects/chair_1.ply"); // splat fallback of the mesh style
+    const moved = { ...obj, transform: t([0.5, 0, 0]) };
+    expect(shownPly(moved, "scan")).toBe("objects/chair_1.ply"); // scan pins the scan
+    expect(shownPly(moved, "mesh")).toBe(done);
+  });
+
   it("keeps the scan when there is no completed version", () => {
     const o = { ...obj, completed_ply: null, transform: t([1, 0, 0]) };
     expect(shownPly(o)).toBe("objects/chair_1.ply");

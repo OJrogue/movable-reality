@@ -273,12 +273,17 @@ def main(
     objects: bool = False,
     obj_steps: int = 4000,
     bg_steps: int = 8000,
+    room_mesh: bool = False,
+    voxel_m: float = 0.015,
 ):
     if eval_walk:  # only render and score eval/views_<walk>.json (scripts/blender_view_eval.py)
         eval_views(scene, eval_walk)
         return
     if objects:  # only the per-object training (src/movable_reality/objtrain.py)
         train_objects_local(scene, obj_steps, bg_steps)
+        return
+    if room_mesh:  # only the room as a mesh (src/movable_reality/roommesh.py)
+        room_mesh_local(scene, voxel_m)
         return
     local = Path(__file__).resolve().parents[1] / "data" / "scenes" / scene
     if not skip_upload:
@@ -486,3 +491,44 @@ def train_objects_local(scene: str, obj_steps: int, bg_steps: int):
             for chunk in scenes_vol.read_file(entry.path):
                 f.write(chunk)
     print("installed:", install(local))
+
+
+@app.function(gpu=GPU, volumes={VOLUME_ROOT: scenes_vol}, timeout=60 * 60)
+def build_room_mesh(scene_id: str, voxel_m: float) -> dict:
+    """The background splats fused into one mesh (roommesh.py)."""
+    scenes_vol.reload()
+    root = Path(VOLUME_ROOT) / "scenes" / scene_id
+    shutil.rmtree(root / "room", ignore_errors=True)
+    seconds = _run(["python", "-m", "movable_reality.roommesh", f"--scene_dir={root}",
+                    f"--voxel_m={voxel_m}"])  # fmt: skip
+    scenes_vol.commit()
+    return {"seconds": seconds, **json.loads((root / "room" / "report.json").read_text())}
+
+
+def room_mesh_local(scene: str, voxel_m: float):
+    """Upload the background and scene.json, fuse on Modal, write room/room_mesh.glb."""
+    from movable_reality.meshes import read_ply_mesh, write_mesh_glb  # noqa: PLC0415
+    from movable_reality.roommesh import source_background  # noqa: PLC0415
+    from movable_reality.scene import Scene  # noqa: PLC0415
+
+    local = Path(__file__).resolve().parents[1] / "data" / "scenes" / scene
+    manifest = json.loads((local / "scene.json").read_text())
+    bg = source_background(manifest)
+    with scenes_vol.batch_upload(force=True) as batch:
+        batch.put_file(local / bg, f"/scenes/{scene}/{bg}")
+        batch.put_file(local / "scene.json", f"/scenes/{scene}/scene.json")
+    print(f"uploaded {bg} and scene.json", flush=True)
+    report = build_room_mesh.remote(scene, voxel_m)
+    print(json.dumps(report, indent=1))
+    dest = local / "room"
+    dest.mkdir(exist_ok=True)
+    for name in ("room_mesh.ply", "report.json"):
+        with open(dest / name, "wb") as f:
+            for chunk in scenes_vol.read_file(f"/scenes/{scene}/room/{name}"):
+                f.write(chunk)
+    v, c, faces = read_ply_mesh(dest / "room_mesh.ply")
+    write_mesh_glb(dest / "room_mesh.glb", v, c, faces, name="room")
+    s = Scene.load(local / "scene.json")
+    s.room_mesh = "room/room_mesh.glb"
+    s.save(local / "scene.json")
+    print(f"wrote {dest / 'room_mesh.glb'} ({len(faces)} faces), room_mesh set in scene.json")

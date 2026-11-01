@@ -17,6 +17,7 @@ export interface SceneObject {
   completed_ply: string | null;
   lod?: string | null; // lane lod: Spark .RAD tree for this object
   completed_lod?: string | null; // lane lod: Spark .RAD tree for completed_ply
+  mesh?: string | null; // .glb of the completed object, recon frame; shown in ?objects=mesh
   bbox_min: Vec3;
   bbox_max: Vec3;
   transform: Transform;
@@ -89,6 +90,8 @@ export interface SceneManifest {
   world_from_recon: number[][]; // 4x4, row-major
   background_ply: string;
   background_lod?: string | null; // lane lod
+  room_mesh?: string | null; // the room as one .glb, recon frame; drawn in ?objects=meshonly
+  room_planes?: string[]; // floor, ceiling, walls as textured quads (.glb), with room_mesh
   objects: SceneObject[];
   planes?: BakedPlane[]; // lane bake
   plane_bake?: PlaneBake | null; // lane bake
@@ -124,11 +127,28 @@ export function isEdited(t: Transform): boolean {
 }
 
 /**
- * The PLY an object shows. That is its completed version (SAM 3D Objects fills the unseen
- * back) once it has been edited, since only then can the viewer see the missing side, and
- * the scan otherwise. An undo back to the identity transform returns to the scan.
+ * How objects are drawn, for comparing the variants (?objects=, key V):
+ * - auto (default): the scanned splats, swapped for the completed ones once the object is
+ *   edited;
+ * - scan: the scanned splats always, edited or not;
+ * - completed: SAM 3D Objects' completed splats wherever they exist, edited or not;
+ * - mesh: SAM 3D Objects' vertex-coloured mesh (objects/index.ts), auto's splats where an
+ *   object has no mesh, and the room as splats;
+ * - meshonly: meshes only, no splat at all: the object meshes and the room mesh
+ *   (room_mesh). An object without a mesh is not drawn.
  */
-export function shownPly(o: SceneObject): string {
+export type ObjectStyle = "auto" | "scan" | "completed" | "mesh" | "meshonly";
+export const OBJECT_STYLES: readonly ObjectStyle[] = ["auto", "scan", "completed", "mesh", "meshonly"];
+
+/**
+ * The PLY an object shows. By default (auto) that is its completed version (SAM 3D Objects
+ * fills the unseen back) once it has been edited, since only then can the viewer see the
+ * missing side, and the scan otherwise. An undo back to the identity transform returns to
+ * the scan. The scan and completed styles pin one variant for comparison.
+ */
+export function shownPly(o: SceneObject, style: ObjectStyle = "auto"): string {
+  if (style === "scan") return o.ply;
+  if (style === "completed" && o.completed_ply) return o.completed_ply;
   return o.completed_ply && isEdited(o.transform) ? o.completed_ply : o.ply;
 }
 
@@ -164,6 +184,8 @@ export class SceneView {
   private readonly objects = new Map<string, SceneObject>();
   private background?: SplatMesh;
   private backgroundPly?: string;
+  private style: ObjectStyle = "auto";
+  private last?: SceneManifest;
 
   /** Called when a splat file fails to load. */
   onLoadError?: (ply: string, err: unknown) => void;
@@ -187,7 +209,26 @@ export class SceneView {
     return this.nodes.get(id);
   }
 
+  /** Current object style (see ObjectStyle). */
+  objectStyle(): ObjectStyle {
+    return this.style;
+  }
+
+  /** Switch the splat variant of every object (shownPly). The mesh style is drawn by
+   * objects/index.ts, which hides an object's splats with setSplatsShown. */
+  setObjectStyle(style: ObjectStyle): void {
+    this.style = style;
+    if (this.last) this.apply(this.last);
+  }
+
+  /** Show or hide all splat variants of one object (the mesh style draws a mesh instead). */
+  setSplatsShown(id: string, shown: boolean): void {
+    const offset = this.nodes.get(id)?.pivot.children[0];
+    if (offset) offset.visible = shown;
+  }
+
   apply(m: SceneManifest): void {
+    this.last = m;
     const worldFromRecon = matrixFromRows(m.world_from_recon);
     // A bake swaps background_ply for the reduced PLY: replace the mesh, or the baked floor
     // and ceiling splats stay drawn over the new quads.
@@ -209,7 +250,7 @@ export class SceneView {
       node.pivot.rotation.set(0, THREE.MathUtils.degToRad(t.yaw_deg), 0);
       node.pivot.scale.setScalar(t.scale);
       node.pivot.visible = obj.visible;
-      if (shownPly(obj) !== node.ply) this.swap(node, obj, worldFromRecon, m);
+      if (shownPly(obj, this.style) !== node.ply) this.swap(node, obj, worldFromRecon, m);
     }
   }
 
@@ -223,7 +264,7 @@ export class SceneView {
    */
   private swap(node: ObjectNode, obj: SceneObject, worldFromRecon: THREE.Matrix4, m: SceneManifest): void {
     const variants = this.variants.get(obj.id)!;
-    node.ply = shownPly(obj);
+    node.ply = shownPly(obj, this.style);
     // A completed PLY that failed to load falls back to the scan.
     const ply = variants.get(node.ply) === "failed" ? obj.ply : node.ply;
     let mesh = variants.get(ply);
