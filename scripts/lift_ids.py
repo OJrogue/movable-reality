@@ -18,6 +18,12 @@ floor-to-ceiling height from a tape measure, or a factor:
     uv run python scripts/lift_ids.py --scene room01 --force --reuse-votes --scale 1.8
 
 --reuse-votes skips SAM and the vote (ids/assigned.npy, written by every full run).
+
+Without either, the scale comes from typical object heights (Muse Spark, metric.py): every
+floor-standing object votes typical / measured height. --no-auto-scale keeps the raw scale.
+
+--sam-only runs only the SAM calls (they need the clip, not the reconstruction), so the
+cache fills while the GPU job runs (scripts/run_pipeline.py does this).
 """
 
 from __future__ import annotations
@@ -49,6 +55,7 @@ from movable_reality.lift import (
     vote,
 )
 from movable_reality.lod.split import write_split
+from movable_reality.metric import height_priors, object_height, scale_from_heights, votes_json
 from movable_reality.recon import full_res_camera
 from movable_reality.sam import paste_mask, segment_video
 from movable_reality.scene import Scene, SceneObject
@@ -93,7 +100,11 @@ def main() -> int:
     metric = ap.add_mutually_exclusive_group()
     metric.add_argument("--ceiling-height", type=float, help="tape-measured floor to ceiling, m")
     metric.add_argument("--scale", type=float, help="metric correction factor")
+    metric.add_argument(
+        "--no-auto-scale", action="store_true", help="no scale from typical object heights"
+    )
     ap.add_argument("--reuse-votes", action="store_true", help="skip SAM and the vote")
+    ap.add_argument("--sam-only", action="store_true", help="only fill the SAM cache, then exit")
     ap.add_argument(
         "--skip",
         default="",
@@ -102,6 +113,13 @@ def main() -> int:
     )
     args = ap.parse_args()
     root = scene_dir(args.scene)
+    if args.sam_only:
+        inv = json.loads((root / "inventory.json").read_text())
+        skip = {n.strip().lower() for n in args.skip.split(",") if n.strip()}
+        nouns = [n for n in inv["nouns"] if n.lower() not in skip]
+        asyncio.run(segment_all(root / "sam_input.mp4", nouns))
+        print(f"SAM cache filled for {len(nouns)} nouns")
+        return 0
     if (root / "ids" / "gaussian_ids.npy").exists() and not args.force:
         print("ids/gaussian_ids.npy exists (--force to redo)")
         return 0
@@ -171,6 +189,30 @@ def segment_and_vote(root, inv, p, cams, xyz, v, w, h):
     return names, ids
 
 
+def auto_scale(world, ids, noun_of, names, p):
+    """Scale from typical object heights (metric.py). Measures each object after a provisional
+    floater cut, without changing ids. Returns (scale or None, votes)."""
+    measured = {}
+    for k, noun in noun_of.items():
+        if noun in STRUCTURE:
+            continue
+        pts = world[ids == k]
+        if len(pts) < MIN_SPLATS:
+            continue
+        pts = pts[largest_cluster(pts, p.voxel)]
+        if len(pts) >= MIN_SPLATS:
+            measured[names[k]] = (noun, *object_height(pts[:, 1]))
+    priors = asyncio.run(height_priors([n for n, _, _ in measured.values()]))
+    s, votes = scale_from_heights(measured, priors)
+    for v in sorted(votes, key=lambda v: -v.weight):
+        mark = "x" if v.used else "-"
+        print(f"  {mark} {v.object_id:<22} top {v.measured:.3f}  typical {v.prior:.2f} m  "
+              f"ratio {v.ratio:.3f}  w {v.weight:.1f}  {v.note}")  # fmt: skip
+    if s is None:
+        print("too few floor-standing objects for a scale from object heights; raw scale kept")
+    return s, votes
+
+
 def finish(args, root, p, names, ids, cams, xyz) -> None:
 
     # Floor alignment from the floor Gaussians (fallback: OpenCV to +Y up).
@@ -197,11 +239,18 @@ def finish(args, root, p, names, ids, cams, xyz) -> None:
             print(f"no ceiling label; ceiling layer from the height histogram, "
                   f"{len(ceiling_y)} Gaussians")  # fmt: skip
         s = ceiling_scale(ceiling_y, args.ceiling_height)
+    method = "scale" if args.scale else "ceiling" if args.ceiling_height else "none"
+    votes: list = []
+    if not s and aligned and not args.no_auto_scale:
+        s, votes = auto_scale(world, ids, noun_of, names, p)
+        method = "object heights" if s else "none"
     if s:
         M = scaled(M, s)
         world *= s
-        print(f"metric scale x{s:.3f}")
-    (root / "ids" / "scale.json").write_text(json.dumps({"scale": s or 1.0}))
+        print(f"metric scale x{s:.3f} ({method})")
+    (root / "ids" / "scale.json").write_text(
+        json.dumps({"scale": s or 1.0, "method": method, "votes": votes_json(votes)}, indent=2)
+    )
 
     # Floaters, tiny objects, then the support rule.
     objects = [k for k, n in noun_of.items() if n not in STRUCTURE]
