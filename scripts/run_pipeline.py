@@ -187,9 +187,16 @@ def preflight(a: argparse.Namespace, root: Path) -> list[str]:
 
 
 def sam3d_deployed() -> bool:
-    out = subprocess.run([*MODAL, "app", "list"], cwd=ROOT, capture_output=True, text=True,
-                         encoding="utf-8", errors="replace")  # fmt: skip
-    return any("movable-reality-sam3d" in ln and "deployed" in ln for ln in out.stdout.splitlines())
+    out = subprocess.run([*MODAL, "app", "list", "--json"], cwd=ROOT, capture_output=True,
+                         text=True, encoding="utf-8", errors="replace")  # fmt: skip
+    try:
+        apps = json.loads(out.stdout)
+    except json.JSONDecodeError:
+        return True  # cannot tell; complete_objects.py reports a missing app itself
+    return any(
+        a.get("description") == "movable-reality-sam3d" and a.get("state") == "deployed"
+        for a in apps
+    )
 
 
 def main() -> int:
@@ -235,7 +242,8 @@ def main() -> int:
             verdict = f"run ({fresh})"
         if verdict.startswith("run"):
             todo.append(st)
-            forced.update(NAMES[i + 1 : hi + 1])  # every later stage depends on this one
+            if st.name != "sam":  # SAM only fills a cache; the lift reads it
+                forced.update(NAMES[i + 1 : hi + 1])  # every later stage depends on this one
         print(f"  {st.name:<12} {verdict:<20} {st.what}")
     if a.dry_run:
         return 0

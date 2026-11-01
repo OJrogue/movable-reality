@@ -32,8 +32,12 @@ import argparse
 import asyncio
 import json
 import shutil
+import subprocess
 import sys
+import tempfile
 import time
+from dataclasses import replace
+from pathlib import Path
 
 import numpy as np
 from PIL import Image
@@ -63,15 +67,44 @@ from movable_reality.scene import Scene, SceneObject
 MIN_SPLATS = 150  # smaller objects are dropped as noise
 
 
+SPARSE_NOUNS = ("wall", "ceiling")  # large regions: their SAM streams drop on long clips
+SPARSE_STEP = 3
+
+
+def sparse_clip(video: Path, step: int) -> Path:
+    """Every `step`-th frame of the scene's frames/ as its own clip (same encoding as
+    extract_frames.py). The "wall" stream failed on every 150+ frame clip (31 Oct); a third
+    of the frames still gives walls in every direction."""
+    root = video.parent
+    out = root / f"sam_input_every{step}.mp4"
+    if out.exists() and out.stat().st_mtime >= video.stat().st_mtime:
+        return out
+    frames = sorted((root / "frames").glob("*.jpg"))[::step]
+    with tempfile.TemporaryDirectory() as tmp:
+        for i, f in enumerate(frames):
+            shutil.copyfile(f, Path(tmp) / f"{i:06d}.jpg")
+        subprocess.run(
+            ["ffmpeg", "-v", "error", "-y", "-framerate", "4", "-i", str(Path(tmp) / "%06d.jpg"),
+             "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2", "-c:v", "libx264", "-pix_fmt",
+             "yuv420p", "-crf", "18", "-movflags", "+faststart", str(out)],
+            check=True,
+        )  # fmt: skip
+    return out
+
+
 async def segment_all(video, nouns: list[str]):
     sem = asyncio.Semaphore(3)
 
     async def one(noun):
         async with sem:
             t0 = time.time()
+            sparse = noun.lower() in SPARSE_NOUNS
+            clip = sparse_clip(Path(video), SPARSE_STEP) if sparse else video
             for attempt in range(3):  # SAM streams time out now and then (31 Oct, blender01)
                 try:
-                    inst = await segment_video(video, noun)
+                    inst = await segment_video(clip, noun)
+                    if sparse:  # back to indices of the full clip (= frames/{i:06d}.jpg)
+                        inst = [replace(i, frame_index=i.frame_index * SPARSE_STEP) for i in inst]
                     break
                 except Exception as exc:  # noqa: BLE001 - APITimeoutError, stream errors
                     cause = f"{type(exc).__name__}: {exc.__cause__ or exc}"
