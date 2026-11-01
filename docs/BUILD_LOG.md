@@ -946,3 +946,58 @@ test-walk metrics, `sfm.json`, GT pose ATE). Every row predates the lighting cha
 - blender05 result. In mesh-only mode both windows with their blinds and the west door appear on the walls in the right place (`benchmarks/recon/blender05/meshonly_*.jpg`, with `splats_north_window.jpg` from the same camera). Defects seen: a horizontal seam across the north window where neighbouring frames disagree, dark blotches on the floor around the coffee table, and the vase and the succulent missing, because the lift merged them into the side table and the coffee table and SAM 3D completed only the larger object. SAM found no bowl. The window and door placement was judged by eye only.
 - Review (reviewer agent). No geometry errors. Fixed: wall lengths instead of the bounding box in the report, `--force` and a clear exit without floor pixels in `room_shell.py`, the near-depth cut in metres, shell textures freed on reload, tests for the schema fields, `roomFiles` and the world-recon composition. Open: frames with bad poses (ATE max 1.46 m on blender05) still paint the shell, leaving meshonly while generated splats are toggled off shows them again, and `rectify` drops both corners between two parallel walls more than 0.4 m apart.
 - Next: dropping badly posed frames from the projection, an occlusion test in the shell projection (walls hidden by other walls in an L-shaped room), seams across views, keeping merged small items as separate meshes, and the ceiling-rule scale error on blender05.
+
+## 2026-11-01 (Sun), lanes core, ui, coverage: one-command pipeline, metric scale without a tape
+
+- `scripts/run_pipeline.py video.mp4 --scene <id> --focal35 <mm>` runs every stage in order
+  and resumes. SAM runs next to the GPU reconstruction. A stage is skipped when its outputs
+  are newer than its inputs, rerun with `--force` when an input changed, and every later
+  stage follows a rerun. It also has `--from`, `--only`, `--to` and `--dry-run`. Logs go to
+  `data/scenes/<id>/logs/<stage>.log` and the state to `pipeline.json`. A Modal stage whose
+  client loses its connection is retried once: the heartbeat dropped twice in a row here,
+  after 46 s and 75 s. The bake now runs before LOD, because the bake changes the
+  background and the viewer warned about a stale background tree.
+- Metric scale from typical object heights (`src/movable_reality/metric.py`, the default in
+  `lift_ids.py`). Muse Spark gives a typical height, a range and "stands on the floor" for
+  each noun (one cached call per noun). Every floor-standing object votes with typical /
+  measured top above the floor, weighted by 1/log(max/min)^2. A weighted median gives the
+  consensus, objects outside their range at that scale are dropped, and the weighted mean
+  of the log ratios is the scale. On blender01 it gave ×2.101 against a ground-truth Sim(3)
+  of ×2.004, **+4.9%**; the raw scale was 50% too small. The weighted median alone gave
+  +9.5%: the measured tops are accurate (coffee table 0.40 m against 0.39 m at the GT scale),
+  so the remaining error is the priors, and the mean averages them. Votes, GT scale and box
+  sizes are in `benchmarks/metric/blender01_auto_scale.json`.
+- With that scale and after per-object training, object boxes are close to ground truth
+  without any GT input. Armchair 0.78 x 1.05 x 0.86 m against 0.77 x 1.07 x 0.85, floor lamp
+  0.46 x 1.72 x 0.43 against 0.46 x 1.65 x 0.46, plant 1.35 m tall against 1.35, vase 0.41
+  against 0.40. The coffee table is 0.57 m tall against 0.39, because the items on it
+  joined it. The room shell is 4.23 x 5.25 m against 4.0 x 5.0 (the same +5%).
+- SAM `wall` and `ceiling` run on every third frame (`sam_input_every3.mp4`, 51 frames).
+  Wall had failed on every long clip; now it gave 7 walls and 113 masks in 312 s.
+  `lift_ids.py --sam-only` fills the SAM cache without the reconstruction.
+- Room shell height: when the measured height is not a plausible ceiling (2.1 to 4.5 m), the
+  shell uses the 99th percentile, then a typical 2.5 m. This walk never looks up, and its
+  "densest layer above the cameras" was at 1.80 m.
+- Viewer. `/scenes/` lists every local scene with links to the views it supports, and shows
+  a live stage strip from `pipeline.json` while a run is going. Alt+click twice is a tape
+  measure (`web/src/ui/measure.ts`): from the sofa's backrest to the floor it read 70 cm
+  "up", against 0.71 m in GT. The gap overlay draws the 12 most important gaps
+  (score x radius^2, `?gapLimit=0` for all), with spheres capped at 0.6 m, so the room
+  stays visible.
+- Run on this PC (blender01, 30 Oct render with the old lighting, 152 frames,
+  `--focal35 25`): MapAnything 97 s, SfM 173 s (152 of 152 registered, 0.68 px), gsplat 509 s
+  (quality preset), SAM 13 nouns in about 35 min, alongside. From lift to coverage: 25.9 min
+  on the first pass, then 20.0 min for the rerun from the failed stage. Pose ATE 1.8 mm,
+  median rotation error 0.03 deg.
+- Checked in the browser (desktop pane): scan view, mesh-only (11 of 11 meshes and the room
+  shell, no splats), the gap overlay, the tape measure, and one agent command. "How tall is
+  the sofa? Then move the coffee table half a metre towards the sofa" gave "0.636 m" (the
+  box height). The agent moved the table 0.348 m (the free space), the verifier said no
+  ("not 0.5 m"), and the agent then moved it 0.5 m, into the sofa. The verifier then flagged
+  the moved table as translucent, and the screenshot agrees: the top of the trained table
+  shows the floor through it. The move was undone afterwards.
+- Tests: `pytest` 318 passed, 8 skipped; vitest 169 passed; ruff clean; build passes.
+- Next: the translucent tops of trained objects (thin surfaces under items), collisions
+  between the agent and the verifier ("towards the sofa" should stop at the sofa), objects
+  standing on furniture kept separate (the bowl, the succulent), and running the pipeline
+  on the new-lighting renders and on a real phone video.
