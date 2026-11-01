@@ -3,6 +3,7 @@ import {
   existsSync,
   mkdirSync,
   readdirSync,
+  readFileSync,
   statSync,
   writeFileSync,
 } from "node:fs";
@@ -12,6 +13,7 @@ import { fileURLToPath } from "node:url";
 import basicSsl from "@vitejs/plugin-basic-ssl";
 import { defineConfig, type Plugin } from "vite";
 import { logStem } from "./src/perf/logName";
+import { type SceneSummary, summarize } from "./src/ui/sceneIndex";
 
 // Dev only: serve ../data/scenes at /scenes so the viewer reads pipeline output directly.
 // For hosting, copy precomputed scenes into web/public/scenes or pass ?base=<url>.
@@ -28,12 +30,44 @@ const TYPES: Record<string, string> = {
   ".png": "image/png",
 };
 
+// Dev only: /scenes/ lists every local scene with links (src/ui/sceneList.ts).
+const SCENES_HTML = `<!doctype html>
+<html lang="en"><head><meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Scenes</title><style>html,body{margin:0;background:#111}</style></head>
+<body><script type="module" src="/src/ui/sceneList.ts"></script></body></html>`;
+
 function serveLocalScenes(): Plugin {
   return {
     name: "serve-local-scenes",
     configureServer(server) {
+      // GET /__scenes: a summary of every scene with a scene.json, for the /scenes/ page.
+      server.middlewares.use("/__scenes", (_req, res) => {
+        const seen = new Map<string, SceneSummary>();
+        for (const dir of [SCENES_DIR, PUBLIC_SCENES]) {
+          if (!existsSync(dir)) continue;
+          for (const id of readdirSync(dir).sort()) {
+            const file = join(dir, id, "scene.json");
+            if (seen.has(id) || !existsSync(file)) continue;
+            try {
+              seen.set(id, { ...summarize(JSON.parse(readFileSync(file, "utf8"))), id });
+            } catch (e) {
+              server.config.logger.warn(`[scenes] skipped ${id}: ${e}`);
+            }
+          }
+        }
+        res.setHeader("Content-Type", "application/json");
+        res.setHeader("Cache-Control", "no-store");
+        res.end(JSON.stringify([...seen.values()]));
+      });
       server.middlewares.use("/scenes", (req, res, next) => {
         const rel = decodeURIComponent((req.url ?? "/").split("?")[0]);
+        if (rel === "/") {
+          res.setHeader("Content-Type", "text/html; charset=utf-8");
+          res.setHeader("Cache-Control", "no-store");
+          res.end(SCENES_HTML);
+          return;
+        }
         for (const dir of [SCENES_DIR, PUBLIC_SCENES]) {
           const file = normalize(join(dir, rel));
           if (file.startsWith(dir + sep) && existsSync(file) && statSync(file).isFile()) {
