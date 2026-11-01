@@ -14,6 +14,9 @@ import {
   bestView,
   frustumCorners,
   generatedParam,
+  gapLimitParam,
+  topGaps,
+  DEFAULT_GAP_LIMIT,
 } from "./overlay";
 
 function gap(over: Partial<Gap> = {}): Gap {
@@ -200,5 +203,33 @@ describe("generated toggle parameter", () => {
     expect(generatedParam(new URLSearchParams("generated=0"))).toBe(false);
     expect(generatedParam(new URLSearchParams("generated=off"))).toBe(false);
     expect(generatedParam(new URLSearchParams("generated=1"))).toBe(true);
+  });
+});
+
+describe("gap limit", () => {
+  const many = Array.from({ length: 30 }, (_, i) =>
+    gap({ id: `gap_${String(i).padStart(3, "0")}`, radius: 0.1 + 0.02 * i, score: 0.8 }),
+  );
+
+  it("keeps the most important gaps and says how many are hidden", () => {
+    const m = { coverage: cov([...many, gap({ id: "done", status: "accepted", radius: 3 })]) };
+    const model = overlayModel(m as unknown as SceneManifest, 1, 5);
+    expect(new Set(model.gaps.map((g) => g.id))).toEqual(new Set(["gap_025", "gap_026", "gap_027", "gap_028", "gap_029"]));
+    expect(model.gaps).toHaveLength(5);
+    expect(model.views).toHaveLength(5);
+    expect(model.summary).toBe("coverage: 5 of 30 gaps (largest)");
+  });
+
+  it("ranks by score as well as size", () => {
+    const big = gap({ id: "big", radius: 1, score: 0.05 });
+    const dark = gap({ id: "dark", radius: 0.6, score: 1 });
+    expect(topGaps(cov([big, dark]), 1).gaps.map((g) => g.id)).toEqual(["dark"]);
+  });
+
+  it("reads ?gapLimit", () => {
+    expect(gapLimitParam(new URLSearchParams())).toBe(DEFAULT_GAP_LIMIT);
+    expect(gapLimitParam(new URLSearchParams("gapLimit=3"))).toBe(3);
+    expect(gapLimitParam(new URLSearchParams("gapLimit=0"))).toBe(Infinity);
+    expect(overlayModel({ coverage: cov(many) } as unknown as SceneManifest, 1, Infinity).gaps).toHaveLength(30);
   });
 });
