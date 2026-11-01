@@ -20,6 +20,7 @@ from __future__ import annotations
 import asyncio
 import json
 import re
+from collections import Counter
 from dataclasses import asdict, dataclass
 
 import numpy as np
@@ -108,7 +109,8 @@ def scale_from_heights(
 
     An object counts when its prior says it stands on the floor and its base is within
     `floor_tol` of its own height from y = 0 (so a vase on a table does not vote). Weight is
-    1 / log(max/min)^2: a sofa (0.7-1.0 m) counts far more than a potted plant (0.2-2 m).
+    1 / log(max/min)^2, split among the instances of a noun: a sofa (0.7-1.0 m) counts far
+    more than a potted plant (0.2-2 m), and six chairs together count as one.
     Returns (None, votes) when fewer than two objects can vote.
     """
     votes: list[ScaleVote] = []
@@ -128,6 +130,10 @@ def scale_from_heights(
     used = [v for v in votes if v.used]
     if len(used) < 2:
         return None, votes
+    # Six chairs share one prior and so one prior error: together they weigh as one object.
+    per_noun = Counter(v.noun for v in used)
+    for v in used:
+        v.weight = round(v.weight / per_noun[v.noun], 3)
     s = _weighted_median(np.log([v.ratio for v in used]), np.array([v.weight for v in used]))
     # Second pass: drop votes whose implied height is outside the prior range at scale s.
     for v in used:

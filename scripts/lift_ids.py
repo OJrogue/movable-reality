@@ -211,10 +211,15 @@ def segment_and_vote(root, inv, p, cams, xyz, v, w, h):
     frame_of = [int(c.name.rsplit("/", 1)[-1].split(".")[0]) for c in cams]
     opacity = 1 / (1 + np.exp(-np.asarray(v["opacity"], dtype=np.float32)))
     t0 = time.time()
-    votes, seen = vote(cams, [labels_img.get(f) for f in frame_of], xyz, opacity, len(names), p)
+    # Wall and ceiling were asked of SAM on every SPARSE_STEP-th frame only.
+    sparse = np.array([names[k].split("#")[0].lower() in SPARSE_NOUNS for k in range(len(names))])
+    queried = [~sparse | (f % SPARSE_STEP == 0) for f in frame_of]
+    votes, seen = vote(cams, [labels_img.get(f) for f in frame_of], xyz, opacity, len(names), p,
+                       queried=queried)  # fmt: skip
     ids = assign(votes, seen, p)
+    shown = (seen.max(axis=1) >= p.min_views).mean()
     print(f"voted over {len(cams)} views, {len(xyz)} Gaussians in {time.time() - t0:.0f} s; "
-          f"{(seen >= p.min_views).mean():.0%} seen in >= {p.min_views} views")  # fmt: skip
+          f"{shown:.0%} seen in >= {p.min_views} views")  # fmt: skip
     np.save(root / "ids" / "assigned.npy", ids)
     (root / "ids" / "labels.json").write_text(
         json.dumps({str(k): v for k, v in names.items()}, indent=2)

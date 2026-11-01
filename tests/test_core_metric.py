@@ -60,3 +60,13 @@ def test_object_height_ignores_floaters():
     y = np.concatenate([rng.uniform(0, 0.8, 5000), [3.0] * 20])
     lo, hi = object_height(y)
     assert lo < 0.05 and 0.75 < hi < 0.82
+
+
+def test_instances_of_one_noun_share_one_weight():
+    # Four armchairs repeat one prior's error; together they must not outvote the sofa.
+    measured = {f"armchair#{i}": ("armchair", 0.0, 0.45) for i in range(4)}
+    measured["sofa#1"] = ("sofa", 0.0, 0.425)
+    _, votes = scale_from_heights(measured, PRIORS)
+    w = {v.object_id: v.weight for v in votes}
+    single = 1 / np.log(1.1 / 0.75) ** 2
+    assert sum(w[f"armchair#{i}"] for i in range(4)) == pytest.approx(single, rel=0.01)

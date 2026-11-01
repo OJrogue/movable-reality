@@ -174,3 +174,37 @@ def test_ceiling_from_histogram_refuses_a_plain_tail():
     rng = np.random.default_rng(2)
     tail = 1.2 + rng.exponential(0.2, 5000)  # blender01: no ceiling, heights only tail off
     assert len(ceiling_from_histogram(tail, cam_y=np.array([1.1]))) == 0
+
+
+def test_sparse_label_counts_only_its_queried_views():
+    # Floor masks exist only on every third view (lift_ids.SPARSE_NOUNS). Counted against
+    # every view the floor's share stays near 1/3 and it is dropped; per-label views fix it.
+    rng = np.random.default_rng(0)
+    obj = _box(rng, [-0.3, 0, -0.3], [0.3, 0.8, 0.3], 3000)
+    floor = np.c_[rng.uniform(-2, 2, 6000), np.zeros(6000), rng.uniform(-2, 2, 6000)]
+    xyz = np.vstack([obj, floor]).astype(np.float32)
+    truth = np.r_[np.zeros(len(obj), int), np.ones(len(floor), int)]
+    cams = _ring()
+    labels, queried = [], []
+    for i, cam in enumerate(cams):
+        asked = i % 3 == 0
+        lab = np.full((cam.height, cam.width), -1, np.int32)
+        uv, z = cam.project(xyz)
+        for t in (1, 0) if asked else (0,):
+            m = (truth == t) & (z > 0.05)
+            px = np.clip(uv[m].astype(int), 0, [cam.width - 1, cam.height - 1])
+            lab[px[:, 1], px[:, 0]] = t
+        labels.append(lab)
+        queried.append(np.array([True, asked]))
+    p = LiftParams(depth_grid=80, min_views=2)
+    ones = np.ones(len(xyz), np.float32)
+    v_all, s_all = vote(cams, labels, xyz, ones, 2, p)
+    v_q, s_q = vote(cams, labels, xyz, ones, 2, p, queried=queried)
+    seen_floor = s_q[len(obj) :, 1] >= p.min_views
+    assert seen_floor.mean() > 0.3
+    assert (assign(v_all, s_all, p)[len(obj) :][seen_floor] == 1).mean() < 0.1
+    assert (assign(v_q, s_q, p)[len(obj) :][seen_floor] == 1).mean() > 0.8
+    # the object, asked in every view, keeps its label
+    ids = assign(v_q, s_q, p)[: len(obj)]
+    vis = s_q[: len(obj), 0] >= p.min_views
+    assert (ids[vis] == 0).mean() > 0.9

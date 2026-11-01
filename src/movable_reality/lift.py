@@ -85,12 +85,16 @@ def vote(
     opacity: np.ndarray,
     n_labels: int,
     p: LiftParams,
+    queried: list[np.ndarray] | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Votes (N, n_labels + 1; last column = unlabelled) and views seen (N,)."""
+    """Votes (N, n_labels + 1; last column = unlabelled) and views seen: (N,), or
+    (N, n_labels) when `queried` is given. queried[i][k] says whether label k was asked of
+    SAM in view i: wall and ceiling run on every third frame only (lift_ids.SPARSE_NOUNS), and
+    their views elsewhere must not count against them, or their share stays near 1/3."""
     n = len(xyz)
     votes = np.zeros((n, n_labels + 1), dtype=np.uint16)
-    seen = np.zeros(n, dtype=np.uint16)
-    for cam, lab in zip(cams, labels, strict=True):
+    seen = np.zeros(n if queried is None else (n, n_labels), dtype=np.uint16)
+    for i, (cam, lab) in enumerate(zip(cams, labels, strict=True)):
         if lab is None:
             continue
         vis, uv = visible_mask(cam, xyz, opacity, p)
@@ -101,17 +105,25 @@ def vote(
         col = lab[py, px]
         col = np.where(col < 0, n_labels, col)
         np.add.at(votes, (idx, col), 1)
-        seen[idx] += 1
+        if queried is None:
+            seen[idx] += 1
+        else:
+            seen[idx] += np.asarray(queried[i], dtype=np.uint16)[None, :]
     return votes, seen
 
 
 def assign(votes: np.ndarray, seen: np.ndarray, p: LiftParams) -> np.ndarray:
-    """Label per Gaussian, -1 when no label wins min_share of min_views views or more."""
+    """Label per Gaussian, -1 when no label wins min_share of min_views views or more.
+    `seen` is (N,) or per label (N, n_labels), as vote() returns it."""
     n_labels = votes.shape[1] - 1
-    best = votes[:, :n_labels].argmax(axis=1) if n_labels else np.zeros(len(votes), int)
-    best_votes = votes[np.arange(len(votes)), best] if n_labels else np.zeros(len(votes))
-    share = best_votes / np.maximum(seen, 1)
-    ok = (seen >= p.min_views) & (share >= p.min_share) & (best_votes > 0)
+    if not n_labels:
+        return np.full(len(votes), -1, dtype=np.int32)
+    per = seen if seen.ndim == 2 else np.broadcast_to(seen[:, None], (len(seen), n_labels))
+    share = votes[:, :n_labels] / np.maximum(per, 1)
+    share = np.where((per >= p.min_views) & (votes[:, :n_labels] > 0), share, -1.0)
+    best = share.argmax(axis=1)  # with one shared denominator, the label with most votes
+    rows = np.arange(len(votes))
+    ok = share[rows, best] >= p.min_share
     return np.where(ok, best, -1).astype(np.int32)
 
 

@@ -59,10 +59,11 @@ the demo (needs chunked `.RAD` or HTTP Range support, see `docs/LOD.md`).
 ### 3.000 Sun 1 Nov, pipeline for humans (branch lane/pipeline)
 - `scripts/run_pipeline.py video.mp4 --scene room01 --focal35 26` runs every stage
   (frames, inventory, SAM next to the GPU reconstruction, lift, per-object training, SAM 3D,
-  shell, LOD, bake, coverage). It skips up-to-date stages, reruns stale ones, logs each to
+  shell, bake, LOD, coverage). It skips up-to-date stages, reruns stale ones, logs each to
   `data/scenes/<id>/logs/` and writes `pipeline.json`, which `/scenes/` shows as a strip.
 - Metric scale without ground truth is now the default: `metric.py` asks Muse Spark for a
-  typical height per noun, and floor-standing objects vote (weighted median, outlier pass).
+  typical height per noun, and floor-standing objects vote (weighted median for the consensus, an outlier pass, then the
+  weighted mean of the kept votes; instances of one noun share one weight).
 - SAM `wall` and `ceiling` run on every third frame (`sam_input_every3.mp4`), because
   their streams dropped on every long clip.
 - The coverage overlay draws the 12 most important gaps (`?gapLimit=0` for all).
@@ -70,8 +71,7 @@ the demo (needs chunked `.RAD` or HTTP Range support, see `docs/LOD.md`).
 Ideas not built yet, roughly by value for the demo:
 1. **Camera-height prior as a second scale vote.** The chest loop holds the phone at about
    1.3 to 1.5 m. It is cheap and independent of the objects, and it flags a bad object vote.
-2. **"Measure" in the viewer.** Click two points and get a distance in metres. It shows off
-   the metric claim in one second of video, and the agent has `measure` already.
+2. ~~"Measure" in the viewer~~: built (Alt+click twice, `web/src/ui/measure.ts`).
 3. **Scale check in the HUD**, for example "sofa 0.86 m tall (typical 0.85)", so a judge
    sees that the scale is right without a tape.
 4. **Before/after slider** for gap repair (scan vs generated), using the `generated` flag.
@@ -86,11 +86,9 @@ Found in the 1 Nov blender01 run (`docs/BUILD_LOG.md`), to fix first:
 - **Translucent tops of trained objects.** The coffee table's top shows the floor through it
   after a move, and the verifier rejects the edit for it. The items standing on the table
   hide its top in most masks.
-- **Agent and verifier disagree on collisions.** "Half a metre towards the sofa" stopped at
-  the free space (0.35 m), the verifier said no, and the retry pushed the table into the
-  sofa. The verifier prompt should accept "as far as it fits", or the agent should say so.
-- **`measure` on the agent reports box heights** (sofa 0.636 m against 0.71 m). Use the
-  98th-percentile top from `metric.object_height` instead.
+- ~~Agent and verifier disagree on collisions~~: fixed. The agent moves as far as it fits
+  and says so, the verifier sees that reply and accepts it (rerun on blender01: verified).
+- ~~`measure` reports box heights~~: fixed, `top_above_floor_m` (sofa 0.74 m against 0.71 m GT).
 - Ceiling stays dark when the walk never looks up. The filming guide's upward loop fixes
   it; the shell could also tint unseen ceiling texels from the top of the walls.
 

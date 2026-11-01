@@ -94,11 +94,16 @@ def main() -> int:
     if args.height:
         height, how = args.height, "given"
     else:
+        # Height ranges in metres mean nothing in an unscaled scene: measure only.
+        scale_file = root / "ids" / "scale.json"
+        metric = not scale_file.exists() or (
+            json.loads(scale_file.read_text()).get("method") != "none"
+        )
         layer = ceiling_from_histogram(m[solid, 1], cam_y[:, 1])
         p99 = float(np.percentile(m[solid, 1], 99))
-        if len(layer) >= 100 and plausible_ceiling(float(np.median(layer))):
+        if len(layer) >= 100 and (plausible_ceiling(float(np.median(layer))) or not metric):
             height, how = float(np.median(layer)), "densest layer above the cameras"
-        elif plausible_ceiling(p99):
+        elif plausible_ceiling(p99) or not metric:
             height, how = p99, "99th percentile"
         else:
             # A walk that never looks up (blender01) has no ceiling splats, and its densest

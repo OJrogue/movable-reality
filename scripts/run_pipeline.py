@@ -144,10 +144,12 @@ class Report:
             self.path.write_text(json.dumps(self.data, indent=2))
 
 
-# Network failures of the Modal client (heartbeat or stream lost), worth one more try: the
-# remote jobs keep their own stamps, so a retry redoes little (1 Nov, objects stage).
-TRANSIENT = ("_transport", "ConnectionError", "Connection reset", "StreamTerminatedError",
-             "GRPCError", "Deadline Exceeded", "connection error")  # fmt: skip
+# Failures of the local Modal client's connection (its heartbeat lost the gRPC transport,
+# twice on 1 Nov in the objects stage). A retry reruns the stage: reconstruct skips the work
+# its stamps cover, but the objects stage retrains every object (about 10 min of L40S), so
+# only these client-side signatures are retried, never an error raised by the remote job.
+TRANSIENT = ("'Connection' object has no attribute '_transport'", "StreamTerminatedError",
+             "ConnectionResetError", "Connection reset by peer")  # fmt: skip
 
 
 def run_stage(root: Path, st: Stage, force: bool, report: Report) -> bool:
@@ -192,6 +194,8 @@ def preflight(a: argparse.Namespace, root: Path) -> list[str]:
     problems = []
     if not (root / "frames.json").exists() and not a.video:
         problems.append(f"{root} has no frames yet: pass the video path")
+    if "frames" in {a.only, a.start} and not a.video:
+        problems.append("rerunning frames needs the video path")
     if a.video and not Path(a.video).exists():
         problems.append(f"video {a.video} not found")
     if not shutil.which("ffmpeg"):
@@ -217,6 +221,27 @@ def sam3d_deployed() -> bool:
     )
 
 
+def decide(root: Path, plan: list[Stage], lo: int, hi: int, forced: set[str]) -> dict[str, str]:
+    """Verdict per stage ("run (...)", "skip (up to date)", "out of range"). A stage that runs
+    forces every later stage in range, since each depends on the ones before; `forced` grows."""
+    names = [st.name for st in plan]
+    out: dict[str, str] = {}
+    for i, st in enumerate(plan):
+        fresh = freshness(root, st)
+        if i < lo or i > hi:
+            verdict = "out of range"
+        elif st.name in forced:
+            verdict = "run (forced)" if st.force_flag else "run (Modal job)"
+        elif fresh == "done":
+            verdict = "skip (up to date)"
+        else:
+            verdict = f"run ({fresh})"
+        if verdict.startswith("run") and st.name != "sam":  # SAM only fills a cache
+            forced.update(names[i + 1 : hi + 1])
+        out[st.name] = verdict
+    return out
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
     ap.add_argument("video", nargs="?", help="phone video (needed only for the first run)")
@@ -234,7 +259,9 @@ def main() -> int:
     ap.add_argument("--skip", default="", help="SAM nouns to leave out, comma-separated")
     ap.add_argument("--from", dest="start", choices=NAMES, help="rerun from this stage on")
     ap.add_argument("--to", dest="stop", choices=NAMES, help="stop after this stage")
-    ap.add_argument("--only", choices=NAMES, help="run one stage (forced)")
+    ap.add_argument("--only", choices=NAMES,
+                    help="run one stage (forced; reconstruct redoes only what its Modal "
+                    "stamps say changed)")  # fmt: skip
     ap.add_argument("--dry-run", action="store_true", help="print the plan and exit")
     a = ap.parse_args()
 
@@ -247,22 +274,10 @@ def main() -> int:
         forced.add("frames")
 
     print(f"scene {a.scene} ({root})")
-    todo: list[Stage] = []
-    for i, st in enumerate(plan):
-        fresh = freshness(root, st)
-        if i < lo or i > hi:
-            verdict = "out of range"
-        elif st.name in forced:
-            verdict = "run (forced)"
-        elif fresh == "done":
-            verdict = "skip (up to date)"
-        else:
-            verdict = f"run ({fresh})"
-        if verdict.startswith("run"):
-            todo.append(st)
-            if st.name != "sam":  # SAM only fills a cache; the lift reads it
-                forced.update(NAMES[i + 1 : hi + 1])  # every later stage depends on this one
-        print(f"  {st.name:<12} {verdict:<20} {st.what}")
+    verdicts = decide(root, plan, lo, hi, forced)
+    todo = [st for st in plan if verdicts[st.name].startswith("run")]
+    for st in plan:
+        print(f"  {st.name:<12} {verdicts[st.name]:<20} {st.what}")
     if a.dry_run:
         return 0
     problems = preflight(a, root)

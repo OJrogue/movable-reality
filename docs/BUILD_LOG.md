@@ -996,8 +996,22 @@ test-walk metrics, `sfm.json`, GT pose ATE). Every row predates the lighting cha
   ("not 0.5 m"), and the agent then moved it 0.5 m, into the sofa. The verifier then flagged
   the moved table as translucent, and the screenshot agrees: the top of the trained table
   shows the floor through it. The move was undone afterwards.
-- Tests: `pytest` 318 passed, 8 skipped; vitest 169 passed; ruff clean; build passes.
-- Next: the translucent tops of trained objects (thin surfaces under items), collisions
-  between the agent and the verifier ("towards the sofa" should stop at the sofa), objects
+- Agent fixes after that run. `measure` now reports `top_above_floor_m` (sofa 0.74 m
+  against 0.71 m GT; the box said 0.64 m). The agent never pushes into another object: it
+  moves as far as fits (floor gap minus 6 cm, checked once with `fits`) and says so. The
+  verifier sees the agent's reply and counts "stopped at the sofa" as done; its token budget
+  went to 4000 (2000 ran out while it reasoned). The same command then verified on the
+  first try.
+- Reviewer pass on the branch, fixed: sparse SAM nouns (wall, ceiling, every third frame)
+  were outvoted in the lift because their unqueried frames counted as "seen, not this
+  label"; `vote` now counts views per label. The tape measure skips the gap overlay and
+  hidden objects. The Modal retry matches only connection errors. The runner refuses a
+  frames rerun without a video. The shell's height fallbacks apply only to a metric scene
+  (`ids/scale.json` method not "none"). Instances of one noun share one scale weight, so six
+  chairs do not outvote the sofa. The plan logic moved to `decide()` with unit tests.
+- Timings above come from the local stage logs (`data/scenes/blender01/logs/`, not
+  committed); the scale evidence is committed under `benchmarks/metric/`.
+- Tests: `pytest` 327 passed, 8 skipped; vitest 169 passed; ruff clean; build passes.
+- Next: the translucent tops of trained objects (thin surfaces under items), objects
   standing on furniture kept separate (the bowl, the succulent), and running the pipeline
   on the new-lighting renders and on a real phone video.

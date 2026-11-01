@@ -62,7 +62,7 @@ export function installMeasure(ctx: ViewerContext, notify: (text: string) => voi
     raycaster.setFromCamera(ndc, ctx.camera);
     const hits = raycaster
       .intersectObjects(ctx.scene.children, true)
-      .filter((h) => shown(h.object) && !isInside(h.object, group) && !(h.object instanceof THREE.Line));
+      .filter((h) => shown(h.object) && !(h.object instanceof THREE.Line));
     return hits[0]?.point.clone() ?? null;
   };
 
@@ -113,15 +113,15 @@ export function installMeasure(ctx: ViewerContext, notify: (text: string) => voi
   });
 }
 
-/** three.js raycasts hidden objects too; skip anything under a hidden parent (gap overlay,
- * splats hidden by ?objects=meshonly) and translucent helpers. */
+/** Overlays drawn over the room, never measured: the gap overlay (spheres, posts, arrows). */
+const HELPER_GROUPS = new Set(["coverage-overlay", "measure"]);
+
+/** three.js raycasts hidden objects too; skip anything under a hidden parent (splats hidden
+ * by ?objects=meshonly) or under a helper overlay. */
 function shown(o: THREE.Object3D): boolean {
-  for (let p: THREE.Object3D | null = o; p; p = p.parent) if (!p.visible) return false;
-  const m = (o as THREE.Mesh).material as THREE.Material | undefined;
-  return !(m && !Array.isArray(m) && m.transparent && m.opacity < 0.9 && o.type === "Mesh");
+  for (let p: THREE.Object3D | null = o; p; p = p.parent) {
+    if (!p.visible || HELPER_GROUPS.has(p.name)) return false;
+  }
+  return true;
 }
 
-function isInside(o: THREE.Object3D, root: THREE.Object3D): boolean {
-  for (let p: THREE.Object3D | null = o; p; p = p.parent) if (p === root) return true;
-  return false;
-}
