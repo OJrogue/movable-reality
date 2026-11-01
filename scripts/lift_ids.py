@@ -18,6 +18,12 @@ floor-to-ceiling height from a tape measure, or a factor:
     uv run python scripts/lift_ids.py --scene room01 --force --reuse-votes --scale 1.8
 
 --reuse-votes skips SAM and the vote (ids/assigned.npy, written by every full run).
+
+Without either, the scale comes from typical object heights (Muse Spark, metric.py): every
+floor-standing object votes typical / measured height. --no-auto-scale keeps the raw scale.
+
+--sam-only runs only the SAM calls (they need the clip, not the reconstruction), so the
+cache fills while the GPU job runs (scripts/run_pipeline.py does this).
 """
 
 from __future__ import annotations
@@ -26,8 +32,12 @@ import argparse
 import asyncio
 import json
 import shutil
+import subprocess
 import sys
+import tempfile
 import time
+from dataclasses import replace
+from pathlib import Path
 
 import numpy as np
 from PIL import Image
@@ -49,11 +59,37 @@ from movable_reality.lift import (
     vote,
 )
 from movable_reality.lod.split import write_split
+from movable_reality.metric import height_priors, object_height, scale_from_heights, votes_json
 from movable_reality.recon import full_res_camera
 from movable_reality.sam import paste_mask, segment_video
 from movable_reality.scene import Scene, SceneObject
 
 MIN_SPLATS = 150  # smaller objects are dropped as noise
+
+
+SPARSE_NOUNS = ("wall", "ceiling")  # large regions: their SAM streams drop on long clips
+SPARSE_STEP = 3
+
+
+def sparse_clip(video: Path, step: int) -> Path:
+    """Every `step`-th frame of the scene's frames/ as its own clip (same encoding as
+    extract_frames.py). The "wall" stream failed on every 150+ frame clip (31 Oct); a third
+    of the frames still gives walls in every direction."""
+    root = video.parent
+    out = root / f"sam_input_every{step}.mp4"
+    if out.exists() and out.stat().st_mtime >= video.stat().st_mtime:
+        return out
+    frames = sorted((root / "frames").glob("*.jpg"))[::step]
+    with tempfile.TemporaryDirectory() as tmp:
+        for i, f in enumerate(frames):
+            shutil.copyfile(f, Path(tmp) / f"{i:06d}.jpg")
+        subprocess.run(
+            ["ffmpeg", "-v", "error", "-y", "-framerate", "4", "-i", str(Path(tmp) / "%06d.jpg"),
+             "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2", "-c:v", "libx264", "-pix_fmt",
+             "yuv420p", "-crf", "18", "-movflags", "+faststart", str(out)],
+            check=True,
+        )  # fmt: skip
+    return out
 
 
 async def segment_all(video, nouns: list[str]):
@@ -62,9 +98,13 @@ async def segment_all(video, nouns: list[str]):
     async def one(noun):
         async with sem:
             t0 = time.time()
+            sparse = noun.lower() in SPARSE_NOUNS
+            clip = sparse_clip(Path(video), SPARSE_STEP) if sparse else video
             for attempt in range(3):  # SAM streams time out now and then (31 Oct, blender01)
                 try:
-                    inst = await segment_video(video, noun)
+                    inst = await segment_video(clip, noun)
+                    if sparse:  # back to indices of the full clip (= frames/{i:06d}.jpg)
+                        inst = [replace(i, frame_index=i.frame_index * SPARSE_STEP) for i in inst]
                     break
                 except Exception as exc:  # noqa: BLE001 - APITimeoutError, stream errors
                     cause = f"{type(exc).__name__}: {exc.__cause__ or exc}"
@@ -93,7 +133,11 @@ def main() -> int:
     metric = ap.add_mutually_exclusive_group()
     metric.add_argument("--ceiling-height", type=float, help="tape-measured floor to ceiling, m")
     metric.add_argument("--scale", type=float, help="metric correction factor")
+    metric.add_argument(
+        "--no-auto-scale", action="store_true", help="no scale from typical object heights"
+    )
     ap.add_argument("--reuse-votes", action="store_true", help="skip SAM and the vote")
+    ap.add_argument("--sam-only", action="store_true", help="only fill the SAM cache, then exit")
     ap.add_argument(
         "--skip",
         default="",
@@ -102,6 +146,13 @@ def main() -> int:
     )
     args = ap.parse_args()
     root = scene_dir(args.scene)
+    if args.sam_only:
+        inv = json.loads((root / "inventory.json").read_text())
+        skip = {n.strip().lower() for n in args.skip.split(",") if n.strip()}
+        nouns = [n for n in inv["nouns"] if n.lower() not in skip]
+        asyncio.run(segment_all(root / "sam_input.mp4", nouns))
+        print(f"SAM cache filled for {len(nouns)} nouns")
+        return 0
     if (root / "ids" / "gaussian_ids.npy").exists() and not args.force:
         print("ids/gaussian_ids.npy exists (--force to redo)")
         return 0
@@ -160,15 +211,44 @@ def segment_and_vote(root, inv, p, cams, xyz, v, w, h):
     frame_of = [int(c.name.rsplit("/", 1)[-1].split(".")[0]) for c in cams]
     opacity = 1 / (1 + np.exp(-np.asarray(v["opacity"], dtype=np.float32)))
     t0 = time.time()
-    votes, seen = vote(cams, [labels_img.get(f) for f in frame_of], xyz, opacity, len(names), p)
+    # Wall and ceiling were asked of SAM on every SPARSE_STEP-th frame only.
+    sparse = np.array([names[k].split("#")[0].lower() in SPARSE_NOUNS for k in range(len(names))])
+    queried = [~sparse | (f % SPARSE_STEP == 0) for f in frame_of]
+    votes, seen = vote(cams, [labels_img.get(f) for f in frame_of], xyz, opacity, len(names), p,
+                       queried=queried)  # fmt: skip
     ids = assign(votes, seen, p)
+    shown = (seen.max(axis=1) >= p.min_views).mean()
     print(f"voted over {len(cams)} views, {len(xyz)} Gaussians in {time.time() - t0:.0f} s; "
-          f"{(seen >= p.min_views).mean():.0%} seen in >= {p.min_views} views")  # fmt: skip
+          f"{shown:.0%} seen in >= {p.min_views} views")  # fmt: skip
     np.save(root / "ids" / "assigned.npy", ids)
     (root / "ids" / "labels.json").write_text(
         json.dumps({str(k): v for k, v in names.items()}, indent=2)
     )
     return names, ids
+
+
+def auto_scale(world, ids, noun_of, names, p):
+    """Scale from typical object heights (metric.py). Measures each object after a provisional
+    floater cut, without changing ids. Returns (scale or None, votes)."""
+    measured = {}
+    for k, noun in noun_of.items():
+        if noun in STRUCTURE:
+            continue
+        pts = world[ids == k]
+        if len(pts) < MIN_SPLATS:
+            continue
+        pts = pts[largest_cluster(pts, p.voxel)]
+        if len(pts) >= MIN_SPLATS:
+            measured[names[k]] = (noun, *object_height(pts[:, 1]))
+    priors = asyncio.run(height_priors([n for n, _, _ in measured.values()]))
+    s, votes = scale_from_heights(measured, priors)
+    for v in sorted(votes, key=lambda v: -v.weight):
+        mark = "x" if v.used else "-"
+        print(f"  {mark} {v.object_id:<22} top {v.measured:.3f}  typical {v.prior:.2f} m  "
+              f"ratio {v.ratio:.3f}  w {v.weight:.1f}  {v.note}")  # fmt: skip
+    if s is None:
+        print("too few floor-standing objects for a scale from object heights; raw scale kept")
+    return s, votes
 
 
 def finish(args, root, p, names, ids, cams, xyz) -> None:
@@ -197,11 +277,18 @@ def finish(args, root, p, names, ids, cams, xyz) -> None:
             print(f"no ceiling label; ceiling layer from the height histogram, "
                   f"{len(ceiling_y)} Gaussians")  # fmt: skip
         s = ceiling_scale(ceiling_y, args.ceiling_height)
+    method = "scale" if args.scale else "ceiling" if args.ceiling_height else "none"
+    votes: list = []
+    if not s and aligned and not args.no_auto_scale:
+        s, votes = auto_scale(world, ids, noun_of, names, p)
+        method = "object heights" if s else "none"
     if s:
         M = scaled(M, s)
         world *= s
-        print(f"metric scale x{s:.3f}")
-    (root / "ids" / "scale.json").write_text(json.dumps({"scale": s or 1.0}))
+        print(f"metric scale x{s:.3f} ({method})")
+    (root / "ids" / "scale.json").write_text(
+        json.dumps({"scale": s or 1.0, "method": method, "votes": votes_json(votes)}, indent=2)
+    )
 
     # Floaters, tiny objects, then the support rule.
     objects = [k for k, n in noun_of.items() if n not in STRUCTURE]

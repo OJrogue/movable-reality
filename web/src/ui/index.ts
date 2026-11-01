@@ -9,6 +9,7 @@ import { SceneServer, ServerRefused, type CommandResult, type ServerMessage } fr
 import { CommandBar } from "./commandBar";
 import { applyEdit, EditError, type EditRequest } from "./edits";
 import { Editor } from "./editor";
+import { installMeasure } from "./measure";
 import { installOnboarding } from "./onboarding";
 import { UI_CSS } from "./style";
 
@@ -131,6 +132,7 @@ export function installUi(ctx: UiContext): UiHandle {
   const edit = (req: EditRequest) => (queue = queue.then(() => runEdit(req)));
 
   const editor = new Editor(ctx, { edit, notify: (t) => bar.line("info", t) });
+  installMeasure(ctx, (t) => bar.line("info", t));
 
   // ---- server connection: health check, then the WebSocket; retry while it is down.
   const onMessage = (msg: ServerMessage) => {

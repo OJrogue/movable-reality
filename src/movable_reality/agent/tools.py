@@ -85,6 +85,9 @@ def describe(obj: SceneObject) -> dict[str, Any]:
         "source": obj.source,
         "center": [_r((a + b) / 2) for a, b in zip(mn, mx, strict=True)],
         "size_m": [_r(v) for v in obj.size],  # width x, height y, depth z, before yaw
+        # How tall it stands: thin legs fall out of the box's percentile cut, so its height
+        # can start above the floor (sofa 0.64 m box, top 0.74 m, blender01, 1 Nov).
+        "top_above_floor_m": _r(mx[1]),
         "yaw_deg": _r(obj.transform.yaw_deg),
         "footprint": {"x": [_r(mn[0]), _r(mx[0])], "z": [_r(mn[2]), _r(mx[2])]},
     }
@@ -201,7 +204,8 @@ TOOL_SCHEMAS = [
     _fn("undo", "Revert the most recent edit.", {}, []),
     _fn(
         "measure",
-        "Size of one object, or the floor gap and centre distance between two objects, metres.",
+        "Size of one object (top_above_floor_m is how tall it stands), or the floor gap and "
+        "centre distance between two objects, metres.",
         {"id_a": _ID, "id_b": _ID},
         ["id_a"],
     ),

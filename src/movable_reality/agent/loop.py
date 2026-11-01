@@ -28,8 +28,12 @@ The user sees the room from {eye}, looking along floor direction {forward}. From
 point of view, "right" is world direction {right}, "left" is the opposite, "forward"/"away"
 is {forward} and "closer"/"towards me" is the opposite. Turning "clockwise" seen from above is
 a negative yaw_deg. If the user gives no distance, use 0.5 m. Prefer fits before placing an
-object in a tight spot. If the user asks a question (sizes, "does it fit"), answer in metres
-from measure or fits. Keep the final reply to one or two short sentences.
+object in a tight spot. Never push an object into another one: if the asked distance would
+collide, move only as far as it fits and say so in the reply. The free distance towards
+another object is floor_gap_m from measure minus 0.06 m (fits keeps 5 cm clear): check that
+once with fits instead of searching in small steps. If the user asks a question
+(sizes, "does it fit"), answer in metres from measure or fits; "how tall" is
+top_above_floor_m. Keep the final reply to one or two short sentences.
 
 Room floor: {room}.
 Objects:
@@ -146,7 +150,12 @@ async def run_command(
         if not after:
             break
         try:
-            verdict = await verify_edit(text, summarise(result.steps), before, after)
+            # The agent's reply carries its reasons, such as stopping short of the sofa;
+            # without it the verifier rejected every move that ended at an obstacle (1 Nov).
+            summary = summarise(result.steps)
+            if result.reply:
+                summary += f"; the agent says: {result.reply}"
+            verdict = await verify_edit(text, summary, before, after)
         except Exception as exc:  # noqa: BLE001 - a verifier outage must not lose the edit
             verdict = Verdict(ok=None, reason=f"verifier unavailable: {exc}")
             result.verdicts.append(verdict.reason)

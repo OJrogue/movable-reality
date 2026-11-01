@@ -1,0 +1,370 @@
+{
+  "scene": "blender01 (30 Oct render, old lighting, 152 frames, Windows PC run 1 Nov)",
+  "method": "object heights",
+  "scale": 2.1009,
+  "gt_sim3_scale": 2.0037,
+  "scale_error": 0.0485,
+  "raw_scale_error": -0.5009,
+  "votes": [
+    {
+      "object_id": "armchair#0",
+      "noun": "armchair",
+      "measured": 0.5078,
+      "prior": 0.9,
+      "ratio": 1.7724,
+      "weight": 3.613,
+      "used": true,
+      "note": ""
+    },
+    {
+      "object_id": "sofa#1",
+      "noun": "sofa",
+      "measured": 0.3513,
+      "prior": 0.85,
+      "ratio": 2.4196,
+      "weight": 5.389,
+      "used": false,
+      "note": "base 0.11 above the floor"
+    },
+    {
+      "object_id": "floor lamp#0",
+      "noun": "floor lamp",
+      "measured": 0.7754,
+      "prior": 1.6,
+      "ratio": 2.0634,
+      "weight": 3.832,
+      "used": true,
+      "note": ""
+    },
+    {
+      "object_id": "coffee table#0",
+      "noun": "coffee table",
+      "measured": 0.1987,
+      "prior": 0.45,
+      "ratio": 2.2645,
+      "weight": 7.861,
+      "used": true,
+      "note": ""
+    },
+    {
+      "object_id": "side table#0",
+      "noun": "side table",
+      "measured": 0.2734,
+      "prior": 0.6,
+      "ratio": 2.1942,
+      "weight": 3.832,
+      "used": true,
+      "note": ""
+    },
+    {
+      "object_id": "cabinet#0",
+      "noun": "cabinet",
+      "measured": 0.5864,
+      "prior": 0.9,
+      "ratio": 1.5349,
+      "weight": 0.231,
+      "used": true,
+      "note": ""
+    },
+    {
+      "object_id": "potted plant#0",
+      "noun": "potted plant",
+      "measured": 0.3212,
+      "prior": 0.4,
+      "ratio": 1.2454,
+      "weight": 0.189,
+      "used": false,
+      "note": "not a floor object"
+    },
+    {
+      "object_id": "potted plant#1",
+      "noun": "potted plant",
+      "measured": 0.631,
+      "prior": 0.4,
+      "ratio": 0.6339,
+      "weight": 0.189,
+      "used": false,
+      "note": "not a floor object"
+    },
+    {
+      "object_id": "potted plant#2",
+      "noun": "potted plant",
+      "measured": 0.5997,
+      "prior": 0.4,
+      "ratio": 0.6671,
+      "weight": 0.189,
+      "used": false,
+      "note": "not a floor object"
+    },
+    {
+      "object_id": "vase#0",
+      "noun": "vase",
+      "measured": 0.4751,
+      "prior": 0.3,
+      "ratio": 0.6315,
+      "weight": 0.52,
+      "used": false,
+      "note": "not a floor object"
+    },
+    {
+      "object_id": "books#0",
+      "noun": "books",
+      "measured": 0.7064,
+      "prior": 0.23,
+      "ratio": 0.3256,
+      "weight": 1.393,
+      "used": false,
+      "note": "not a floor object"
+    }
+  ],
+  "pose": {
+    "n_cameras": 152,
+    "ate_rmse_m": 0.001832564433031583,
+    "ate_mean_m": 0.001507978627180302,
+    "ate_median_m": 0.0013466609892631824,
+    "ate_max_m": 0.006040841737699857,
+    "rot_err_median_deg": 0.03336382640344577,
+    "rot_err_max_deg": 0.10237478988411772,
+    "sim3_scale": 2.00370381597556,
+    "gt_path_length_m": 18.9307460367411,
+    "n_frames_selected": 152
+  },
+  "object_boxes_after_per_object_training": [
+    {
+      "id": "armchair#0",
+      "size_m": [
+        0.778,
+        1.054,
+        0.856
+      ],
+      "gt_size_m": [
+        0.766,
+        1.065,
+        0.848
+      ]
+    },
+    {
+      "id": "sofa#1",
+      "size_m": [
+        1.741,
+        0.636,
+        0.84
+      ],
+      "gt_size_m": [
+        1.807,
+        0.71,
+        0.818
+      ]
+    },
+    {
+      "id": "floor lamp#0",
+      "size_m": [
+        0.459,
+        1.719,
+        0.432
+      ],
+      "gt_size_m": [
+        0.46,
+        1.65,
+        0.46
+      ]
+    },
+    {
+      "id": "coffee table#0",
+      "size_m": [
+        1.268,
+        0.572,
+        0.685
+      ],
+      "gt_size_m": [
+        1.202,
+        0.39,
+        0.6
+      ]
+    },
+    {
+      "id": "side table#0",
+      "size_m": [
+        0.602,
+        0.581,
+        0.476
+      ],
+      "gt_size_m": [
+        0.55,
+        0.551,
+        0.45
+      ]
+    },
+    {
+      "id": "cabinet#0",
+      "size_m": [
+        1.206,
+        1.222,
+        0.483
+      ],
+      "gt_size_m": [
+        1.195,
+        1.182,
+        0.617
+      ]
+    },
+    {
+      "id": "potted plant#0",
+      "size_m": [
+        0.15,
+        0.155,
+        0.181
+      ],
+      "gt_size_m": [
+        0.551,
+        1.35,
+        0.64
+      ]
+    },
+    {
+      "id": "potted plant#1",
+      "size_m": [
+        0.523,
+        1.348,
+        0.595
+      ],
+      "gt_size_m": [
+        0.551,
+        1.35,
+        0.64
+      ]
+    },
+    {
+      "id": "vase#0",
+      "size_m": [
+        0.171,
+        0.414,
+        0.167
+      ],
+      "gt_size_m": [
+        0.204,
+        0.4,
+        0.204
+      ]
+    },
+    {
+      "id": "books#0",
+      "size_m": [
+        0.572,
+        0.241,
+        0.238
+      ],
+      "gt_size_m": [
+        0.551,
+        0.237,
+        0.163
+      ]
+    }
+  ],
+  "room_shell": {
+    "background_ply": "objects/background.ply",
+    "floor_frames": 152,
+    "wall_lengths_m": [
+      4.235,
+      5.25,
+      4.235,
+      5.25
+    ],
+    "height_m": 2.5,
+    "height_from": "typical; ceiling not seen, pass --height",
+    "frames": 152,
+    "texel_m": 0.006,
+    "surfaces": [
+      {
+        "glb": "room/shell_floor_0.glb",
+        "kind": "floor",
+        "size_m": [
+          4.446,
+          5.42
+        ],
+        "texture_px": [
+          741,
+          903
+        ],
+        "seen_share": 0.973,
+        "bytes": 951500
+      },
+      {
+        "glb": "room/shell_ceiling_0.glb",
+        "kind": "ceiling",
+        "size_m": [
+          4.446,
+          5.42
+        ],
+        "texture_px": [
+          741,
+          903
+        ],
+        "seen_share": 0.0,
+        "bytes": 5700
+      },
+      {
+        "glb": "room/shell_wall_0.glb",
+        "kind": "wall",
+        "size_m": [
+          4.235,
+          2.5
+        ],
+        "texture_px": [
+          706,
+          417
+        ],
+        "seen_share": 0.695,
+        "bytes": 30272
+      },
+      {
+        "glb": "room/shell_wall_1.glb",
+        "kind": "wall",
+        "size_m": [
+          5.25,
+          2.5
+        ],
+        "texture_px": [
+          875,
+          417
+        ],
+        "seen_share": 0.678,
+        "bytes": 22088
+      },
+      {
+        "glb": "room/shell_wall_2.glb",
+        "kind": "wall",
+        "size_m": [
+          4.235,
+          2.5
+        ],
+        "texture_px": [
+          706,
+          417
+        ],
+        "seen_share": 0.544,
+        "bytes": 23992
+      },
+      {
+        "glb": "room/shell_wall_3.glb",
+        "kind": "wall",
+        "size_m": [
+          5.25,
+          2.5
+        ],
+        "texture_px": [
+          875,
+          417
+        ],
+        "seen_share": 0.661,
+        "bytes": 21452
+      }
+    ],
+    "seconds": 78.5,
+    "gt_room_m": [
+      4.0,
+      5.0,
+      2.6
+    ]
+  }
+}

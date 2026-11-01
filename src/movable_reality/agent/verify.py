@@ -14,8 +14,10 @@ PROMPT = (
     "You check edits to a 3D room viewer. The first image is the view before the edit, the "
     'second after it. The user asked: "{instruction}". The edit tool reported: {summary}. '
     "Does the second image show that request carried out (objects moved, turned, removed or "
-    "added as asked) with no obvious damage such as a missing or floating object? Answer "
-    "YES or NO on the first line, then one short sentence why."
+    "added as asked) with no obvious damage such as a missing or floating object? A move "
+    "that stops short because the object reached another object or a wall counts as carried "
+    "out; an object pushed into another object counts as damage. Answer YES or NO on the "
+    "first line, then one short sentence why."
 )
 
 
@@ -59,7 +61,7 @@ async def verify_edit(
                 ],
             }
         ],
-        max_tokens=2000,  # a reasoning model: its thinking counts against this
+        max_tokens=4000,  # a reasoning model: its thinking counts (2000 ran out, 1 Nov)
     )
     msg = resp["choices"][0]["message"]
     verdict = parse_verdict(msg.get("content") or "")

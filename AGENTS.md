@@ -155,12 +155,14 @@ uv run python scripts/smoke_meta.py --image data/raw/room.jpg --noun chair   # +
 uv run python scripts/smoke_baseten.py         # Muse Spark Open on Baseten
 uv run python scripts/make_demo_scene.py       # synthetic scene "demo" for agent/viewer work
 uv run python scripts/edit_scene.py demo move "chair#1" 0.5 0 0   # manual edit (agent tools do the same)
+uv run python scripts/run_pipeline.py data/raw/room01.mp4 --scene room01 --focal35 26   # every stage, resumable (--from, --only, --dry-run)
 uv run python scripts/extract_frames.py data/raw/room01.mp4 --scene room01
 uv run modal run modal_jobs/reconstruct.py --scene room01
 uv run pytest                                  # unit tests (no paid calls)
 uv run ruff check . && uv run ruff format .
 cd web && npm install && npm run dev           # viewer, http://localhost:5173/?scene=room01
 cd web && npm test                             # viewer unit tests (vitest), pure logic only
+# viewer scene list (dev server): http://localhost:5173/scenes/ links every scene with a scene.json
 uv run python scripts/build_lod.py --setup     # lod: build Spark's build-lod once (git + Rust/cargo, ~2 min)
 uv run python scripts/build_lod.py demo        # lod: one .RAD per object -> lod/, sets lod fields (--force, --method quick)
 # viewer LOD: ?mode=naive (LOD off), ?lodPriority=2, ?lodRamp=300, ?lodPaged=1, ?lodSplatCount=<n>; see docs/LOD.md

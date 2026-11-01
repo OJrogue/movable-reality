@@ -26,6 +26,7 @@ import {
   gapsParam,
   generatedParam,
   overlayKey,
+  gapLimitParam,
   overlayModel,
   type GapMarker,
   type OverlayModel,
@@ -153,6 +154,7 @@ export function installCoverage(ctx: ViewerContext): CoverageHandle {
   ctx.scene.add(group); // world frame: gaps and views are in scene.json coordinates
   const rawViews = ctx.params.get("gapViews");
   const perGap = rawViews === null ? 1 : Math.max(0, Math.floor(Number(rawViews)) || 0);
+  const gapLimit = gapLimitParam(ctx.params);
   const sphere = new THREE.SphereGeometry(1, 24, 16);
   const ring = new THREE.RingGeometry(0.18, 0.24, 32);
   const viewMat = new THREE.MeshBasicMaterial({
@@ -181,7 +183,7 @@ export function installCoverage(ctx: ViewerContext): CoverageHandle {
   };
 
   ctx.onManifest((m) => {
-    const next = overlayModel(m, perGap);
+    const next = overlayModel(m, perGap, gapLimit);
     const nextKey = overlayKey(next);
     model = next;
     if (nextKey !== key) {

@@ -31,6 +31,9 @@ export interface OverlayModel {
 }
 
 export const GAP_COLOR = 0xff2a2a;
+/** Drawn spheres stop at 0.6 m: a 1.2 m gap behind the sofa drawn at full size covered the
+ * sofa itself (blender01, 1 Nov). Ranking still uses the full radius (gapImportance). */
+export const MARKER_MAX_RADIUS = 0.6;
 export const REQUESTED_COLOR = 0xff8a1f; // recapture requested: orange
 export const VIEW_COLOR = 0x29d3ff;
 
@@ -65,7 +68,7 @@ export function gapMarkers(cov: Coverage | null | undefined): GapMarker[] {
     .map((g) => ({
       id: g.id,
       center: g.center,
-      radius: gapRadius(g.radius),
+      radius: Math.min(MARKER_MAX_RADIUS, gapRadius(g.radius)),
       opacity: gapOpacity(g.score),
       color: g.status === "recapture_requested" ? REQUESTED_COLOR : GAP_COLOR,
       label: gapLabel(g),
@@ -95,14 +98,45 @@ export function viewMarkers(cov: Coverage | null | undefined, perGap = 1): ViewM
   return out;
 }
 
-export function overlayModel(m: SceneManifest | null, perGap = 1): OverlayModel {
-  const cov = m?.coverage ?? null;
+/** How much a gap matters on screen: score x (clamped radius)^2, as in bestView. */
+export function gapImportance(g: Gap): number {
+  const r = gapRadius(g.radius);
+  return (Number.isFinite(g.score) ? g.score : 0) * r * r;
+}
+
+/** The `limit` most important shown gaps (all when limit is not finite or <= 0). Real
+ * captures score 170 to 200 gaps, mostly a few voxels each, and drawing all of them hid
+ * the room (31 Oct); the few big ones are what to film again. */
+export function topGaps(cov: Coverage, limit: number): Coverage {
+  const shown = cov.gaps.filter((g) => SHOWN_STATUSES.has(g.status));
+  if (!(limit > 0) || !Number.isFinite(limit) || shown.length <= limit) return cov;
+  const keep = new Set(
+    [...shown].sort((a, b) => gapImportance(b) - gapImportance(a)).slice(0, limit).map((g) => g.id),
+  );
+  return { ...cov, gaps: cov.gaps.filter((g) => keep.has(g.id)) };
+}
+
+/** `?gapLimit=<n>`: most important gaps drawn, default 12; 0 draws every gap. */
+export function gapLimitParam(params: URLSearchParams): number {
+  const raw = params.get("gapLimit");
+  if (raw === null) return DEFAULT_GAP_LIMIT;
+  const n = Math.floor(Number(raw));
+  return Number.isFinite(n) && n > 0 ? n : Infinity;
+}
+
+export const DEFAULT_GAP_LIMIT = 12;
+
+export function overlayModel(m: SceneManifest | null, perGap = 1, limit = Infinity): OverlayModel {
+  const all = m?.coverage ?? null;
+  const cov = all ? topGaps(all, limit) : null;
   const gaps = gapMarkers(cov);
   const views = viewMarkers(cov, perGap);
   const share = cov?.gap_share;
   const pct = share == null ? "" : `, ${(100 * share).toFixed(0)}% of visible surfaces`;
   const gen = cov && cov.generated_splats > 0 ? `, ${cov.generated_splats} generated splats` : "";
-  const summary = cov ? `coverage: ${gaps.length} gaps${pct}${gen}` : "coverage: not scored";
+  const total = gapMarkers(all).length;
+  const count = total > gaps.length ? `${gaps.length} of ${total} gaps (largest)` : `${total} gaps`;
+  const summary = cov ? `coverage: ${count}${pct}${gen}` : "coverage: not scored";
   return { gaps, views, best: bestView(cov), summary };
 }
 
