@@ -43,6 +43,14 @@ def test_fits_ignores_items_stacked_on_top():
     assert fits(make_scene(), "table#1", None, None, ROOM)["fits"]
 
 
+def test_measure_reports_top_above_floor():
+    s = make_scene()
+    s.objects[0].bbox_min = (-1.0, 0.1, -2.4)  # legs cut from the box, as on blender01
+    a = measure(s, "sofa#1")["a"]
+    assert a["size_m"][1] == pytest.approx(0.8)
+    assert a["top_above_floor_m"] == pytest.approx(0.9)
+
+
 def test_measure_gap():
     m = measure(make_scene(), "sofa#1", "table#1")
     assert m["floor_gap_m"] == pytest.approx(0.7)
