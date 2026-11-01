@@ -64,11 +64,30 @@ cd web && npm install && npm run dev       # open http://localhost:5173/?scene=d
 cd ..
 uv run python scripts/edit_scene.py demo remove "table#1"   # viewer updates live
 
-uv run python scripts/extract_frames.py path/to/room.mp4 --scene room01
-uv run modal run modal_jobs/reconstruct.py --scene room01
-
-cd web && npm install && npm run dev   # open http://localhost:5173/?scene=room01
 ```
+
+### Your own room, in one command
+
+Film the room first. Hold the phone level and walk the perimeter slowly, facing inwards,
+for 30 to 45 s. Then do one loop at knee height and one loop tilted slightly up, so the
+ceiling and the upper walls are covered. Lock exposure and focus if the camera app allows
+it, keep the lights on, and leave out mirrors, people and pets.
+
+```bash
+uv run python scripts/run_pipeline.py path/to/room.mp4 --scene room01 --focal35 26
+```
+
+`--focal35` is the phone's 35 mm-equivalent focal length. It is in the video's EXIF, and
+is 26 for most phone main cameras. The run takes about 25 to 40 min, mostly on Modal GPUs,
+and costs about $1 to $2. Every paid call is cached, so a rerun is free. Each stage logs to
+`data/scenes/room01/logs/` and its state goes to `data/scenes/room01/pipeline.json`.
+`http://localhost:5173/scenes/` lists every scene, with a live stage strip while a run is
+going.
+
+The metric scale comes from the furniture itself. Muse Spark gives a typical height for
+each object noun, and every floor-standing object votes. If you have a tape measure, pass
+`--ceiling-height 2.5` instead. After a fix, `--from <stage>` reruns that stage and
+everything after it. `--dry-run` shows what would run.
 
 ## Open-source components and licences
 

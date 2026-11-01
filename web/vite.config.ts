@@ -13,7 +13,12 @@ import { fileURLToPath } from "node:url";
 import basicSsl from "@vitejs/plugin-basic-ssl";
 import { defineConfig, type Plugin } from "vite";
 import { logStem } from "./src/perf/logName";
-import { type SceneSummary, summarize } from "./src/ui/sceneIndex";
+import {
+  type PipelineStatus,
+  pendingSummary,
+  type SceneSummary,
+  summarize,
+} from "./src/ui/sceneIndex";
 
 // Dev only: serve ../data/scenes at /scenes so the viewer reads pipeline output directly.
 // For hosting, copy precomputed scenes into web/public/scenes or pass ?base=<url>.
@@ -48,9 +53,18 @@ function serveLocalScenes(): Plugin {
           if (!existsSync(dir)) continue;
           for (const id of readdirSync(dir).sort()) {
             const file = join(dir, id, "scene.json");
-            if (seen.has(id) || !existsSync(file)) continue;
+            const status = join(dir, id, "pipeline.json");
+            if (seen.has(id) || !(existsSync(file) || existsSync(status))) continue;
             try {
-              seen.set(id, { ...summarize(JSON.parse(readFileSync(file, "utf8"))), id });
+              const pipeline = existsSync(status)
+                ? (JSON.parse(readFileSync(status, "utf8")) as PipelineStatus)
+                : undefined;
+              seen.set(
+                id,
+                existsSync(file)
+                  ? { ...summarize(JSON.parse(readFileSync(file, "utf8"))), id, pipeline }
+                  : pendingSummary(id, pipeline),
+              );
             } catch (e) {
               server.config.logger.warn(`[scenes] skipped ${id}: ${e}`);
             }

@@ -155,6 +155,7 @@ uv run python scripts/smoke_meta.py --image data/raw/room.jpg --noun chair   # +
 uv run python scripts/smoke_baseten.py         # Muse Spark Open on Baseten
 uv run python scripts/make_demo_scene.py       # synthetic scene "demo" for agent/viewer work
 uv run python scripts/edit_scene.py demo move "chair#1" 0.5 0 0   # manual edit (agent tools do the same)
+uv run python scripts/run_pipeline.py data/raw/room01.mp4 --scene room01 --focal35 26   # every stage, resumable (--from, --only, --dry-run)
 uv run python scripts/extract_frames.py data/raw/room01.mp4 --scene room01
 uv run modal run modal_jobs/reconstruct.py --scene room01
 uv run pytest                                  # unit tests (no paid calls)

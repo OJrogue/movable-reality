@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { SceneManifest, SceneObject } from "../scene";
-import { sceneLinks, summarize } from "./sceneIndex";
+import { pendingSummary, sceneLinks, summarize } from "./sceneIndex";
 
 const obj = (id: string, extra: Partial<SceneObject> = {}): SceneObject => ({
   id,
@@ -45,6 +45,13 @@ describe("scene index", () => {
     const meshes = [obj("a", { completed_ply: "c.ply", mesh: "a.glb" })];
     expect(labels(manifest({ objects: meshes }))).toEqual(["Open", "Local edits", "Completed", "Meshes"]);
     expect(labels(manifest({ objects: meshes, room_planes: ["planes/floor.glb"] }))).toContain("Mesh only");
+  });
+
+  it("gives no viewer links before the manifest exists", () => {
+    const s = pendingSummary("room01", { order: ["frames"], stages: { frames: { state: "running" } } });
+    expect(s.ready).toBe(false);
+    expect(sceneLinks(s)).toEqual([]);
+    expect(summarize(manifest()).ready).toBe(true);
   });
 
   it("counts gaps, hidden, generated objects and edits", () => {

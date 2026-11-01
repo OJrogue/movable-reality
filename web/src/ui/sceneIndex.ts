@@ -15,6 +15,22 @@ export interface SceneSummary {
   completed: number; // objects with SAM 3D completions
   meshes: number; // objects with a SAM 3D mesh
   room: boolean; // room_planes or room_mesh, for ?objects=meshonly
+  ready: boolean; // has a scene.json the viewer can open
+  pipeline?: PipelineStatus; // data/scenes/<id>/pipeline.json from scripts/run_pipeline.py
+}
+
+export interface PipelineStatus {
+  order: string[];
+  stages: Record<string, { state: string; seconds?: number; last_line?: string }>;
+  updated?: string;
+}
+
+/** A scene that scripts/run_pipeline.py has started but that has no manifest yet. */
+export function pendingSummary(id: string, pipeline?: PipelineStatus): SceneSummary {
+  return {
+    id, objects: 0, visible: 0, generated: 0, edits: 0, lod: false, planes: 0, gaps: null,
+    completed: 0, meshes: 0, room: false, ready: false, pipeline,
+  }; // prettier-ignore
 }
 
 export interface SceneLink {
@@ -37,10 +53,12 @@ export function summarize(m: SceneManifest): SceneSummary {
     completed: objects.filter((o) => !!o.completed_ply).length,
     meshes: objects.filter((o) => !!o.mesh).length,
     room: (m.room_planes?.length ?? 0) > 0 || !!m.room_mesh,
+    ready: true,
   };
 }
 
 export function sceneLinks(s: SceneSummary): SceneLink[] {
+  if (!s.ready) return [];
   const q = (extra: Record<string, string> = {}) =>
     `/?${new URLSearchParams({ scene: s.id, ...extra })}`;
   const links: SceneLink[] = [{ label: "Open", url: q(), hint: "viewer with the agent server" }];
