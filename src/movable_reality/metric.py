@@ -8,9 +8,11 @@ error smears an object's footprint, but its top stays at a clear height above y 
 
 For every scene object that stands on the floor, Muse Spark gives a typical height and a
 plausible range for its noun. Each object votes for scale = typical / measured, weighted by
-how narrow its range is, and the weighted median of the log ratios wins. Objects whose
-measured height disagrees with the consensus by more than their range are reported as
-outliers (often a SAM label that covered two things).
+how narrow its range is. The weighted median of the log ratios gives a consensus. Objects
+whose height at that scale falls outside their range are dropped as outliers (often a SAM
+label that covered two things), and the weighted mean of the rest is the scale. On
+blender01 (1 Nov) it came out 4.9% above the ground-truth Sim(3) scale; the raw scale was
+50% too small.
 """
 
 from __future__ import annotations
@@ -100,7 +102,9 @@ def scale_from_heights(
     priors: dict[str, HeightPrior],
     floor_tol: float = 0.25,
 ) -> tuple[float | None, list[ScaleVote]]:
-    """Weighted median scale from {object_id: (noun, base, top)} and the noun priors.
+    """Metric scale from {object_id: (noun, base, top)} and the noun priors: a weighted
+    median finds the consensus, votes outside their prior range at it are dropped, and the
+    weighted mean of the remaining log ratios is the answer.
 
     An object counts when its prior says it stands on the floor and its base is within
     `floor_tol` of its own height from y = 0 (so a vase on a table does not vote). Weight is
@@ -131,9 +135,13 @@ def scale_from_heights(
         h = v.measured * float(np.exp(s))
         if not p.min_m * 0.8 <= h <= p.max_m * 1.25:
             v.used, v.note = False, f"{h:.2f} m at the consensus scale, outside {p.min_m}-{p.max_m}"
+    # Final estimate: weighted mean of the log ratios that passed (inverse-variance, if the
+    # priors are log-normal with a width set by their range). The median picks one prior's
+    # error, the mean averages them: on blender01 +9.5% against +5% from the GT Sim(3).
     kept = [v for v in used if v.used]
     if len(kept) >= 2:
-        s = _weighted_median(np.log([v.ratio for v in kept]), np.array([v.weight for v in kept]))
+        w = np.array([v.weight for v in kept])
+        s = float(np.sum(w * np.log([v.ratio for v in kept])) / np.sum(w))
     return float(np.exp(s)), votes
 
 

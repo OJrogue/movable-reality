@@ -213,7 +213,7 @@ def main() -> int:
         choices=["quality", "fast"],
         help="gsplat preset: quality (30k steps) or fast (7k, a quick look)",
     )
-    ap.add_argument("--skip", default="wall", help="SAM nouns to leave out (default: wall)")
+    ap.add_argument("--skip", default="", help="SAM nouns to leave out, comma-separated")
     ap.add_argument("--from", dest="start", choices=NAMES, help="rerun from this stage on")
     ap.add_argument("--to", dest="stop", choices=NAMES, help="stop after this stage")
     ap.add_argument("--only", choices=NAMES, help="run one stage (forced)")

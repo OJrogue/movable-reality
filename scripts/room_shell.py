@@ -36,6 +36,13 @@ from movable_reality.roomshell import (
 )
 from movable_reality.scene import Scene
 
+TYPICAL_CEILING = 2.5  # metres
+
+
+def plausible_ceiling(h: float) -> bool:
+    """Homes have ceilings of about 2.1 to 4.5 m; anything else was not the ceiling."""
+    return 2.1 <= h <= 4.5
+
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
@@ -88,10 +95,16 @@ def main() -> int:
         height, how = args.height, "given"
     else:
         layer = ceiling_from_histogram(m[solid, 1], cam_y[:, 1])
-        if len(layer) >= 100:
+        p99 = float(np.percentile(m[solid, 1], 99))
+        if len(layer) >= 100 and plausible_ceiling(float(np.median(layer))):
             height, how = float(np.median(layer)), "densest layer above the cameras"
+        elif plausible_ceiling(p99):
+            height, how = p99, "99th percentile"
         else:
-            height, how = float(np.percentile(m[solid, 1], 99)), "99th percentile"
+            # A walk that never looks up (blender01) has no ceiling splats, and its densest
+            # layer above the cameras was a shelf at 1.8 m (1 Nov). The scene is metric
+            # (lift_ids.py), so a typical height beats a wrong measured one.
+            height, how = TYPICAL_CEILING, "typical; ceiling not seen, pass --height"
     walls = np.linalg.norm(np.roll(poly, -1, axis=0) - poly, axis=1)
     print(f"outline {len(poly)} corners, walls {' '.join(f'{w:.2f}' for w in walls)} m, "
           f"height {height:.2f} m ({how})")  # fmt: skip
