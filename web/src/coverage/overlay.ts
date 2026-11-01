@@ -31,6 +31,9 @@ export interface OverlayModel {
 }
 
 export const GAP_COLOR = 0xff2a2a;
+/** Drawn spheres stop at 0.6 m: a 1.2 m gap behind the sofa drawn at full size covered the
+ * sofa itself (blender01, 1 Nov). Ranking still uses the full radius (gapImportance). */
+export const MARKER_MAX_RADIUS = 0.6;
 export const REQUESTED_COLOR = 0xff8a1f; // recapture requested: orange
 export const VIEW_COLOR = 0x29d3ff;
 
@@ -65,7 +68,7 @@ export function gapMarkers(cov: Coverage | null | undefined): GapMarker[] {
     .map((g) => ({
       id: g.id,
       center: g.center,
-      radius: gapRadius(g.radius),
+      radius: Math.min(MARKER_MAX_RADIUS, gapRadius(g.radius)),
       opacity: gapOpacity(g.score),
       color: g.status === "recapture_requested" ? REQUESTED_COLOR : GAP_COLOR,
       label: gapLabel(g),

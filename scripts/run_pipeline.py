@@ -15,8 +15,9 @@ Stages, in order (SAM runs next to the GPU reconstruction, since it needs only t
     objects     modal reconstruct.py --objects   every object trained alone (no ghosts)
     complete    complete_objects.py --mesh       SAM 3D Objects: closed backs and meshes
     shell       room_shell.py             room as textured floor, wall and ceiling quads
-    lod         build_lod.py              Spark LOD tree per object
     bake        bake_planes.py --labels floor    floor as an opaque textured quad
+    lod         build_lod.py              Spark LOD tree per object (after the bake, which
+                                          changes the background)
     coverage    score_coverage.py         gap map and next-best views
 
 A stage is skipped when its outputs exist and are newer than its inputs, and rerun (with
@@ -92,10 +93,10 @@ def stages(a: argparse.Namespace) -> list[Stage]:
               ["objects_trained/report.json"], ["completion.json"], optional=True),
         Stage("shell", "room as textured quads", [*PY, "scripts/room_shell.py", "--scene", s],
               ["ids/gaussian_ids.npy"], ["room/shell.json"], optional=True),
-        Stage("lod", "LOD trees", [*PY, "scripts/build_lod.py", s],
-              ["objects_trained/report.json", "completion.json"], ["lod"], optional=True),
         Stage("bake", "floor quad", [*PY, "scripts/bake_planes.py", "--scene", s, "--labels",
               "floor"], ["objects_trained/report.json"], ["planes"], optional=True),
+        Stage("lod", "LOD trees", [*PY, "scripts/build_lod.py", s],
+              ["objects_trained/report.json", "completion.json", "planes"], ["lod"], optional=True),
         Stage("coverage", "gap map", [*PY, "scripts/score_coverage.py", "--scene", s],
               ["objects_trained/report.json"], ["coverage"], optional=True),
     ]  # fmt: skip
@@ -143,7 +144,24 @@ class Report:
             self.path.write_text(json.dumps(self.data, indent=2))
 
 
+# Network failures of the Modal client (heartbeat or stream lost), worth one more try: the
+# remote jobs keep their own stamps, so a retry redoes little (1 Nov, objects stage).
+TRANSIENT = ("_transport", "ConnectionError", "Connection reset", "StreamTerminatedError",
+             "GRPCError", "Deadline Exceeded", "connection error")  # fmt: skip
+
+
 def run_stage(root: Path, st: Stage, force: bool, report: Report) -> bool:
+    ok = _run_once(root, st, force, report)
+    log = root / "logs" / f"{st.name}.log"
+    text = "" if ok else log.read_text(encoding="utf-8", errors="replace")
+    if not ok and st.cmd[:3] == MODAL[:3] and any(t in text for t in TRANSIENT):
+        print(f"[{st.name}] Modal connection dropped; retrying once", flush=True)
+        log.replace(log.with_suffix(".failed.log"))
+        ok = _run_once(root, st, force, report)
+    return ok
+
+
+def _run_once(root: Path, st: Stage, force: bool, report: Report) -> bool:
     cmd = list(st.cmd) + (["--force"] if force and st.force_flag else [])
     log = root / "logs" / f"{st.name}.log"
     log.parent.mkdir(parents=True, exist_ok=True)
