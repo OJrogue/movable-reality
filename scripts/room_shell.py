@@ -33,6 +33,7 @@ from movable_reality.roomshell import (
     floor_points,
     room_outline,
     surfaces,
+    upper_wall_colour,
 )
 from movable_reality.scene import Scene
 
@@ -137,9 +138,12 @@ def main() -> int:
                         "height_m": round(height, 3), "height_from": how, "frames": used,
                         "texel_m": args.texel, "surfaces": []}  # fmt: skip
     counts: dict[str, int] = {}
-    for s, (_, w, h), pr in zip(surfs, grids, proj, strict=True):
-        rgb, seen = pr.result((h, w))
-        rgba = finish(rgb, seen, s.outline_uv, args.texel, (s.size_u, s.size_v))
+    results = [pr.result((h, w)) for (_, w, h), pr in zip(grids, proj, strict=True)]
+    upper = upper_wall_colour([r for s, r in zip(surfs, results, strict=True)
+                               if s.kind == "wall"])  # fmt: skip
+    for s, (_, w, h), (rgb, seen) in zip(surfs, grids, results, strict=True):
+        rgba = finish(rgb, seen, s.outline_uv, args.texel, (s.size_u, s.size_v),
+                      fallback=upper if s.kind == "ceiling" else None)  # fmt: skip
         masked = s.outline_uv is not None
         buf = io.BytesIO()
         if masked:

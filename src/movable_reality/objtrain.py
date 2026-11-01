@@ -25,9 +25,9 @@ where it stood. Moving an object then leaves a ghost behind and drags background
 - duplicates: two trained objects whose boxes overlap (60% of the smaller one) are one
   thing under two nouns, and install() hides the smaller.
 - object o: rendered alone on black, compared with frame * mask_o, plus an opacity term
-  that pulls alpha to mask_o. Pixels of other objects (which may cover o, grown by 3 px)
-  and of any other SAM item, and a 2 px band on the mask edge are ignored. Floor and wall
-  pixels are not. Splats
+  that pulls alpha to mask_o. Pixels of other objects (which may cover o, grown by 3 px),
+  of any other SAM item, unlabelled pixels (an item no noun named) and a 2 px band on the
+  mask edge are ignored. Floor and wall pixels are not. Splats
   outside the object fade and are pruned.
 - background: rendered alone, compared with the frame outside the objects' masks (grown
   by 6 px). A second, colour-only pass adds the frame inpainted where the objects are,
@@ -482,8 +482,9 @@ def main() -> None:
         lut[labels[o]] = k + 1
     all_vals = torch.tensor(sorted({v for vs in labels.values() for v in vs}), device=dev)
     struct_vals = torch.tensor(
-        [int(k) for k, n in sam.items() if n.split("#")[0] in STRUCTURE] or [0], device=dev
-    )
+        [int(k) for k, n in sam.items() if n.split("#")[0] in STRUCTURE],
+        dtype=torch.long, device=dev,
+    )  # fmt: skip
     report: dict = {"frames": len(cams), "folded": folded, "objects": {}}
 
     # The cut. The lift vote leaves parts of objects in the background (blender01: most of the
@@ -569,10 +570,12 @@ def main() -> None:
         def parts(i, vt=vt, cache=cache):
             if i not in cache:
                 m = torch.isin(masks[i], vt)
-                # Other SAM items may cover o (another object, a bowl on it), so their pixels
-                # say nothing about it. Floor, wall and unlabelled pixels count: o must be
-                # transparent there.
-                other = (masks[i] > 0) & ~torch.isin(masks[i], struct_vals) & ~m
+                # Other SAM items may cover o (another object), so their pixels say nothing
+                # about it, and neither do unlabelled ones: an item no noun named (the bowl
+                # on blender01's coffee table) is unlabelled, and forcing o transparent on a
+                # black target there turned the bowl black and pruned 90% of it (1 Nov).
+                # Floor and wall pixels count: o must be transparent there.
+                other = ~torch.isin(masks[i], struct_vals) & ~m
                 ignore = grow(other, 3) | (grow(m, 2) & ~shrink(m, 2))
                 w = (~ignore).float()
                 cache[i] = (m, w)

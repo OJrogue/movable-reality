@@ -399,8 +399,25 @@ class Projector:
         return med.reshape(*shape, 3), seen.reshape(shape).astype(np.float64)
 
 
-def finish(rgb: np.ndarray, seen: np.ndarray, outline_uv, texel: float, size) -> np.ndarray:
-    """RGBA uint8: unseen texels filled by push-pull, alpha 0 outside the outline."""
+UNSEEN_SHARE = 0.02  # a surface seen less than this gets the fallback colour
+
+
+def upper_wall_colour(walls: list[tuple[np.ndarray, np.ndarray]]) -> np.ndarray | None:
+    """Median colour of the seen texels in the upper half of the walls (row 0 is the top).
+    A ceiling the walk never looked at takes it instead of push-pull's black."""
+    px = [rgb[: len(rgb) // 2][seen[: len(seen) // 2] > 0] for rgb, seen in walls]
+    px = [p for p in px if len(p)]
+    return np.median(np.concatenate(px), axis=0) if px else None
+
+
+def finish(rgb: np.ndarray, seen: np.ndarray, outline_uv, texel: float, size,
+           fallback: np.ndarray | None = None) -> np.ndarray:  # fmt: skip
+    """RGBA uint8: unseen texels filled by push-pull, alpha 0 outside the outline. A surface
+    seen less than UNSEEN_SHARE has nothing to push-pull from: its unseen texels take
+    `fallback` (the upper wall colour) when given."""
+    if fallback is not None and float(np.mean(seen > 0)) < UNSEEN_SHARE:
+        rgb = np.where(seen[..., None] > 0, rgb, np.asarray(fallback, dtype=rgb.dtype))
+        seen = np.ones_like(seen)
     filled = texture.push_pull(rgb * seen[..., None], seen)
     img = texture.to_uint8(filled)
     h, w = seen.shape
