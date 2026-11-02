@@ -33,6 +33,7 @@ from movable_reality.roomshell import (
     Projector,
     View,
     background_source,
+    base_mask,
     blend_fill,
     copy_fill,
     finish,
@@ -105,7 +106,13 @@ def main() -> int:
         "--floor-reach",
         type=float,
         default=1.2,
-        help="furniture up to this height (m) shadows the floor under it",
+        help="furniture up to this height (m) is tested for a shadow on the floor",
+    )
+    ap.add_argument(
+        "--floor-contact",
+        type=float,
+        default=0.12,
+        help="furniture this close (m) to the floor stands on it (roomshell.base_mask)",
     )
     ap.add_argument(
         "--wall-reach",
@@ -212,11 +219,13 @@ def main() -> int:
     # and unnamed items, which then got painted onto the walls and floor (blender01, 2 Nov).
     size = np.exp(np.asarray(g.log_scales, dtype=np.float64)).max(1) * unit
     occ = [m[solid & ~surface_splats(m, size, g.opacities, poly, height, gap=args.occluder_gap)]]
+    furniture = []  # (bbox_min, bbox_max, splat centres) per scanned object, world frame
     for o in scene.objects:
         if o.source == "scan" and (root / o.ply).exists():
             ov = gaussians.vertices(gaussians.read_ply(root / o.ply))
             og = gaussians.gaussians_from_vertices(ov)
             occ.append(np.asarray(og.means, dtype=np.float64)[og.opacities >= 0.3] @ lin.T + trans)
+            furniture.append((np.asarray(o.bbox_min), np.asarray(o.bbox_max), occ[-1]))
     furniture_w = np.concatenate(occ[1:]) if len(occ) > 1 else np.zeros((0, 3))
     occ_w = np.concatenate(occ)
     if len(occ_w) > 600_000:
@@ -267,18 +276,22 @@ def main() -> int:
         rgba = finish(rgb, seen, s.outline_uv, args.texel, (s.size_u, s.size_v),
                       fallback=upper if s.kind == "ceiling" else None)  # fmt: skip
         keep = outline_keep(s.outline_uv, (s.size_u, s.size_v), seen.shape)
-        foot = None
+        foot, foreign = None, None
         if s.kind != "ceiling":  # furniture stands on the floor and against the walls
             reach = args.floor_reach if s.kind == "floor" else args.wall_reach
-            foot = footprint_mask(s, furniture_w, seen.shape, reach, args.shadow_margin)
-            near = footprint_mask(s, furniture_w, seen.shape, reach, args.shadow_reach)
             rgb8 = texture.to_uint8(rgb)
+            if s.kind == "floor":
+                foot, foreign = base_mask(s, furniture, rgb8, (seen > 0) & keep,
+                                          args.floor_contact, args.shadow_margin)  # fmt: skip
+            else:
+                foot = footprint_mask(s, furniture_w, seen.shape, reach, args.shadow_margin)
+            near = footprint_mask(s, furniture_w, seen.shape, reach, args.shadow_reach)
             foot |= shadow_mask(rgb8, (seen > 0) & keep & ~foot, near)
         holes = hole_mask(seen, keep, foot)
         generated = 0.0
         seen_share = float(seen[keep].mean())
         if args.fill == "copy" and holes.any() and seen_share >= UNSEEN_SHARE:
-            rgba[..., :3] = copy_fill(rgba[..., :3], holes, keep)
+            rgba[..., :3] = copy_fill(rgba[..., :3], holes, keep, foreign=foreign)
             generated = float(holes[keep].mean())
         elif args.fill == "muse" and holes.any() and seen_share >= UNSEEN_SHARE:
             k_ = counts.get(s.kind, 0)

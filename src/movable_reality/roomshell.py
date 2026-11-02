@@ -550,13 +550,82 @@ def footprint_mask(s: Surface, pts: np.ndarray, shape: tuple[int, int], reach: f
     return _grow(m, max(0, round(grow_m / (s.size_u / w))))
 
 
+def base_mask(s: Surface, objects: list[tuple[np.ndarray, np.ndarray, np.ndarray]],
+              rgb: np.ndarray, good: np.ndarray, contact: float, grow_m: float,
+              ring_m: float = 0.5, whole: float = 0.4,
+              paint_tol: float = 40.0) -> tuple[np.ndarray, np.ndarray]:  # fmt: skip
+    """(H, W) floor texels to regenerate under furniture, per object (bbox_min, bbox_max,
+    occluder points, world frame) that stands on it: its contact (points within `contact`
+    metres of the floor, grown by `grow_m`) and the real texels under its box grown by
+    `grow_m` whose colour is foreign to the floor, judged against the real texels farther
+    than `ring_m` from every box: brighter than their 97th percentile per channel (widened
+    by a tenth of the range and 8 levels), or of a hue (rgb / sum) farther from their median
+    hue than 3 times the 75th percentile of that distance (at least 0.04): the object
+    painted onto the floor, or another material (a rug covering a tenth of the floor still
+    widened a percentile range of hues enough to pass). Darker is not foreign (a shadow,
+    shadow_mask's case). When over `whole` of the box's real texels are foreign, or under
+    half of them are real, the whole box goes (a bed or a dresser stands there) with the
+    foreign texels within `ring_m` of it within `paint_tol` levels of the median foreign
+    colour inside it (the paint); foreign texels unlike the paint stay, in the box too (the
+    rug beside blender06's bed). The floor
+    between a desk's or chair's legs was filmed and stays: a 1.2 m footprint regenerated
+    72 % of blender06's floor into a blur (2 Nov); its bed's wooden base was painted 0.45 m
+    past its box. Also returns the foreign texels (a rug, the paint) for copy_fill's
+    `foreign`."""
+    h, w = good.shape
+    tx = s.size_u / w
+    out = np.zeros((h, w), dtype=bool)
+    c8 = rgb.astype(np.float64)
+    stands = []
+    for lo3, hi3, pts in objects:
+        c = footprint_mask(s, pts, (h, w), contact, 0.0)
+        if not c.any():
+            continue  # off the floor (on a wall, on another object)
+        rel = np.array([lo3, hi3], dtype=np.float64) - s.origin
+        us = np.sort(np.floor(rel @ s.u / tx).astype(int))
+        vs = np.sort(np.floor(rel @ s.v / tx).astype(int))
+        box = np.zeros((h, w), dtype=bool)
+        box[max(vs[0], 0) : max(vs[1] + 1, 0), max(us[0], 0) : max(us[1] + 1, 0)] = True
+        stands.append((c, _grow(box, round(grow_m / tx))))
+    if not stands:
+        return out, out.copy()
+    boxes = np.logical_or.reduce([b for _, b in stands])
+    ref = good & ~_grow(boxes, round(ring_m / tx))
+    if ref.sum() < 200:
+        ref = good & ~boxes
+    if ref.sum() < 20:
+        return boxes, np.zeros_like(boxes)
+    hi = np.percentile(c8[ref], 97, axis=0)
+    hi += 0.1 * (hi - np.percentile(c8[ref], 3, axis=0)) + 8
+    chroma = c8 / np.maximum(c8.sum(-1, keepdims=True), 1.0)  # a shadow keeps the hue
+    hue = np.abs(chroma - np.median(chroma[ref], axis=0)).max(axis=-1)
+    hue_tol = max(0.04, 3.0 * float(np.percentile(hue[ref], 75)))
+    foreign = good & (np.any(c8 > hi, axis=-1) | (hue > hue_tol))
+    for c, box in stands:
+        real = box & good
+        if real.sum() < 0.5 * box.sum() or (foreign & box).sum() > whole * real.sum():
+            if not (foreign & box).any():
+                out |= box
+                continue
+            # Past the box only the colour painted in it goes; another foreign material in
+            # it stays (the rug beside blender06's bed, inside its grown box).
+            paint = np.median(c8[foreign & box], axis=0)
+            like = np.abs(c8 - paint).max(axis=-1) < paint_tol
+            spill = _grow(foreign & like & _grow(box, round(ring_m / tx)), 2)
+            out |= (box | spill) & ~(foreign & ~like)
+        else:
+            out |= _grow(foreign & box, 2) | _grow(c, round(grow_m / tx))
+    return out, foreign
+
+
 def shadow_mask(rgb: np.ndarray, good: np.ndarray, near: np.ndarray, cell: int = 24,
-                drop: float = 0.18) -> np.ndarray:  # fmt: skip
+                drop: float = 0.3) -> np.ndarray:  # fmt: skip
     """(H, W) real texels in a furniture shadow: within `near` (texels close to a footprint)
     and more than `drop` darker than the surface's local bright level, the 80th percentile
     luminance of the real texels in `cell` x `cell` blocks, taken as the max over each
     block's 3 x 3 neighbourhood and blended back to texels. Plain paint and plank floors
-    vary far less than a cast shadow."""
+    vary less than a cast shadow (blender06's dark planks are 20 to 25 % below the light ones,
+    so 0.18 took them for shadow)."""
     h, w = good.shape
     lum = rgb.astype(np.float64) @ [0.299, 0.587, 0.114]
     gh, gw = -(-h // cell), -(-w // cell)
@@ -653,7 +722,8 @@ def components(m: np.ndarray) -> list[np.ndarray]:
 
 def copy_fill(rgb: np.ndarray, holes: np.ndarray, keep: np.ndarray, ring: int = 6,
               step: int = 3, detail_r: int = 10, max_shift: float = 0.06,
-              fade: int = 30, edge_shift: float = 0.2, seed: int = 0) -> np.ndarray:  # fmt: skip
+              fade: int = 30, edge_shift: float = 0.2, tile: int = 64,
+              foreign: np.ndarray | None = None, seed: int = 0) -> np.ndarray:  # fmt: skip
     """Fill `holes` of a room-surface texture (H, W, 3) uint8 from the surface itself.
 
     Per hole, the offset whose shifted copy lands on real texels (inside `keep`, not a
@@ -665,22 +735,53 @@ def copy_fill(rgb: np.ndarray, holes: np.ndarray, keep: np.ndarray, ring: int = 
     the rim a larger correction (up to +-`edge_shift`) fades in on top, so a soft shadow that
     runs on past the hole's edge meets the copy without a step (blender01: the armchair's
     shadow beyond the 1.2 m footprint reach). No learned weights.
-    A hole with no valid offset takes the surface's median colour with the same correction
-    (blender02: the wall behind the bookshelf, 28 % seen, had taken push-pull from a dark
-    corner strip and turned brown)."""
+    A hole larger than any clean source is cut into `tile` x `tile` pieces, filled rim
+    first, each matched against the real and already filled texels around it (blender06:
+    the floor under and beside the bed had taken one flat median, a textureless brown smear
+    the judge flagged in a third of the views). A piece with no valid offset either takes the
+    surface's median colour with the same correction (blender02: the wall behind the
+    bookshelf, 28 % seen, had taken push-pull from a dark corner strip and turned brown).
+    With `foreign` (texels of another material than the surface's own, base_mask), each
+    hole and piece looks at the material of the real and filled texels round it: over 80 %
+    foreign, it copies from foreign texels only (a hole in a rug stays rug); under 20 %, from
+    the surface's own material only; in between, where a rug meets the floor, it takes the
+    median of the surface's own material (a copy with no source, that of its material)
+    (blender06: copies ran the rug on into the dresser's footprint, or smeared planks across
+    the rug)."""
     h, w = holes.shape
-    good = keep & ~holes
+    src = keep & ~holes  # copies come from real texels only
+    good = src.copy()  # real and filled: what a piece's rim is matched against
     f = rgb.astype(np.float64) / 255.0
-    base = texture.push_pull(f * good[..., None], good.astype(np.float64))
-    out = np.where(holes[..., None], base, f)
-    flat = np.median(f[good], axis=0) if good.any() else np.full(3, 0.5)
+    base = texture.push_pull(f * src[..., None], src.astype(np.float64))
+    f = np.where(holes[..., None], base, f)
+    own = src if foreign is None or not (src & ~foreign).any() else src & ~foreign
+    flat = np.median(f[own], axis=0) if own.any() else np.full(3, 0.5)  # own material
+    flat_foreign = (
+        np.median(f[src & foreign], axis=0)
+        if foreign is not None and (src & foreign).any()
+        else flat
+    )
     rng = np.random.default_rng(seed)
-    for comp in components(holes):
+
+    mat = np.zeros((h, w), dtype=bool) if foreign is None else foreign & src  # filled too
+
+    def sources(comp: np.ndarray) -> np.ndarray | None:
+        """Where `comp` may copy from: real texels; with `foreign`, of the material round it
+        (real and filled texels), or None where two materials meet (the median)."""
+        rim = _grow(comp, ring) & good
+        if foreign is None or not rim.any():
+            return src
+        share = mat[rim].mean()
+        return src & foreign if share >= 0.8 else src & ~foreign if share <= 0.2 else None
+
+    def offset(comp: np.ndarray, ok: np.ndarray | None, step: int = step) -> tuple[int, int] | None:
         band = _grow(comp, ring) & good
+        if ok is None:
+            return None
         ys, xs = np.nonzero(comp)
         by, bx = np.nonzero(band)
         if len(by) == 0:
-            continue
+            return None
         pick = rng.choice(len(by), min(300, len(by)), replace=False)
         by, bx = by[pick], bx[pick]
         target = f[by, bx]
@@ -691,7 +792,7 @@ def copy_fill(rgb: np.ndarray, holes: np.ndarray, keep: np.ndarray, ring: int = 
             for dx in range(-x0, w - x1, step):
                 if abs(dy) < y1 - y0 + ring and abs(dx) < x1 - x0 + ring:
                     continue  # the copy would overlap the hole itself
-                if not good[hy + dy, hx + dx].mean() > 0.97:
+                if not ok[hy + dy, hx + dx].mean() > 0.97:
                     continue
                 yy, xx = by + dy, bx + dx
                 inb = (yy >= 0) & (yy < h) & (xx >= 0) & (xx < w)
@@ -700,23 +801,30 @@ def copy_fill(rgb: np.ndarray, holes: np.ndarray, keep: np.ndarray, ring: int = 
                 e = float(((f[yy[inb], xx[inb]] - target[inb]) ** 2).mean())
                 if e < best:
                     best, best_off = e, (dy, dx)
+        return best_off
+
+    def paste(comp: np.ndarray, off: tuple[int, int] | None) -> None:
+        ys, xs = np.nonzero(comp)
+        y0, y1, x0, x1 = ys.min(), ys.max(), xs.min(), xs.max()
         ry0, ry1 = max(0, y0 - ring), min(h, y1 + ring + 1)
         rx0, rx1 = max(0, x0 - ring), min(w, x1 + ring + 1)
         sl = (slice(ry0, ry1), slice(rx0, rx1))
         cy, cx = np.mgrid[ry0:ry1, rx0:rx1]
-        if best_off is None:  # larger than any clean source: the surface's median colour
+        rim0 = _grow(comp, ring) & good
+        inside = bool(foreign is not None and rim0.any() and mat[rim0].mean() >= 0.8)
+        if off is None:  # no clean source: the median colour of its material
             dy, dx = 0, 0
-            copy = np.broadcast_to(flat, cy.shape + (3,)).copy()
+            copy = np.broadcast_to(flat_foreign if inside else flat, cy.shape + (3,)).copy()
         else:
-            dy, dx = best_off
+            dy, dx = off
             copy = f[np.clip(cy + dy, 0, h - 1), np.clip(cx + dx, 0, w - 1)]
         # The mismatch is taken between the two images' local means over `detail_r` texels
         # (real texels only), so the planks' own detail does not leak into the correction.
         rim = _grow(comp, ring)[sl] & good[sl]
         gw = _box_blur(good[sl][..., None].astype(np.float64), detail_r)
         mean_f = _box_blur(f[sl] * good[sl][..., None], detail_r) / np.maximum(gw, 1e-6)
-        cgood = good[np.clip(cy + dy, 0, h - 1), np.clip(cx + dx, 0, w - 1)][..., None]
-        if best_off is None:
+        cgood = src[np.clip(cy + dy, 0, h - 1), np.clip(cx + dx, 0, w - 1)][..., None]
+        if off is None:
             cgood = np.ones_like(cgood)
         cw = _box_blur(cgood.astype(np.float64), detail_r)
         mean_c = _box_blur(copy * cgood, detail_r) / np.maximum(cw, 1e-6)
@@ -734,8 +842,37 @@ def copy_fill(rgb: np.ndarray, holes: np.ndarray, keep: np.ndarray, ring: int = 
         edge = np.clip(corr, -edge_shift, edge_shift) - np.clip(corr, -max_shift, max_shift)
         corr = np.clip(corr, -max_shift, max_shift) + near[..., None] * edge
         m = comp[sl]
-        out[sl][m] = (copy + corr)[m]
-    return texture.to_uint8(out)
+        f[sl][m] = (copy + corr)[m]
+        good[sl] |= m
+        if off is not None:  # the material it copied, for the pieces after it
+            mat[sl][m] = mat[np.clip(cy + dy, 0, h - 1), np.clip(cx + dx, 0, w - 1)][m]
+        else:
+            mat[sl][m] = inside
+
+    for comp in components(holes):
+        off = offset(comp, sources(comp))
+        ys, xs = np.nonzero(comp)
+        big = max(ys.max() - ys.min(), xs.max() - xs.min()) >= tile
+        if off is not None or not big:
+            if (_grow(comp, ring) & good).any():
+                paste(comp, off)
+            continue
+        pieces = []
+        for ty in range(ys.min() // tile * tile, ys.max() + 1, tile):
+            for tx in range(xs.min() // tile * tile, xs.max() + 1, tile):
+                piece = np.zeros_like(comp)
+                piece[ty : ty + tile, tx : tx + tile] = comp[ty : ty + tile, tx : tx + tile]
+                if piece.any():
+                    pieces.append(piece)
+        while pieces:  # the piece with the most filled or real texels round it goes next
+            k = int(np.argmax([(_grow(p, ring) & good).sum() for p in pieces]))
+            piece = pieces.pop(k)
+            if (_grow(piece, ring) & good).any():
+                paste(piece, offset(piece, sources(piece), 2 * step))  # coarser: many pieces
+            else:
+                f[piece] = flat  # no neighbour at all: the median, uncorrected
+                good |= piece
+    return texture.to_uint8(f)
 
 
 def size_hint(w: int, h: int) -> str:
