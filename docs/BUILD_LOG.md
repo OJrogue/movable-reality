@@ -1398,3 +1398,22 @@ test-walk metrics, `sfm.json`, GT pose ATE). Every row predates the lighting cha
 - Remaining on blender06: the rug's edge beside the bed takes the floor median, lacy
   curtain splats, a green floater above the dresser, the desk sits a few cm off GT (the
   scene's scale is 5 % off, scale_viewer_per_gt 1.049).
+
+## 2 Nov (night), blender + core: blender07 through the whole pipeline
+
+- `run_pipeline.py data/raw/blender07.mp4 --scene blender07 --focal35 25 --ceiling-height 2.7`:
+  every stage ok in about 95 min (SAM 37 min alongside reconstruct 22 min, objects 23 min,
+  complete 17 min, shell 9 min, coverage 5 min).
+- Poses against GT (`blender_gt_eval.py`, 200 selected frames): ATE median 2.0 mm, RMSE
+  6.6 mm, max 6.2 cm; rotation median 0.03 deg, max 0.83 deg (blender06: 1.6 mm, 0.06 deg).
+  The ceiling-height scale is x2.444 against a Sim3 scale of 2.287, so the room is about
+  7 % long in the viewer (blender06: 5 %).
+- Muse Wonder listed 28 nouns; 35 objects in scene.json: sofa, three cushions, coffee table,
+  side table, table lamp, floor lamp, armchair, ottoman (the pouf), TV, soundbar, the
+  bookshelf (as two objects), four plants, two vases, statue, basket, three picture frames
+  and ten separate books. Mug, coffee-table books, a vase and a plant on the shelf merge
+  into their support.
+- Next: look at it in the viewer from the GT test-walk views, merge the two bookshelf
+  halves, decide whether the shelf books stay separate objects, and find why the
+  ceiling-height scale runs long in both rooms.
+
