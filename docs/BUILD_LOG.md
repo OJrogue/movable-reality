@@ -1398,3 +1398,25 @@ test-walk metrics, `sfm.json`, GT pose ATE). Every row predates the lighting cha
 - Remaining on blender06: the rug's edge beside the bed takes the floor median, lacy
   curtain splats, a green floater above the dresser, the desk sits a few cm off GT (the
   scene's scale is 5 % off, scale_viewer_per_gt 1.049).
+
+## 3 Nov (night), blender + core: blender07 whole-room walk, no frame cap
+
+- The first blender07 run looked poor. Two causes: `extract_frames.py` capped training at
+  200 frames (about 7 per m² in this 27 m² room), and the 62 s walk only circled the
+  coffee table, so corners, pockets and close views were missing.
+- `extract_frames.py`: `--max-frames` removed, so every sharp frame at the target fps is
+  kept. A longer video now means more frames. Top-up videos keep their own cap of 60.
+- `blender_room.py`: `_make_key_walk` places hand-set keys (time, eye, look-at point) and
+  interpolates eye position, yaw and pitch with a time-scaled Catmull-Rom spline.
+  - blender07 main walk, 122 s: 64 s at 1.5 m through every free corner (bookshelf,
+    lounge chair, the south-west door and lamp pocket, TV wall, corner plant, pouf gap,
+    window strip, side table, sofa); 36 s at knee height round the coffee table; 20 s
+    with the phone tilted up for the upper walls and ceiling.
+  - Test walk, 30 s at 1.2-1.7 m, goes the other way between the main views.
+  - Turn rate at most 52 deg/s; mean speed 0.25 m/s.
+  - New test `test_main_walk_visits_every_part_of_the_room`.
+- Rendered on Modal (152 chunks, `--detach`). The chunks keep rendering if the local
+  machine goes offline. Only the download and the mp4 encode run locally.
+- The old run is kept as `data/scenes/blender07_v1` (200 frames, ATE median 2.0 mm), with
+  its videos as `data/raw/blender07_v1*.mp4`.
+- Next: pipeline results on the new video, compared with v1.
