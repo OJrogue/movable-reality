@@ -1101,3 +1101,60 @@ test-walk metrics, `sfm.json`, GT pose ATE). Every row predates the lighting cha
 - Still open: the cabinet and potted plant#1 models hit the 1.25 scale clamp and are
   shorter than their scans, so resting them on the floor costs 2 to 3 cm RMS; potted
   plant#2 (on the cabinet) comes out much taller than its scan (219 opaque splats).
+
+## 2 Nov (afternoon), blender: blender06, a realistic bedroom as the main test room
+
+- New `scripts/blender_bedroom.py` builds `blender06`, a 3.6 x 4.2 m single bedroom, 2.6 m
+  high, meant to look like a real room so it can be filmed and fed to the pipeline. A
+  casement window (white frame, glass, reveal, sill) on the north wall looks out on a park
+  HDRI that also lights the room through a light portal, with a soft ceiling-sized fill.
+  No lamp is lit by default (no hotspots baked into the splats); `--warm-lamps` lights the
+  pendant and the desk lamp.
+- Furniture and objects (38 GT objects): a 120 x 200 cm oak bed with an upholstered
+  headboard, fitted sheet, pillow; duvet and throw draped by Blender's cloth
+  solver (duvet head edge pinned, floor as a collider; a sheet that leaves the room fails
+  the build). Nightstand with alarm clock and books, potted plant, desk with laptop (lit
+  code editor on screen), mouse, mug, notebook and pen, succulent, desk lamp; chair with a sweater over it, backpack, waste bin; wall shelf with
+  an encyclopedia set and a photo frame; chest of drawers with a tin robot, astronaut and hero figures,
+  a wooden elephant and books; wall clock, laundry basket, ukulele, wool rug, linen
+  curtains on a rod, radiator, skirting, switch, three double sockets, a flush door. Two
+  framed public-domain prints: Hokusai's Great Wave above the bed, NASA's Earthrise
+  above the desk.
+- Assets: 9 new CC0 Poly Haven models, 7 textures and the HDRI, plus the two posters from
+  Wikimedia Commons; `scripts/blender_assets.py` now also downloads HDRIs and posters and
+  checks that Commons lists each poster as public domain. Credits in `docs/ASSETS.md`.
+- Outputs: `data/raw/blender06/blender06.blend`, `blender06_gt/objects.json` and per-object
+  PLY meshes in the blender_room format (pass_index = GT index), preview stills in
+  `data/raw/blender06/preview/` (6 views, 26 mm phone camera). Build ~45 s with the cloth
+  sims, four 1080p stills at 256 samples ~95 s on the RTX 3060.
+- Checked by eye on the preview stills (the walks, GT passes and video came later the
+  same day, below). ruff clean.
+- OJ's review: the leaning cushion and the laptop charging cable removed. The white patch
+  at the top of the window was a reflection in the glass (the ceiling-sized fill light and
+  the pendant lamp), not the sky. The glass is now a 97 % transparent surface with 3 %
+  gloss, and the fill light is hidden from glossy rays.
+- Second review: the elephant clipped into the book stack on the chest of drawers, the
+  leaning shelf book clipped into the encyclopedias, and the photo frame faced the wall.
+  The built shelf books are gone (the encyclopedias stay), items are spaced, and the frame
+  is turned (the model's front is its +x side). Its glass faces are dropped: the glTF JPG
+  has no alpha, so the glass was opaque and hid the photo. The build now fails when two
+  rigid items on the same support overlap in their bottom 15 cm (`check_overlaps`).
+- blender06 is a scene in `scripts/blender_room.py` now (`builder: blender_bedroom`), so the
+  walks, GT passes, mp4 and `modal_jobs/blender.py` work for it as for the other rooms.
+  The desk chair closes the corridor between the bed foot and the desk, so the walker's
+  floor is an L (the band south of the bed and the east side up to the chair). Main walk
+  54 s: a 24 s chest loop in the L aiming at a ring round the walls (once round), crouch,
+  a 12 s knee loop in the south band aiming at the bed side and under the desk, stand up,
+  14 s along the chest loop facing the room 15 deg up (ceiling, upper walls). Test walk
+  20 s at 1.2 m in the L, looking at a ring round the furniture.
+  `tests/test_blender_bedroom.py` (12 tests): 25 cm inside the walls, the eye 10 cm outside
+  every footprint at any height (never over the bed or the chair) and 15 cm below its top,
+  under 1.6 m/s, under 75 deg/s of turn, the three parts, and `BEDROOM_OBSTACLES` checked
+  against the built objects.json. A local check rendered 9 main-walk frames (8 samples)
+  and converted their GT.
+- Reviewer (high effort) before the PR: the first walk aimed the chest loop at its own far
+  side, which swings past the eye on a folded loop (560 deg/s at t = 7 s), and went over
+  the bed and the chair; now at most 47 deg/s (main) and 59 deg/s (test). The GT
+  `openings` are in the `world_openings` format now, so `blender_capture_guide.py` draws
+  them. The cloth sims are deterministic across builds (same vertices with 1 thread and
+  all threads), so the Modal chunks agree.

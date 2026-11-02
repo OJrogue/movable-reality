@@ -550,23 +550,32 @@ ASSET_SIZE = {
 }
 
 
-def _make_main_walk(chest, knee, t_loop=25.0, t_trans=2.0, t_knee=13.0, far=0.45):
+def _make_main_walk(chest, knee, t_loop=25.0, t_trans=2.0, t_knee=13.0, far=0.45, look=None,
+                    knee_centre=None):  # fmt: skip
     """Main walk of the polygon rooms, the blender02 pattern: chest-height loop (1.5 m)
     looking across at the far side of the loop, crouch, knee-height loop (0.6 m) looking
-    across it and slightly down."""
+    across it and slightly down. On a folded path, where the far side of the loop swings
+    past the eye, look (a loop of targets the chest loop aims at, once round) and
+    knee_centre (a point the knee loop aims at, swept 0.8 m sideways) keep the turns slow."""
 
     def high(tt: float):
         s = tt / t_loop
         x, y = polyline_at(chest, s)
         wander = np.array([0.4 * math.sin(2 * np.pi * tt / 9), 0.4 * math.sin(2 * np.pi * tt / 13)])
-        d = polyline_at(chest, s + far) + wander - np.array([x, y])
+        aim = polyline_at(look, s) if look is not None else polyline_at(chest, s + far)
+        d = aim + wander - np.array([x, y])
         d = 2.2 * d / np.linalg.norm(d)
         return np.array([x, y, 1.5]), np.array([x + d[0], y + d[1], 0.6])
 
     def low(tt: float):
         s = tt / t_knee
         x, y = polyline_at(knee, s)
-        d = polyline_at(knee, s + 0.5) - np.array([x, y])
+        if knee_centre is None:
+            aim = polyline_at(knee, s + 0.5)
+        else:
+            sweep = (0.8 * math.sin(2 * np.pi * s), 0.3 * math.sin(4 * np.pi * s))
+            aim = np.add(knee_centre, sweep)
+        d = aim - np.array([x, y])
         d = d / max(np.linalg.norm(d), 1e-6)
         eye = np.array([x, y, 0.6])
         return eye, eye + np.array([2.5 * d[0], 2.5 * d[1], -0.25])
@@ -832,6 +841,72 @@ def world_openings(scene: str) -> list[dict]:
     return out
 
 
+def _make_up_walk(base, t_base: float, loop, centre, t_rise=2.0, t_up=14.0, deg=15.0):
+    """base walk for t_base s, t_rise s to stand up, then t_up s along loop at 1.5 m facing
+    centre (with a wander) and the phone deg up, so the ceiling and the upper walls get
+    seen (the _main_up_eye_target pattern for any loop)."""
+    up = math.tan(math.radians(deg))
+
+    def high(tt: float):
+        x, y = polyline_at(loop, tt / t_up)
+        wander = np.array([0.5 * math.sin(2 * np.pi * tt / 7), 0.5 * math.sin(2 * np.pi * tt / 9)])
+        d = np.asarray(centre, float) + wander - np.array([x, y])
+        d = 2.2 * d / np.linalg.norm(d)
+        return np.array([x, y, 1.5]), np.array([x + d[0], y + d[1], 1.5 + 2.2 * up])
+
+    def eye_target(t: float) -> tuple[np.ndarray, np.ndarray]:
+        if t <= t_base:
+            return base(t)
+        if t <= t_base + t_rise:
+            u = smoothstep((t - t_base) / t_rise)
+            (e0, g0), (e1, g1) = base(t_base), high(0.0)
+            return (1 - u) * e0 + u * e1, (1 - u) * g0 + u * g1
+        return high(min(t - t_base - t_rise, t_up))
+
+    return eye_target
+
+
+# Scene blender06: the realistic bedroom, built by scripts/blender_bedroom.py (3.6 x 4.2 m,
+# bed against the west wall, desk on the east wall, chest of drawers and door on the south
+# wall, window on the north wall). Paths in Blender x, y. The desk chair closes the corridor
+# between the bed foot and the desk, so the walker's floor is an L: the band between the
+# bed foot and the south wall, and the east side up to the chair. Every path stays in it
+# (tests/test_blender_bedroom.py checks the walker is never over the bed or the chair).
+# The chest loop is folded inside the L, so it aims at LOOK6, a ring round the room walls
+# that it goes round once, and the knee loop at a point by the bed side and the desk.
+# Both loops start and end by the door, so the crouch and the rise are short.
+CHEST6 = smooth_loop(
+    [(0.5, -1.5), (-0.5, -1.36), (-1.45, -1.35), (-1.45, -0.88), (-0.3, -0.92), (0.9, -0.88),
+     (0.92, 0.42), (1.38, 0.12), (1.42, -0.8), (1.25, -1.5)]
+)  # fmt: skip
+LOOK6 = smooth_loop([(0.4, 1.9), (1.45, 1.1), (1.55, -0.6), (1.0, -1.95), (-0.7, -1.95),
+                     (-1.55, -1.5), (-1.5, 0.6), (-0.9, 1.7)], iters=3)  # fmt: skip
+KNEE6 = smooth_loop([(0.9, -1.55), (-0.6, -1.36), (-1.35, -1.15), (-0.4, -0.95), (0.6, -0.95),
+                     (1.25, -0.4), (1.35, -1.25)])  # fmt: skip
+TEST6 = smooth_loop([(-1.4, -1.2), (-0.2, -1.38), (1.1, -1.55), (1.4, -0.4), (1.0, 0.42),
+                     (0.92, -0.85), (-0.4, -1.0)])  # fmt: skip
+RING6 = smooth_loop([(-1.4, 1.6), (0.25, 1.9), (1.5, 1.1), (1.55, -0.7), (1.1, -1.9),
+                     (-0.7, -1.9), (-1.5, -1.4), (-1.2, 0.2)], iters=3)  # fmt: skip
+WALKS6 = {"main": 54.0, "test": 20.0}  # main: 24 s chest + 2 + 12 s knee, 2 s rise, 14 s up
+# Blender (x0, y0, x1, y1, top z) of everything the walks must keep clear of (from the
+# built scene's objects.json), for tests/test_blender_bedroom.py.
+BEDROOM_OBSTACLES = {
+    "bed": (-1.8, -0.65, 0.65, 1.05, 1.02),  # with the duvet, 20 cm extra at the foot
+    "nightstand": (-1.8, 0.95, -1.27, 1.46, 0.72),
+    "plant": (-1.74, 1.41, -0.97, 2.0, 0.85),
+    "desk": (1.19, 0.45, 1.8, 1.65, 0.75),
+    "desk_lamp": (1.34, 1.29, 1.9, 1.65, 1.65),
+    "chair": (0.57, 0.78, 1.15, 1.25, 0.97),
+    "backpack": (0.85, 1.6, 1.2, 1.92, 0.46),
+    "bin": (1.4, 0.66, 1.64, 0.9, 0.3),
+    "shelf": (1.58, 0.45, 1.8, 1.35, 2.04),
+    "dresser": (-1.13, -2.1, -0.31, -1.59, 1.06),
+    "basket": (-1.69, -2.0, -1.34, -1.72, 0.2),
+    "ukulele": (1.65, -0.84, 1.8, -0.66, 0.52),
+    "radiator_curtains": (-0.88, 1.89, 1.38, 2.1, 2.5),
+}
+
+
 # Per scene: id -> objects, outline (None = the blender01 box), size, walks and shake seeds.
 # Polygon scenes add zones (floor pieces with ceiling planes), columns and asset sizes.
 SCENES = {
@@ -896,6 +971,26 @@ SCENES = {
         "seeds": {"main": 7, "test": 11},
         "panels": [],
         "openings": OPENINGS5,
+    },
+    "blender06": {  # built by scripts/blender_bedroom.py, not from objects
+        "builder": "blender_bedroom",
+        "objects": [],
+        "outline": [(-1.8, -2.1), (1.8, -2.1), (1.8, 2.1), (-1.8, 2.1)],
+        "room": (3.6, 4.2, 2.6),
+        "walks": WALKS6,
+        "eye_target": {
+            "main": _make_up_walk(
+                _make_main_walk(
+                    CHEST6, KNEE6, t_loop=24.0, t_knee=12.0, look=LOOK6, knee_centre=(0.3, 0.6)
+                ),
+                38.0,
+                CHEST6,
+                (-0.5, 0.4),
+            ),  # fmt: skip
+            "test": _make_test_walk(TEST6, RING6),
+        },  # fmt: skip
+        "seeds": {"main": 47, "test": 53},
+        "panels": [],
     },
 }
 
@@ -1438,6 +1533,14 @@ def build_scene(assets: Path, gt: Path, scene: str = SCENE_ID) -> None:
     bpy = _bpy()
     bpy.ops.wm.read_factory_settings(use_empty=True)
     cfg = SCENES[scene]
+    if cfg.get("builder") == "blender_bedroom":  # blender06 has its own builder and GT writer
+        sys.path.insert(0, str(Path(__file__).resolve().parent))  # Blender does not add it
+        import blender_bedroom  # noqa: PLC0415
+
+        out = gt.parent / gt.name.removesuffix("_gt")
+        structure, rec = blender_bedroom.build_bedroom(assets, out)
+        blender_bedroom.write_gt(gt, structure, rec)
+        return
     if cfg["outline"] is None:
         structure = build_room(assets)
     elif cfg.get("zones"):
