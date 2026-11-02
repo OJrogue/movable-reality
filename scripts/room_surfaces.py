@@ -24,7 +24,8 @@ the walls and floor in the colour of the wall behind; surface_colour_gap). Write
 objects/background_room.ply, points scene.json background_ply at it (background_lod is
 cleared for build_lod.py), and marks room/shell.json `replaces_splats`, so the viewer draws
 the shell in its true planes in every style and hides the baked floor quad. --revert puts
-the previous background back.
+the previous background back. When more than --max-kept of the background splats survive,
+the room is not a box (sloped ceilings, an attic) and the stage leaves the scan's splats.
 """
 
 from __future__ import annotations
@@ -70,6 +71,17 @@ def shell_textures(root: Path, shell: dict) -> tuple[list[Surface], list[np.ndar
     return surfs, texs
 
 
+def revert(root: Path, scene: Scene, shell: dict) -> None:
+    """Back to the background before this stage (scene.json saved, shell.json updated in
+    `shell` only)."""
+    prev = shell.pop("surfaces_previous_background", None)
+    shell["replaces_splats"] = False
+    if prev:
+        scene.background_ply, scene.background_lod = prev["ply"], prev["lod"]
+        scene.save(root / "scene.json")
+    (root / "room" / "shell.json").write_text(json.dumps(shell, indent=2))
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
     ap.add_argument("--scene", required=True)
@@ -83,6 +95,13 @@ def main() -> int:
     ap.add_argument("--object-margin", type=float, default=0.12, help="metres, <0 keeps them")
     ap.add_argument("--ghost-colour", type=float, default=0.10, help="RGB gap, 0 keeps them")
     ap.add_argument("--ghost-reach", type=float, default=1.0, help="metres from a surface")
+    ap.add_argument(
+        "--max-kept",
+        type=float,
+        default=0.10,
+        help="share of background splats kept above which the room is not a box",
+    )
+    ap.add_argument("--force", action="store_true", help="apply even when not a box room")
     ap.add_argument("--revert", action="store_true", help="restore the previous background")
     args = ap.parse_args()
     root = scene_dir(args.scene)
@@ -93,12 +112,7 @@ def main() -> int:
     shell = json.loads(shell_path.read_text())
     scene = Scene.load(root / "scene.json")
     if args.revert:
-        prev = shell.pop("surfaces_previous_background", None)
-        shell["replaces_splats"] = False
-        if prev:
-            scene.background_ply, scene.background_lod = prev["ply"], prev["lod"]
-            scene.save(root / "scene.json")
-        shell_path.write_text(json.dumps(shell, indent=2))
+        revert(root, scene, shell)
         print(f"background back to {scene.background_ply}")
         return 0
 
@@ -139,6 +153,18 @@ def main() -> int:
         floaters[keep] = neighbour_counts(m[keep]) < args.min_neighbours
         keep &= ~floaters
     n = int(keep.sum())
+    if n > args.max_kept * len(keep) and not args.force:
+        # The room has structure the shell (vertical walls, flat ceiling) does not model:
+        # blender04's attic kept 25 % (its roof slopes), the box rooms 0.1 to 2 %. Its
+        # splats stay, and with them the scan's own walls.
+        revert(root, scene, shell)
+        shell["surfaces_skipped"] = (f"{n} of {len(keep)} background splats off the shell "
+                                     f"(over --max-kept {args.max_kept})")  # fmt: skip
+        shell_path.write_text(json.dumps(shell, indent=2))
+        print(f"not a box room: {shell['surfaces_skipped']}; background left at "
+              f"{scene.background_ply} (--force applies it)")  # fmt: skip
+        return 0
+    shell.pop("surfaces_skipped", None)
     if scene.background_ply != OUT:
         shell["surfaces_previous_background"] = {"ply": scene.background_ply,
                                                  "lod": scene.background_lod}  # fmt: skip
