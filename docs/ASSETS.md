@@ -56,3 +56,38 @@ ships with the project. Cycles' denoiser, Intel OpenImageDenoise (Apache-2.0), i
 learned network. It cleans the offline renders that make the test video; no product
 stage calls it (allowed by OJ, decision D19 in `docs/HANDOFF.md`).
 `--samples 128 --no-denoise` renders without it.
+
+## `blender06`, the realistic bedroom (2 Nov)
+
+Built by `scripts/blender_bedroom.py`, meant as the main synthetic test room. New assets,
+all downloaded by `scripts/blender_assets.py`. It also reuses Painted Wooden Nightstand,
+Potted Plant 02, Potted Plant 04 and Book Encyclopedia Set 01 from the tables above.
+
+| Asset | Kind (res.) | Author(s) | Licence | Role in `blender06` |
+|---|---|---|---|---|
+| [Painted Wooden Chair 01](https://polyhaven.com/a/painted_wooden_chair_01) | model (2k) | Kuutti Siitonen | CC0 | desk chair |
+| [Desk Lamp Arm 01](https://polyhaven.com/a/desk_lamp_arm_01) | model (2k) | Kuutti Siitonen, Yann Kervran | CC0 | desk lamp |
+| [Alarm Clock 01](https://polyhaven.com/a/alarm_clock_01) | model (1k) | James Ray Cock, Yann Kervran | CC0 | alarm clock on the nightstand |
+| [Carved Wooden Elephant](https://polyhaven.com/a/carved_wooden_elephant) | model (1k) | Greg Zaal | CC0 | elephant on the chest of drawers |
+| [Ukulele 01](https://polyhaven.com/a/Ukulele_01) | model (2k) | Joseph Burgan | CC0 | ukulele leaning on the east wall |
+| [Wicker Basket 02](https://polyhaven.com/a/wicker_basket_02) | model (2k) | Kuutti Siitonen | CC0 | laundry basket |
+| [Modern Ceiling Lamp 01](https://polyhaven.com/a/modern_ceiling_lamp_01) | model (1k) | James Ray Cock | CC0 | pendant lamp (scaled 0.7, unlit by default) |
+| [Wall Clock](https://polyhaven.com/a/wall_clock) | model (1k) | PierreB3D | CC0 | wall clock above the chest of drawers |
+| [Standing Picture Frame 01](https://polyhaven.com/a/standing_picture_frame_01) | model (1k) | James Ray Cock | CC0 | photo frame on the wall shelf (its glass faces removed) |
+| [Wood Floor](https://polyhaven.com/a/wood_floor) | texture (2k) | Dimitrios Savva | CC0 | floor |
+| [White Stucco](https://polyhaven.com/a/white_stucco) | texture (2k) | Amal Kumar | CC0 | walls (warm white, sage-green accent wall) and ceiling |
+| [White Oak Veneer](https://polyhaven.com/a/white_oak_veneer) | texture (2k) | Jenelle van Heerden | CC0 | bed frame, desk top, shelf, chest of drawers |
+| [Poly Wool Herringbone](https://polyhaven.com/a/poly_wool_herringbone) | texture (2k) | Rico Cilliers, colormass | CC0 | headboard, rug |
+| [Rough Linen](https://polyhaven.com/a/rough_linen) | texture (2k) | Rico Cilliers, colormass | CC0 | duvet, pillow case, curtains |
+| [Waffle Pique Cotton](https://polyhaven.com/a/waffle_pique_cotton) | texture (2k) | Rico Cilliers, colormass | CC0 | throw at the foot of the bed |
+| [Cotton Jersey](https://polyhaven.com/a/cotton_jersey) | texture (2k) | Rico Cilliers, colormass | CC0 | fitted sheet, sweater on the chair |
+| [Eilenriede Park](https://polyhaven.com/a/eilenriede_park) | HDRI (4k) | Greg Zaal | CC0 | the park outside the window and the daylight |
+| [The Great Wave off Kanagawa](https://commons.wikimedia.org/wiki/File:Tsunami_by_hokusai_19th_century.jpg) | image (1920 px) | Katsushika Hokusai, Wikimedia Commons | Public domain | framed print above the bed |
+| [Earthrise](https://commons.wikimedia.org/wiki/File:NASA-Apollo8-Dec24-Earthrise.jpg) | image (1920 px) | NASA / Bill Anders (Apollo 8), Wikimedia Commons | Public domain | framed print above the desk |
+
+Built in `scripts/blender_bedroom.py` (no third-party geometry): the room shell with the
+window hole and reveal, the casement window, door, radiator, skirting, switch and sockets,
+the bed (frame, upholstered headboard, mattress, pillow; duvet, throw and sweater draped
+with Blender's cloth solver), the chest of drawers, desk, wall shelf, books, laptop (its
+screen image is drawn by the script), mouse, mug, notebook and pen, waste
+bin, backpack, rug, curtains and rod, the tin robot and the two action figures.

@@ -1,16 +1,19 @@
-"""Download the CC0 Poly Haven assets for the synthetic Blender rooms (blender01 to blender04).
+"""Download the CC0 Poly Haven assets for the synthetic Blender rooms (blender01 to blender06).
 
     uv run python scripts/blender_assets.py            # -> data/assets/<asset>/ + assets.json
 
-Models come as glTF (textures alongside), floor and wall textures as JPG maps. Every
-Poly Haven asset is CC0; the script records name, URL, author and licence per asset in
-data/assets/assets.json, which docs/ASSETS.md mirrors. Skips files that already exist.
+Models come as glTF (textures alongside), floor, wall and fabric textures as JPG maps, the
+sky outside the blender06 window as an HDR. Every Poly Haven asset is CC0. The two
+blender06 posters are public-domain images from Wikimedia Commons (POSTERS). The script
+records name, URL, author and licence per asset in data/assets/assets.json, which
+docs/ASSETS.md mirrors. Skips files that already exist.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 import urllib.request
 from pathlib import Path
@@ -42,8 +45,36 @@ MODELS = {
     "potted_plant_02": "2k",
     "ceramic_vase_03": "1k",
     "horse_statue_01": "1k",
+    # blender06 (the realistic bedroom, scripts/blender_bedroom.py)
+    "painted_wooden_chair_01": "2k",
+    "desk_lamp_arm_01": "2k",
+    "alarm_clock_01": "1k",
+    "carved_wooden_elephant": "1k",
+    "Ukulele_01": "2k",
+    "wicker_basket_02": "2k",
+    "modern_ceiling_lamp_01": "1k",
+    "wall_clock": "1k",
+    "standing_picture_frame_01": "1k",
 }
-TEXTURES = {"laminate_floor_02": "2k", "beige_wall_001": "2k"}
+TEXTURES = {
+    "laminate_floor_02": "2k",
+    "beige_wall_001": "2k",
+    # blender06
+    "wood_floor": "2k",
+    "white_stucco": "2k",
+    "white_oak_veneer": "2k",
+    "poly_wool_herringbone": "2k",
+    "rough_linen": "2k",
+    "waffle_pique_cotton": "2k",
+    "cotton_jersey": "2k",
+}
+HDRIS = {"eilenriede_park": "4k"}  # blender06: the view out of the window
+# blender06 posters: Wikimedia Commons file -> local name. Both are public domain.
+COMMONS = "https://commons.wikimedia.org/w/api.php"
+POSTERS = {
+    "Tsunami_by_hokusai_19th_century.jpg": "poster_great_wave",
+    "NASA-Apollo8-Dec24-Earthrise.jpg": "poster_earthrise",
+}
 TEXTURE_MAPS = ("Diffuse", "nor_gl", "Rough")
 
 
@@ -60,6 +91,38 @@ def fetch(url: str, dest: Path) -> None:
     with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=120) as r:
         tmp.write_bytes(r.read())
     tmp.replace(dest)
+
+
+def fetch_posters(out: Path) -> list[dict]:
+    """Download the poster images (1920 px wide) and check that Commons lists each one as
+    public domain."""
+    records = []
+    for title, name in POSTERS.items():
+        q = (
+            f"{COMMONS}?action=query&format=json&prop=imageinfo&iiprop=url|extmetadata"
+            f"&iiurlwidth=1920&titles=File:{title}"
+        )
+        info = next(iter(get_json(q)["query"]["pages"].values()))["imageinfo"][0]
+        meta = info["extmetadata"]
+        licence = meta["LicenseShortName"]["value"]
+        if licence.lower() != "public domain":
+            raise SystemExit(f"{title}: licence {licence!r}, expected public domain")
+        fetch(info["thumburl"], out / "posters" / f"{name}.jpg")
+        artist = re.sub(r"<[^>]+>", "", meta.get("Artist", {}).get("value", "")).strip()
+        records.append(
+            {
+                "id": name,
+                "name": title,
+                "kind": "poster",
+                "resolution": "1920px",
+                "authors": [artist],
+                "url": info["descriptionurl"],
+                "license": "Public domain",
+                "path": f"posters/{name}.jpg",
+            }
+        )
+        print(f"poster {name} ({licence})")
+    return records
 
 
 def main() -> int:
@@ -84,6 +147,12 @@ def main() -> int:
             fetch(url, root / url.rsplit("/", 1)[1])
         records.append((asset, "texture", res, root))
         print(f"texture {asset} ({res})")
+    for asset, res in HDRIS.items():
+        url = get_json(f"{API}/files/{asset}")["hdri"][res]["hdr"]["url"]
+        root = args.out / asset
+        fetch(url, root / url.rsplit("/", 1)[1])
+        records.append((asset, "hdri", res, root))
+        print(f"hdri {asset} ({res})")
 
     manifest = []
     for asset, kind, res, path in records:
@@ -100,6 +169,7 @@ def main() -> int:
                 "path": path.relative_to(args.out).as_posix(),
             }
         )
+    manifest += fetch_posters(args.out)
     (args.out / "assets.json").write_text(json.dumps(manifest, indent=2))
     print(f"{len(manifest)} assets -> {args.out}")
     return 0

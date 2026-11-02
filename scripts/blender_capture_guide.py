@@ -139,8 +139,37 @@ PHASES_04 = {
           "Film it right after the main capture, same light."]),
     ],
 }  # fmt: skip
+PHASES_06 = {
+    "main": [
+        (0.0, 24.0, "1/5  Chest-height loop south of the bed",
+         ["Walk the free floor: from the door along the chest of drawers,",
+          "back along the bed foot, up between the bed and the desk to",
+          "the chair, and down the desk side. Phone at 1.5 m, a little down",
+          "(about 20 deg), panning slowly once round the walls."]),
+        (24.0, 26.0, "2/5  Crouch",
+         ["Lower the phone to knee height.",
+          "Keep filming, keep the phone pointed across the room."]),
+        (26.0, 38.0, "3/5  Knee-height loop",
+         ["A loop in the open floor by the door at 0.6 m,",
+          "phone nearly level, aimed at the bed side and the desk,",
+          "so the sides of the bed and under the desk are seen."]),
+        (38.0, 40.0, "4/5  Stand up",
+         ["Stand up again at the start of the first loop.",
+          "Keep filming, tilt the phone a little up."]),
+        (40.0, 54.0, "5/5  Upward loop",
+         ["Walk the first loop again, phone at 1.5 m,",
+          "pointing into the room and about 15 deg UP,",
+          "so the tops of the walls and the ceiling are seen."]),
+    ],
+    "test": [
+        (0.0, 20.0, "Test walk (never used for training)",
+         ["A loop at 1.2 m south of the bed, the phone sweeping a ring",
+          "of furniture from angles the main loop did not use.",
+          "Film it right after the main capture, same light."]),
+    ],
+}  # fmt: skip
 PHASES = {"blender01": PHASES_01, "blender02": PHASES_02, "blender03": PHASES_03,
-          "blender04": PHASES_04, "blender05": PHASES_01}  # fmt: skip
+          "blender04": PHASES_04, "blender05": PHASES_01, "blender06": PHASES_06}  # fmt: skip
 TIPS = [
     "Before filming: lock focus and exposure (long-press on iPhone), 1080p60 or 4K30,",
     "lamps on, curtains still, no people or pets, screens off. Move slowly, no fast turns.",
