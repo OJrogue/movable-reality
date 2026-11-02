@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { backdropParts, backdropStretch, nextStyle, parseStyle, roomFiles, unseenCeilings } from "./index";
+import { shadowAlpha, shadowRect } from "./shadows";
 
 describe("roomFiles", () => {
   it("prefers the shell quads, then the room mesh", () => {
@@ -61,6 +62,37 @@ describe("backdropParts", () => {
     expect(parts[0].offset[2]).toBeCloseTo(-0.05);
     expect(Math.hypot(...parts[1].offset)).toBeCloseTo(0.05);
     expect(parts[2].offset).toEqual([0, 0, 0]);
+  });
+});
+
+describe("backdropParts with a shell that replaces the splats", () => {
+  it("draws every surface in its own plane, seen or not", () => {
+    const r = {
+      replaces_splats: true,
+      surfaces: [
+        { glb: "f.glb", kind: "floor", seen_share: 0.9, normal: [0, 1, 0] },
+        { glb: "c.glb", kind: "ceiling", seen_share: 0.5, normal: [0, -1, 0] },
+        { glb: "w0.glb", kind: "wall", seen_share: 0.6, normal: [0, 0, 1] },
+      ],
+    };
+    const parts = backdropParts(r, 0.05);
+    expect(parts.map((p) => p.glb)).toEqual(["f.glb", "c.glb", "w0.glb"]);
+    for (const p of parts) expect(p.offset).toEqual([0, 0, 0]);
+  });
+});
+
+describe("contact shadows", () => {
+  it("only floor-standing objects get a footprint", () => {
+    expect(shadowRect({ bbox_min: [0, 0.01, 0], bbox_max: [1, 0.5, 2] })).toEqual({ cx: 0.5, cz: 1, sx: 1, sz: 2 });
+    expect(shadowRect({ bbox_min: [0, 1.2, 0], bbox_max: [0.3, 1.5, 0.3] })).toBeNull();
+  });
+  it("is dark inside the footprint and fades to nothing past the feather", () => {
+    const r = { cx: 0, cz: 0, sx: 1, sz: 1 };
+    expect(shadowAlpha(0, 0, r, 0.4)).toBeCloseTo(0.4);
+    expect(shadowAlpha(0.5 + 0.12, 0, r, 0.4, 0.12, 0.06)).toBeCloseTo(0);
+    const mid = shadowAlpha(0.5, 0, r, 0.4, 0.12, 0.06);
+    expect(mid).toBeGreaterThan(0);
+    expect(mid).toBeLessThan(0.4);
   });
 });
 

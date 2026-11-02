@@ -212,6 +212,40 @@ function benchEndpoint(): Plugin {
   };
 }
 
+/**
+ * Dev only: POST /__eval?scene=<id>&run=<name>&view=<name> with a PNG data URL writes
+ * data/scenes/<id>/eval/viewer/<run>/<view>.png (viewer frames at GT poses, scored by
+ * scripts/blender_viewer_eval.py).
+ */
+function evalEndpoint(): Plugin {
+  const safe = (s: string | null) => (s && /^[\w.-]+$/.test(s) ? s : null);
+  return {
+    name: "eval-endpoint",
+    configureServer(server) {
+      server.middlewares.use("/__eval", async (req, res) => {
+        const q = new URL(req.url ?? "/", "http://x").searchParams;
+        const [scene, run, view] = [safe(q.get("scene")), safe(q.get("run")), safe(q.get("view"))];
+        res.setHeader("Content-Type", "application/json");
+        if (req.method !== "POST" || !scene || !run || !view) {
+          res.statusCode = 400;
+          return res.end(JSON.stringify({ error: "POST ?scene=&run=&view= with a PNG data URL" }));
+        }
+        try {
+          const text = await readBody(req);
+          const b64 = text.replace(/^data:image\/png;base64,/, "");
+          const dir = join(SCENES_DIR, scene, "eval", "viewer", run);
+          mkdirSync(dir, { recursive: true });
+          writeFileSync(join(dir, `${view}.png`), Buffer.from(b64, "base64"));
+          res.end(JSON.stringify({ ok: true }));
+        } catch (e) {
+          res.statusCode = 400;
+          res.end(JSON.stringify({ error: String(e) }));
+        }
+      });
+    },
+  };
+}
+
 // Dev only: /r0 serves the R0 run menu (src/bench/menu.ts; Vite compiles the module).
 const MENU_HTML = `<!doctype html>
 <html lang="en"><head><meta charset="UTF-8" />
@@ -239,7 +273,7 @@ function runMenu(): Plugin {
 const https = process.env.MR_HTTPS === "1";
 
 export default defineConfig({
-  plugins: [serveLocalScenes(), benchEndpoint(), runMenu(), ...(https ? [basicSsl()] : [])],
+  plugins: [serveLocalScenes(), benchEndpoint(), evalEndpoint(), runMenu(), ...(https ? [basicSsl()] : [])],
   server: {
     port: 5173,
     host: https ? true : undefined,

@@ -155,3 +155,92 @@ def test_unseen_ceiling_takes_the_upper_wall_colour():
                            fallback=upper)  # fmt: skip
     assert dark[..., :3].max() == 0
     assert np.allclose(lit[..., :3], lit[0, 0, :3]) and lit[0, 0, 0] > 150
+
+
+# ---- surface artifacts (room_shell.py depth test and fill, room_surfaces.py)
+
+SQ = np.array([[0.0, 0.0], [4.0, 0.0], [4.0, 3.0], [0.0, 3.0]])
+
+
+def test_surface_distance_inside_and_outside():
+    pts = np.array([[2.0, 1.0, 1.5], [2.0, 0.02, 1.5], [0.05, 1.0, 1.5], [2.0, -0.1, 1.5],
+                    [-0.3, 1.0, 1.5], [2.0, 2.45, 1.5]])  # fmt: skip
+    d = roomshell.surface_distance(pts, SQ, 2.5)
+    assert np.allclose(d, [1.0, 0.02, 0.05, -0.1, -0.3, 0.05])
+
+
+def test_occluder_zbuffer_nearest_depth_and_grow():
+    K = np.array([[100.0, 0, 50], [0, 100.0, 50], [0, 0, 1]])
+    pts = np.array([[0.0, 0.0, 2.0], [0.0, 0.0, 3.0]])  # both on the principal ray
+    z = roomshell.occluder_zbuffer(pts, K, (100, 100), cell=4, grow=1)
+    assert z.shape == (100, 100)
+    assert z[50, 50] == 2.0
+    assert z[50, 54] == 2.0  # one cell away, closed by grow
+    assert np.isinf(z[0, 0])
+
+
+def test_projector_drops_texels_behind_an_occluder():
+    K = np.array([[50.0, 0, 32], [0, 50.0, 32], [0, 0, 1]])
+    pts = np.array([[0.0, 0.0, 2.0], [0.6, 0.0, 2.0]])  # a wall 2 m ahead, normal to camera
+    img = np.full((64, 64, 3), 200, np.uint8)
+    view = roomshell.View(K, np.eye(3), np.zeros(3), np.zeros(3), img, None,
+                          zbuf=np.full((64, 64), np.inf), z_margin=0.05)  # fmt: skip
+    view.zbuf[:, :40] = 1.0  # a chair at 1 m covers the left of the image
+    pr = roomshell.Projector(pts, np.array([0.0, 0.0, -1.0]))
+    assert pr.add(view) == 1  # only the texel at x = 0.6 m (u = 47) is seen
+    _, seen = pr.result((1, 2))
+    assert seen.tolist() == [[0.0, 1.0]]
+
+
+def test_hole_mask_includes_footprint_and_islands():
+    seen = np.ones((20, 20))
+    seen[5:12, 5:12] = 0
+    seen[8, 8] = 1  # a stray sample in the hole
+    keep = np.ones((20, 20), bool)
+    foot = np.zeros((20, 20), bool)
+    foot[15, 15] = True
+    m = roomshell.hole_mask(seen, keep, foot, grow=0)
+    assert m[8, 8] and m[15, 15] and not m[0, 0]
+
+
+def test_footprint_mask_marks_floor_under_furniture():
+    s = roomshell.surfaces(SQ, 2.5)[0]
+    assert s.kind == "floor"
+    shape = (30, 40)  # 0.1 m texels
+    chair = np.array([[1.05, 0.3, 1.05], [1.05, 3.0, 2.05]])  # the second is above `reach`
+    m = roomshell.footprint_mask(s, chair, shape, reach=1.2, grow_m=0.0)
+    assert m.sum() == 9  # one texel grown by 1
+    rel = chair[0] - s.origin
+    v = int(rel @ s.v / s.size_v * shape[0])
+    u = int(rel @ s.u / s.size_u * shape[1])
+    assert m[v, u]
+
+
+def test_copy_fill_continues_stripes():
+    h, w = 40, 80  # room for a whole-period offset with its ring in bounds
+    stripes = ((np.arange(w) // 4) % 2 * 120 + 60).astype(np.uint8)
+    rgb = np.repeat(np.repeat(stripes[None, :, None], h, 0), 3, 2)
+    holes = np.zeros((h, w), bool)
+    holes[15:25, 20:32] = True
+    damaged = rgb.copy()
+    damaged[holes] = 0
+    out = roomshell.copy_fill(damaged, holes, np.ones((h, w), bool), step=1)
+    err = np.abs(out[holes].astype(int) - rgb[holes].astype(int)).mean()
+    assert err < 5  # planks continue in line, not a blur
+
+
+def test_surface_splats_reach_outside_and_haze():
+    pts = np.array([[2.0, 1.2, 1.5], [2.0, 1.2, 0.3], [2.0, 1.2, 0.3], [-0.5, 1.0, 1.0],
+                    [2.0, 1.2, 1.5]])  # fmt: skip
+    size = np.array([0.02, 0.02, 0.15, 0.02, 0.2])  # the third reaches the wall at z = 0
+    opacity = np.array([0.9, 0.9, 0.9, 0.9, 0.1])  # the last is a faint 20 cm blob: haze
+    gone = roomshell.surface_splats(pts, size, opacity, SQ, 2.5)
+    assert gone.tolist() == [False, False, True, True, True]
+
+
+def test_neighbour_counts_flags_isolated_points():
+    rng = np.random.default_rng(0)
+    cluster = rng.uniform(0.0, 0.1, size=(50, 3))
+    lone = np.array([[1.0, 1.0, 1.0]])
+    n = roomshell.neighbour_counts(np.vstack([cluster, lone]), cell=0.1)
+    assert n[-1] == 1 and n[:-1].min() >= 50

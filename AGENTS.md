@@ -216,6 +216,14 @@ uv run python scripts/complete_objects.py --scene room01 --mesh   # core: + obj_
 # core viewer: ?objects=auto|scan|completed|mesh|meshonly compares scanned splats, SAM 3D splats and SAM 3D meshes; meshonly also draws the room as a mesh and hides every splat; key V or the label cycles
 uv run python scripts/room_shell.py --scene blender01   # core: room as textured wall, floor and ceiling quads from the frames -> room/shell_*.glb, scene.room_planes (--texel, --height)
 uv run modal run modal_jobs/reconstruct.py --scene blender01 --room-mesh   # core: TSDF room mesh from the background splats -> room/room_mesh.glb (meshonly fallback)
+uv run python scripts/room_surfaces.py --scene blender01   # core: the shell replaces wall, floor and ceiling splats -> objects/background_room.ply (--gap, --revert); then build_lod.py
+# core room_shell.py: depth-tested projection, furniture footprints and shadows regenerated (--fill copy|muse|pushpull, --reuse-projection)
+uv run python scripts/blender_viewer_eval.py views --scene blender01   # eval: GT test cameras -> eval/viewer_views.json
+# eval in the viewer (dev server, 960x540): /?scene=blender01&pristine=1&hud=0&budget=0&onboarding=0&server=0, then await mrEvalRun("<run>") in the console
+uv run python scripts/blender_viewer_eval.py score --scene blender01 --run <run>   # eval: artifact share on GT wall/floor/ceiling pixels (sheet: contact sheet)
+uv run python scripts/artifact_judge.py --scene blender01 --run <run> --model spark   # eval: Meta vision judge lists surface artifacts (no GT needed; wonder|open)
+uv run modal run modal_jobs/blender.py --scene blender02   # blender: render both walks + GT on Modal GPUs in parallel chunks (--chunk, --samples)
+# viewer: ?pristine=1 ignores scene edits (page only), ?shadows=0 turns the contact shadows off, window.mrCamera(c2wRows, fovDeg)
 ```
 
 Lanes add their own commands here in their PR.

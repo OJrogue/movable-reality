@@ -343,6 +343,72 @@ def surfaces(poly: np.ndarray, height: float) -> list[Surface]:
 # ---- texture
 
 
+def surface_distance(pts: np.ndarray, poly: np.ndarray, height: float) -> np.ndarray:
+    """Distance (world units) from each world point to the nearest room surface: the floor
+    y = 0, the ceiling y = height and the walls along the outline. Points outside the
+    outline, below the floor or above the ceiling get a negative distance."""
+    p = np.asarray(pts, dtype=np.float64)
+    d = np.minimum(p[:, 1], height - p[:, 1])
+    xz = p[:, [0, 2]]
+    wall = np.full(len(p), np.inf)
+    for a, b in zip(poly, np.roll(poly, -1, axis=0), strict=True):
+        e = b - a
+        t = np.clip(((xz - a) @ e) / max(float(e @ e), 1e-12), 0.0, 1.0)
+        wall = np.minimum(wall, np.linalg.norm(xz - (a + t[:, None] * e), axis=1))
+    inside = inside_polygon(xz, poly)
+    return np.where(inside, np.minimum(d, wall), -np.minimum(np.abs(d), wall))
+
+
+def surface_splats(pts: np.ndarray, size: np.ndarray, opacity: np.ndarray, poly: np.ndarray,
+                   height: float, gap: float = 0.06, reach: float = 2.0,
+                   haze_scale: float = 0.10, haze_opacity: float = 0.3) -> np.ndarray:  # fmt: skip
+    """Bool per splat (world centres, largest axis `size` in metres): True for the splats the
+    room shell replaces. A splat goes when its extent (`reach` sigmas) comes within `gap` of a
+    surface, when it lies outside the room, or when it is haze (larger than `haze_scale` and
+    fainter than `haze_opacity`)."""
+    d = surface_distance(pts, poly, height)
+    haze = (size > haze_scale) & (opacity < haze_opacity)
+    return (d - reach * size <= gap) | haze
+
+
+def neighbour_counts(pts: np.ndarray, cell: float = 0.1) -> np.ndarray:
+    """Per point, the number of points (itself included) in the 3 x 3 x 3 grid cells of size
+    `cell` around its own. A splat with only a few is a floater (blender01: coloured 7 cm
+    blobs 25 cm in front of the unfilmed upper walls, 2 or 3 neighbours)."""
+    key = np.floor(np.asarray(pts, dtype=np.float64) / cell).astype(np.int64)
+    uniq, inv, cnt = np.unique(key, axis=0, return_inverse=True, return_counts=True)
+    inv = inv.ravel()
+    lookup = {tuple(k): c for k, c in zip(uniq.tolist(), cnt.tolist(), strict=True)}
+    out = np.zeros(len(key), dtype=np.int64)
+    offs = [(a, b, c) for a in (-1, 0, 1) for b in (-1, 0, 1) for c in (-1, 0, 1)]
+    per_cell = np.array([sum(lookup.get((x + a, y + b, z + c), 0) for a, b, c in offs)
+                         for x, y, z in uniq.tolist()])  # fmt: skip
+    out[:] = per_cell[inv]
+    return out
+
+
+def occluder_zbuffer(pts_cam: np.ndarray, K: np.ndarray, shape: tuple[int, int],
+                     cell: int = 4, grow: int = 2) -> np.ndarray:  # fmt: skip
+    """Nearest depth of the occluder points (camera frame, +Z forward) on a grid of
+    `cell` x `cell` pixel cells, min-filtered by `grow` cells so a cloud of splat centres
+    closes into a surface. Upsampled to `shape` (H, W); inf where nothing is in front."""
+    h, w = shape
+    gh, gw = -(-h // cell), -(-w // cell)
+    z = pts_cam[:, 2]
+    ok = z > 1e-6
+    uv = pts_cam[ok, :2] / z[ok, None] @ K[:2, :2].T + K[:2, 2]
+    u, v = np.floor(uv[:, 0] / cell).astype(int), np.floor(uv[:, 1] / cell).astype(int)
+    inb = (u >= 0) & (u < gw) & (v >= 0) & (v < gh)
+    buf = np.full(gh * gw, np.inf)
+    np.minimum.at(buf, v[inb] * gw + u[inb], z[ok][inb])
+    buf = buf.reshape(gh, gw)
+    if grow:
+        k = 2 * grow + 1
+        pad = np.pad(buf, grow, mode="edge")
+        buf = np.lib.stride_tricks.sliding_window_view(pad, (k, k)).min(axis=(2, 3))
+    return np.repeat(np.repeat(buf, cell, 0), cell, 1)[:h, :w]
+
+
 @dataclass
 class View:
     K: np.ndarray
@@ -352,6 +418,8 @@ class View:
     image: np.ndarray  # (H, W, 3) uint8
     blocked: np.ndarray | None  # (H, W) bool, pixels that hide the room (furniture)
     near: float = 0.1  # nearest camera depth used, in the units of R, t
+    zbuf: np.ndarray | None = None  # (H, W) nearest occluder depth (occluder_zbuffer)
+    z_margin: float = 0.0  # a texel this far behind the occluder depth counts as hidden
 
 
 class Projector:
@@ -379,6 +447,8 @@ class Projector:
         idx = np.flatnonzero(ok)
         if view.blocked is not None:
             idx = idx[~view.blocked[v[idx], u[idx]]]
+        if view.zbuf is not None:  # something not on a room surface stands in front
+            idx = idx[z[idx] < view.zbuf[v[idx], u[idx]] + view.z_margin]
         s = cos[idx] / np.maximum(dist[idx], 1e-6)
         slot = np.argmin(self.score[idx], axis=1)
         better = s > self.score[idx, slot]
@@ -401,6 +471,210 @@ class Projector:
 
 UNSEEN_SHARE = 0.02  # a surface seen less than this gets the fallback colour
 
+FILL_PROMPT = (
+    "This is a flat, straight-on texture of the {kind} of a real room, made from photos. The "
+    "areas painted magenta were hidden behind furniture and never photographed. Fill only "
+    "the magenta areas with the same {kind} surface, continuing its material, pattern "
+    "(planks, tiles, grain or paint) with the same alignment, colour and soft lighting as the "
+    "surrounding pixels. No furniture, no objects, no shadows of objects, no text. Keep every "
+    "non-magenta pixel and the framing exactly as they are."
+)
+
+
+def hole_mask(seen: np.ndarray, keep: np.ndarray, footprint: np.ndarray | None = None,
+              grow: int = 2, island: int = 4) -> np.ndarray:  # fmt: skip
+    """Texels to generate inside the outline: unseen ones, the `footprint` (furniture and its
+    shadow, footprint_mask), and seen texels whose (2 * island + 1)^2 neighbourhood is mostly
+    unseen (speckles of stray samples along a hole's edge). Grown by `grow` texels so the
+    seam against a hole's blurred rim is replaced too."""
+    bad = seen <= 0
+    if footprint is not None:
+        bad |= footprint
+    if island:
+        k = 2 * island + 1
+        frac = np.lib.stride_tricks.sliding_window_view(
+            np.pad(bad.astype(np.float32), island, mode="edge"), (k, k)
+        ).mean(axis=(2, 3))
+        bad |= frac > 0.5
+    return _grow(bad & keep, grow) & keep
+
+
+def _grow(m: np.ndarray, r: int) -> np.ndarray:
+    if r <= 0 or not m.any():
+        return m
+    k = 2 * r + 1
+    return np.lib.stride_tricks.sliding_window_view(np.pad(m, r), (k, k)).any(axis=(2, 3))
+
+
+def footprint_mask(s: Surface, pts: np.ndarray, shape: tuple[int, int], reach: float,
+                   grow_m: float) -> np.ndarray:  # fmt: skip
+    """(H, W) texels of surface `s` that have an occluder point (furniture, world frame) in
+    front of them within `reach` metres along the normal, grown by `grow_m`. The floor under
+    and around furniture, and the wall behind it, hold its shadow: those texels are
+    regenerated, or the shadow stays behind as a stain when the furniture moves."""
+    h, w = shape
+    rel = np.asarray(pts, dtype=np.float64) - s.origin
+    d = rel @ s.normal
+    sel = (d > 0) & (d < reach)
+    u = np.floor(rel[sel] @ s.u / s.size_u * w).astype(int)
+    v = np.floor(rel[sel] @ s.v / s.size_v * h).astype(int)
+    inb = (u >= 0) & (u < w) & (v >= 0) & (v < h)
+    m = np.zeros((h, w), dtype=bool)
+    m[v[inb], u[inb]] = True
+    m = _grow(m, 1)  # close the gaps between splat centres
+    return _grow(m, max(0, round(grow_m / (s.size_u / w))))
+
+
+def shadow_mask(rgb: np.ndarray, good: np.ndarray, near: np.ndarray, cell: int = 24,
+                drop: float = 0.18) -> np.ndarray:  # fmt: skip
+    """(H, W) real texels in a furniture shadow: within `near` (texels close to a footprint)
+    and more than `drop` darker than the surface's local bright level, the 80th percentile
+    luminance of the real texels in `cell` x `cell` blocks, taken as the max over each
+    block's 3 x 3 neighbourhood and blended back to texels. Plain paint and plank floors
+    vary far less than a cast shadow."""
+    h, w = good.shape
+    lum = rgb.astype(np.float64) @ [0.299, 0.587, 0.114]
+    gh, gw = -(-h // cell), -(-w // cell)
+    ref = np.full((gh, gw), np.nan)
+    for i in range(gh):
+        for j in range(gw):
+            blk = (slice(i * cell, (i + 1) * cell), slice(j * cell, (j + 1) * cell))
+            v = lum[blk][good[blk]]
+            if len(v) >= cell:
+                ref[i, j] = np.percentile(v, 80)
+    if np.isnan(ref).all():
+        return np.zeros((h, w), dtype=bool)
+    ref = np.where(np.isnan(ref), np.nanmedian(ref), ref)
+    pad = np.pad(ref, 1, mode="edge")
+    ref = np.lib.stride_tricks.sliding_window_view(pad, (3, 3)).max(axis=(2, 3))
+    full = np.repeat(np.repeat(ref, cell, 0), cell, 1)[:h, :w]
+    full = _box_blur(full[..., None], cell // 2)[..., 0]
+    return near & good & (lum < (1 - drop) * full)
+
+
+def match_colour(
+    filled: np.ndarray, base: np.ndarray, holes: np.ndarray, ring: int = 8
+) -> np.ndarray:
+    """`filled` with its hole texels shifted and scaled per channel to the mean and spread
+    of the real texels in a `ring` around the holes (Muse Image drifts in brightness)."""
+    band = _grow(holes, ring) & ~holes
+    if band.sum() < 50:
+        return filled
+    f = filled.astype(np.float64)
+    src, ref = f[holes], base[band].astype(np.float64)
+    gain = np.clip(ref.std(0) / np.maximum(src.std(0), 1e-6), 0.5, 2.0)
+    f[holes] = (src - src.mean(0)) * gain + ref.mean(0)
+    return np.clip(np.round(f), 0, 255).astype(np.uint8)
+
+
+def _box_blur(img: np.ndarray, r: int) -> np.ndarray:
+    """Mean over a (2r + 1)^2 window (edges clamped), by cumulative sums."""
+    k = 2 * r + 1
+    p = np.pad(img.astype(np.float64), ((r + 1, r), (r + 1, r), (0, 0)), mode="edge")
+    c = p.cumsum(0).cumsum(1)
+    return (c[k:, k:] - c[:-k, k:] - c[k:, :-k] + c[:-k, :-k]) / (k * k)
+
+
+def components(m: np.ndarray) -> list[np.ndarray]:
+    """4-connected components of a bool mask, each as a bool mask (largest first)."""
+    lab = np.zeros(m.shape, dtype=np.int32)
+    out = []
+    h, w = m.shape
+    for seed in zip(*np.nonzero(m), strict=True):
+        if lab[seed]:
+            continue
+        n = len(out) + 1
+        stack, cells = [seed], []
+        lab[seed] = n
+        while stack:
+            y, x = stack.pop()
+            cells.append((y, x))
+            for yy, xx in ((y - 1, x), (y + 1, x), (y, x - 1), (y, x + 1)):
+                if 0 <= yy < h and 0 <= xx < w and m[yy, xx] and not lab[yy, xx]:
+                    lab[yy, xx] = n
+                    stack.append((yy, xx))
+        out.append(lab == n)
+    return sorted(out, key=lambda c: -int(c.sum()))
+
+
+def copy_fill(rgb: np.ndarray, holes: np.ndarray, keep: np.ndarray, ring: int = 6,
+              step: int = 3, detail_r: int = 10, max_shift: float = 0.06,
+              seed: int = 0) -> np.ndarray:  # fmt: skip
+    """Fill `holes` of a room-surface texture (H, W, 3) uint8 from the surface itself.
+
+    Per hole, the offset whose shifted copy lands on real texels (inside `keep`, not a
+    hole) and best matches the real texels in a `ring` around the hole (sum of squared
+    differences on a sample of the ring) is chosen, so planks and tiles continue in line.
+    The copy keeps its own colour and lighting; a smooth correction interpolated from the
+    rim mismatch (its `detail_r` box blur, clamped to +-`max_shift`) removes the seam
+    without letting a dark rim (a contact shadow) spread into the hole. No learned weights.
+    A hole with no valid offset takes push-pull from its rim."""
+    h, w = holes.shape
+    good = keep & ~holes
+    f = rgb.astype(np.float64) / 255.0
+    base = texture.push_pull(f * good[..., None], good.astype(np.float64))
+    out = np.where(holes[..., None], base, f)
+    rng = np.random.default_rng(seed)
+    for comp in components(holes):
+        band = _grow(comp, ring) & good
+        ys, xs = np.nonzero(comp)
+        by, bx = np.nonzero(band)
+        if len(by) == 0:
+            continue
+        pick = rng.choice(len(by), min(300, len(by)), replace=False)
+        by, bx = by[pick], bx[pick]
+        target = f[by, bx]
+        hy, hx = ys[:: max(1, len(ys) // 400)], xs[:: max(1, len(xs) // 400)]
+        best, best_off = np.inf, None
+        y0, y1, x0, x1 = ys.min(), ys.max(), xs.min(), xs.max()
+        for dy in range(-y0, h - y1, step):
+            for dx in range(-x0, w - x1, step):
+                if abs(dy) < y1 - y0 + ring and abs(dx) < x1 - x0 + ring:
+                    continue  # the copy would overlap the hole itself
+                if not good[hy + dy, hx + dx].mean() > 0.97:
+                    continue
+                yy, xx = by + dy, bx + dx
+                inb = (yy >= 0) & (yy < h) & (xx >= 0) & (xx < w)
+                if inb.mean() < 0.9:
+                    continue
+                e = float(((f[yy[inb], xx[inb]] - target[inb]) ** 2).mean())
+                if e < best:
+                    best, best_off = e, (dy, dx)
+        if best_off is None:
+            continue
+        dy, dx = best_off
+        ry0, ry1 = max(0, y0 - ring), min(h, y1 + ring + 1)
+        rx0, rx1 = max(0, x0 - ring), min(w, x1 + ring + 1)
+        sl = (slice(ry0, ry1), slice(rx0, rx1))
+        cy, cx = np.mgrid[ry0:ry1, rx0:rx1]
+        copy = f[np.clip(cy + dy, 0, h - 1), np.clip(cx + dx, 0, w - 1)]
+        rim = _grow(comp, ring)[sl] & good[sl]
+        diff = np.where(rim[..., None], f[sl] - copy, 0.0)
+        corr = texture.push_pull(diff, rim.astype(np.float64))
+        corr = np.clip(_box_blur(corr, detail_r), -max_shift, max_shift)
+        m = comp[sl]
+        out[sl][m] = (copy + corr)[m]
+    return texture.to_uint8(out)
+
+
+def size_hint(w: int, h: int) -> str:
+    """Muse Image's aspect hint closest to a w x h texture."""
+    r = w / h
+    return "1536x1024" if r > 1.25 else "1024x1536" if r < 0.8 else "1024x1024"
+
+
+def blend_fill(base: np.ndarray, filled: np.ndarray, mask: np.ndarray,
+               feather: int = 3) -> np.ndarray:  # fmt: skip
+    """`base` (H, W, 3) uint8 with the masked texels taken from `filled` (same size), the
+    weight ramping over `feather` texels outside the mask."""
+    w = mask.astype(np.float64)
+    for _ in range(feather):  # each pass grows the soft edge by one texel
+        pad = np.pad(w, 1, mode="edge")
+        grown = np.lib.stride_tricks.sliding_window_view(pad, (3, 3)).max(axis=(2, 3))
+        w = np.maximum(w, 0.7 * grown)
+    out = base.astype(np.float64) * (1 - w[..., None]) + filled.astype(np.float64) * w[..., None]
+    return np.clip(np.round(out), 0, 255).astype(np.uint8)
+
 
 def upper_wall_colour(walls: list[tuple[np.ndarray, np.ndarray]]) -> np.ndarray | None:
     """Median colour of the seen texels in the upper half of the walls (row 0 is the top).
@@ -410,20 +684,27 @@ def upper_wall_colour(walls: list[tuple[np.ndarray, np.ndarray]]) -> np.ndarray 
     return np.median(np.concatenate(px), axis=0) if px else None
 
 
+def outline_keep(outline_uv, size, shape: tuple[int, int]) -> np.ndarray:
+    """(H, W) bool, texels inside the outline (all of them without one)."""
+    h, w = shape
+    if outline_uv is None:
+        return np.ones((h, w), dtype=bool)
+    j, i = np.meshgrid((np.arange(w) + 0.5) * size[0] / w, (np.arange(h) + 0.5) * size[1] / h)
+    return inside_polygon(np.stack([j.ravel(), i.ravel()], 1), outline_uv).reshape(h, w)
+
+
 def finish(rgb: np.ndarray, seen: np.ndarray, outline_uv, texel: float, size,
            fallback: np.ndarray | None = None) -> np.ndarray:  # fmt: skip
     """RGBA uint8: unseen texels filled by push-pull, alpha 0 outside the outline. A surface
     seen less than UNSEEN_SHARE has nothing to push-pull from: its unseen texels take
     `fallback` (the upper wall colour) when given."""
-    h, w = seen.shape
-    keep = np.ones((h, w), dtype=bool)
-    if outline_uv is not None:
-        j, i = np.meshgrid((np.arange(w) + 0.5) * size[0] / w, (np.arange(h) + 0.5) * size[1] / h)
-        keep = inside_polygon(np.stack([j.ravel(), i.ravel()], 1), outline_uv).reshape(h, w)
+    keep = outline_keep(outline_uv, size, seen.shape)
     # Seen share inside the outline, as shell.json reports it and the viewer reads it.
     if fallback is not None and float(np.mean(seen[keep] > 0)) < UNSEEN_SHARE:
         rgb = np.where(seen[..., None] > 0, rgb, np.asarray(fallback, dtype=rgb.dtype))
         seen = np.ones_like(seen)
     img = texture.to_uint8(texture.push_pull(rgb * seen[..., None], seen))
-    alpha = np.where(keep, 255, 0).astype(np.uint8)  # keep is all True without an outline
+    # Opaque 2 texels past the outline: texels the edge cuts were clear, and filtered they
+    # left a dotted crack along the wall base (blender01, 2 Nov). The walls hide the rest.
+    alpha = np.where(_grow(keep, 2), 255, 0).astype(np.uint8)  # all True without an outline
     return np.dstack([img, alpha])

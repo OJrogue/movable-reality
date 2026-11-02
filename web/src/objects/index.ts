@@ -13,6 +13,7 @@ import * as THREE from "three";
 import { SplatMesh } from "@sparkjsdev/spark";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import type { ViewerContext } from "../context";
+import { makeShadow, shadowRect } from "./shadows";
 import { matrixFromRows, OBJECT_STYLES, type ObjectStyle, type SceneManifest, type SceneView } from "../scene";
 
 export function parseStyle(v: string | null): ObjectStyle {
@@ -26,6 +27,8 @@ export function nextStyle(s: ObjectStyle): ObjectStyle {
 /** room/shell.json as scripts/room_shell.py writes it (only the fields read here). */
 export interface ShellReport {
   surfaces?: { glb: string; kind: string; seen_share: number; normal?: number[] }[];
+  /** scripts/room_surfaces.py removed the scan's surface splats: the shell is the room. */
+  replaces_splats?: boolean;
 }
 
 /** Shell ceilings the capture never saw (their texture is the upper wall colour). */
@@ -33,7 +36,10 @@ export function unseenCeilings(r: ShellReport, minSeen = 0.02): string[] {
   return (r.surfaces ?? []).filter((s) => s.kind === "ceiling" && s.seen_share < minSeen).map((s) => s.glb);
 }
 
-/** The backdrop the splat styles draw behind the scan: each shell wall moved `push` metres
+/** When the shell replaces the surface splats (room_surfaces.py), every surface is drawn in
+ * its own plane: walls not pushed out, the floor not lowered, the ceiling drawn seen or not,
+ * and nothing is stretched. Otherwise: the backdrop the splat styles draw behind the scan,
+ * each shell wall moved `push` metres
  * out along its own normal, so the wall splats stay in front of it and hide it wherever the
  * scan has them, plus any unseen ceiling. A walk that never looks up leaves no splats above
  * about 2 m, so the room was open to black there, with the background's stray splats
@@ -43,6 +49,9 @@ export function backdropParts(
   r: ShellReport,
   push = 0.05,
 ): { glb: string; kind: string; offset: [number, number, number] }[] {
+  if (r.replaces_splats) {
+    return (r.surfaces ?? []).map((s) => ({ glb: s.glb, kind: s.kind, offset: [0, 0, 0] as [number, number, number] }));
+  }
   const walls = (r.surfaces ?? [])
     .filter((s) => s.kind === "wall" && s.normal?.length === 3)
     .map((s) => ({ glb: s.glb, kind: s.kind, offset: s.normal!.map((v) => -v * push) as [number, number, number] }));
@@ -161,6 +170,27 @@ export function installObjects(ctx: ViewerContext): ObjectsHandle {
     if (style === "meshonly") hideSplats();
   });
 
+  // Contact shadows (shadows.ts) under floor-standing objects, only over a shell floor.
+  // ?shadows=0 turns them off.
+  const shadows = new Map<string, THREE.Mesh>();
+  const shadowsOn = new URLSearchParams(location.search).get("shadows") !== "0";
+  const syncShadows = () => {
+    if (!view || !manifest || !shadowsOn) return;
+    for (const o of manifest.objects) {
+      const node = view.objectNode(o.id);
+      let sh = shadows.get(o.id);
+      if (!sh && node) {
+        const r = shadowRect(o);
+        if (!r) continue;
+        sh = makeShadow(r);
+        sh.name = `shadow:${o.id}`;
+        node.pivot.children[0].add(sh); // the offset group: scene frame of the unedited object
+        shadows.set(o.id, sh);
+      }
+      if (sh) sh.visible = shellSolid && o.visible;
+    }
+  };
+
   const refresh = () => {
     if (!view || !manifest) return;
     const meshes = style === "mesh" || style === "meshonly";
@@ -175,9 +205,11 @@ export function installObjects(ctx: ViewerContext): ObjectsHandle {
     if (room) room.group.visible = style === "meshonly" && room.loaded;
     if (cap) cap.group.visible = style !== "meshonly"; // meshonly draws the whole shell
     const planes = view.root.getObjectByName("baked-planes");
-    if (planes) planes.visible = style !== "meshonly"; // the room mesh has its own floor
+    // the room mesh has its own floor; a shell that replaces the splats has one too
+    if (planes) planes.visible = style !== "meshonly" && !shellSolid;
     if (style === "meshonly") hideSplats();
     else restoreSplats();
+    syncShadows();
     const total = manifest.objects.filter((o) => o.mesh).length;
     const done = manifest.objects.filter((o) => o.completed_ply).length;
     const detail = {
@@ -228,8 +260,10 @@ export function installObjects(ctx: ViewerContext): ObjectsHandle {
   // Backdrop for the splat styles (backdropParts). `key` is the shell's file list, so a
   // rebuilt shell reloads it.
   let cap: { key: string; group: THREE.Group } | null = null;
+  let shellSolid = false; // room/shell.json replaces_splats: the baked floor quad is hidden
   const loadCap = (m: SceneManifest) => {
-    const key = (m.room_planes ?? []).join(" ");
+    // room_surfaces.py changes background_ply, not the shell's files: reload on either.
+    const key = `${(m.room_planes ?? []).join(" ")}|${m.background_ply}`;
     if (!view || cap?.key === key) return;
     if (cap) {
       cap.group.removeFromParent();
@@ -240,16 +274,20 @@ export function installObjects(ctx: ViewerContext): ObjectsHandle {
     view.root.add(group);
     const entry = { key, group };
     cap = entry;
-    if (!key) return;
+    if (!m.room_planes?.length) return;
     const recon = matrixFromRows(m.world_from_recon);
     fetch(`${ctx.sceneBase}/room/shell.json`, { cache: "no-store" })
       .then((r) => (r.ok ? (r.json() as Promise<ShellReport>) : {}))
       .then((r: ShellReport) => {
         const parts = backdropParts(r);
-        return Promise.all(parts.map((p) => loader.loadAsync(`${ctx.sceneBase}/${p.glb}`).then((g) => ({ g, p }))));
+        const solid = r.replaces_splats === true;
+        const all = parts.map((p) => loader.loadAsync(`${ctx.sceneBase}/${p.glb}`).then((g) => ({ g, p, solid })));
+        return Promise.all(all);
       })
       .then((loaded) => {
         if (cap !== entry) return;
+        shellSolid = loaded.some((l) => l.solid);
+        refresh();
         for (const { g, p } of loaded) {
           // outer: world offset and stretch about the centre c; inner: -c; then recon frame.
           const frame = new THREE.Group();
@@ -261,7 +299,7 @@ export function installObjects(ctx: ViewerContext): ObjectsHandle {
           const c = box.getCenter(new THREE.Vector3());
           const outer = new THREE.Group();
           outer.position.set(c.x + p.offset[0], c.y + p.offset[1], c.z + p.offset[2]);
-          outer.scale.setScalar(backdropStretch(p.kind, box.getSize(new THREE.Vector3())));
+          if (!shellSolid) outer.scale.setScalar(backdropStretch(p.kind, box.getSize(new THREE.Vector3())));
           const inner = new THREE.Group();
           inner.position.copy(c).negate();
           outer.add(inner);

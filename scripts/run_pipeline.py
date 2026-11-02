@@ -16,6 +16,8 @@ Stages, in order (SAM runs next to the GPU reconstruction, since it needs only t
     complete    complete_objects.py --mesh       SAM 3D Objects: closed backs and meshes
     shell       room_shell.py             room as textured floor, wall and ceiling quads
     bake        bake_planes.py --labels floor    floor as an opaque textured quad
+    surfaces    room_surfaces.py          the shell replaces the wall, floor and ceiling
+                                          splats (blur, haze, furniture smears)
     lod         build_lod.py              Spark LOD tree per object (after the bake, which
                                           changes the background)
     coverage    score_coverage.py         gap map and next-best views
@@ -95,8 +97,12 @@ def stages(a: argparse.Namespace) -> list[Stage]:
               ["ids/gaussian_ids.npy"], ["room/shell.json"], optional=True),
         Stage("bake", "floor quad", [*PY, "scripts/bake_planes.py", "--scene", s, "--labels",
               "floor"], ["objects_trained/report.json"], ["planes"], optional=True),
+        Stage("surfaces", "shell replaces wall, floor, ceiling splats",
+              [*PY, "scripts/room_surfaces.py", "--scene", s], ["room/shell.json", "planes"],
+              ["objects/background_room.ply"], force_flag=False, optional=True),
         Stage("lod", "LOD trees", [*PY, "scripts/build_lod.py", s],
-              ["objects_trained/report.json", "completion.json", "planes"], ["lod"], optional=True),
+              ["objects_trained/report.json", "completion.json", "planes",
+               "objects/background_room.ply"], ["lod"], optional=True),
         Stage("coverage", "gap map", [*PY, "scripts/score_coverage.py", "--scene", s],
               ["objects_trained/report.json"], ["coverage"], optional=True),
     ]  # fmt: skip

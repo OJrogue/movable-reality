@@ -2,6 +2,7 @@
 //   ?scene=<id>            load <base>/<id>/scene.json (falls back to <id>/splat/scene.ply)
 //   ?ply=<url>             quick look at a single PLY (OpenCV frame assumed)
 //   ?base=<url>            where scene folders live (default /scenes)
+//   ?pristine=1            show the scene as the pipeline wrote it (edits undone locally)
 //   ?xrScale=<f>           WebXR framebuffer scale, 0.25 to 1 (default 0.5, Spark's default)
 //   ?device=desktop|mobile|xr  quality profile outside XR (default: detected, see devices/)
 //   perf and bench parameters (?mode, ?budget, ?hud, ?bench, ...): see perf/index.ts
@@ -9,6 +10,7 @@
 // install...(ctx) function from your folder and add one call in the "Lane installs" block.
 import * as THREE from "three";
 import { SparkControls, SparkRenderer, SparkXr, SplatMesh } from "@sparkjsdev/spark";
+import { installEvalViews } from "./bench/evalViews";
 import { createViewerContext } from "./context";
 import { installCoverage } from "./coverage";
 import { installDevices, installTouch } from "./devices";
@@ -23,6 +25,7 @@ const params = new URLSearchParams(location.search);
 const sceneId = params.get("scene");
 const plyUrl = params.get("ply");
 const base = (params.get("base") ?? "/scenes").replace(/\/$/, "");
+const pristine = params.get("pristine") === "1"; // every edit undone, in this page only
 const xrScaleParam = Number(params.get("xrScale"));
 const xrFramebufferScale = xrScaleParam >= 0.25 && xrScaleParam <= 1 ? xrScaleParam : 0.5;
 
@@ -96,6 +99,24 @@ renderer.setAnimationLoop((time: number, frame?: XRFrame) => {
   return renderer.domElement.toDataURL("image/jpeg", 0.85);
 };
 
+// Camera hook for scripted views (scripts/blender_viewer_eval.py): camera-to-world rows in
+// the viewer's world frame (three.js camera axes) and a vertical field of view in degrees.
+// Turns the desktop controls off until it is called with no pose.
+(window as unknown as { mrCamera: (rows?: number[][], fovDeg?: number) => void }).mrCamera = (rows, fovDeg) => {
+  ctx.controlsEnabled = !rows;
+  if (!rows) return;
+  rig.position.set(0, 0, 0);
+  rig.quaternion.identity();
+  matrixFromRows(rows).decompose(camera.position, camera.quaternion, new THREE.Vector3());
+  if (fovDeg) camera.fov = fovDeg;
+  camera.updateProjectionMatrix();
+};
+
+if (import.meta.env.DEV) {
+  installEvalViews(sceneId, renderer.domElement);
+  (window as unknown as { mrScene: THREE.Scene }).mrScene = scene; // console inspection
+}
+
 function addSinglePly(url: string): void {
   const recon = new THREE.Group();
   recon.matrixAutoUpdate = false;
@@ -121,7 +142,14 @@ async function fetchManifest(url: string): Promise<{ text: string; manifest: Sce
   const r = await fetch(url, { cache: "no-store" });
   if (!r.ok || !(r.headers.get("content-type") ?? "").includes("json")) return null;
   const text = await r.text();
-  return { text, manifest: JSON.parse(text) as SceneManifest };
+  const manifest = JSON.parse(text) as SceneManifest;
+  if (pristine) {
+    for (const o of manifest.objects) {
+      o.transform = { translation: [0, 0, 0], yaw_deg: 0, scale: 1 };
+      o.visible = o.source !== "generated";
+    }
+  }
+  return { text, manifest };
 }
 
 async function start(): Promise<void> {
