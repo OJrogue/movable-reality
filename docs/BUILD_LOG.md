@@ -1356,3 +1356,45 @@ test-walk metrics, `sfm.json`, GT pose ATE). Every row predates the lighting cha
   Checked on a contact sheet every 4 s.
 - Next: `run_pipeline.py data/raw/blender07.mp4 --scene blender07 --focal35 25`.
 
+
+## 2 Nov (night), lane core: blender06 floor and walls against GT
+
+- blender06 through room_shell / room_surfaces: the shell outline matches GT within ~3 cm,
+  height 2.734 vs 2.728 m. room_surfaces.py `--max-kept` 0.10 -> 0.18: the cluttered bedroom
+  keeps 11.5 % of its background splats (lamp, shelf, curtains, radiator), the attic
+  (blender04) 25 % and stays gated. A share is a heuristic: a room with a small slope near
+  15 % would get the shell (known limit).
+- The floor was 72 % regenerated into one flat median, the judge's most frequent complaint
+  ("textureless brown smear"):
+  - `room_shell.py --floor-contact 0.12`: only what stands on the floor regenerates it.
+    `roomshell.base_mask` keeps the floor filmed between a desk's or chair's legs and drops
+    a box whole only when the object was painted onto it (texels foreign to the floor and
+    within 40 levels of the object's own splat colours); the bed's wooden base had been
+    painted 0.45 m past its box. Other foreign texels (the rug, beside the bed or under a
+    chair) stay.
+  - shadow_mask drop 0.3 on floors (0.18 on walls as before): dark planks are 20-25 %
+    below light ones and were taken for shadow.
+  - `copy_fill` on floors cuts a hole larger than any clean source into 64-texel pieces,
+    filled rim first, so planks continue. With `foreign`, a piece copies only from the
+    material round it (rug or floor) and takes its own material's median where they meet;
+    copies had run the rug on into the dresser's footprint and planks across the rug.
+    Walls and ceilings fill exactly as before (checked texel for texel on blender01).
+  - Rim work cropped to each piece: blender06's shell 1371 s -> 323 s, blender01 457 -> 113 s.
+- Viewer eval at 960 x 540, artifact share (pixels vs GT) floor / wall, Muse Spark judge
+  items / severity / frames:
+
+  | room | before | after |
+  |---|---|---|
+  | blender06 | 0.020 / 0.025, 84 / 176 / 28 | 0.023 / 0.025, 54 / 110 / 20 (surfaces7) |
+  | blender01 | 0.046 / 0.0040, 2 / 4 / 2 | 0.043 / 0.0080, 4 / 6 / 2 (surfaces19) |
+  | blender02 | 0.087 / 0.032, 73 / 155 / 28 | 0.090 / 0.032, 65 / 144 / 28 (surfaces5) |
+
+  blender01's wall rise is one kept background splat (a brown blotch beside the cabinet,
+  view 000340) that the floor-colour ghost test no longer removes; the wall textures are
+  unchanged. The judge varies by about 10 items between identical runs.
+- Pitfall: the desktop app's browser pane drops an emulated viewport when its width
+  changes; a capture at 1024 x 768 scored blender01 as a big regression. Check the canvas is
+  960 x 540 before `mrEvalRun`.
+- Remaining on blender06: the rug's edge beside the bed takes the floor median, lacy
+  curtain splats, a green floater above the dresser, the desk sits a few cm off GT (the
+  scene's scale is 5 % off, scale_viewer_per_gt 1.049).

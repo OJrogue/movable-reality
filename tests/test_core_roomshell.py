@@ -329,7 +329,8 @@ def test_base_mask_keeps_the_floor_between_legs_and_drops_a_painted_base():
 
     # A desk: legs at its corners, the floor between them filmed in the floor's colour.
     legs = np.array([[x, 0.05, z] for x in (0.55, 1.45) for z in (0.55, 1.45)])
-    desk = (np.array([0.5, 0.0, 0.5]), np.array([1.5, 0.75, 1.5]), legs)
+    black = np.array([[20.0, 20.0, 20.0]])
+    desk = (np.array([0.5, 0.0, 0.5]), np.array([1.5, 0.75, 1.5]), legs, black)
     m, _ = roomshell.base_mask(s, [desk], rgb, good, contact=0.12, grow_m=0.0)
     assert m[at(0.55, 0.55)] and not m[at(1.0, 1.0)]
     # A bed whose wooden base was painted onto the floor under it: the whole box goes.
@@ -337,11 +338,31 @@ def test_base_mask_keeps_the_floor_between_legs_and_drops_a_painted_base():
     v1, u1 = at(3.5, 1.5)
     rgb[min(v0, v1) : max(v0, v1) + 1, min(u0, u1) : max(u0, u1) + 1] = (230, 190, 140)
     rgb[at(2.55, 1.45)] = (100, 120, 170)  # a blue rug's corner reaches under the bed
-    bed = (np.array([2.5, 0.0, 0.5]), np.array([3.5, 0.5, 1.5]), np.array([[3.45, 0.05, 1.45]]))
+    bed = (np.array([2.5, 0.0, 0.5]), np.array([3.5, 0.5, 1.5]), np.array([[3.45, 0.05, 1.45]]),
+           np.array([[230.0, 190.0, 140.0]]))  # fmt: skip
     m, foreign = roomshell.base_mask(s, [bed], rgb, good, contact=0.12, grow_m=0.0)
     assert m[at(3.0, 1.0)] and m[at(2.55, 0.55)] and not m[at(1.0, 1.0)]
     assert foreign[at(3.0, 1.0)] and not foreign[at(1.0, 1.0)]
     assert foreign[at(2.55, 1.45)] and not m[at(2.55, 1.45)]  # the rug stays
+
+
+def test_base_mask_keeps_a_rug_under_a_chair():
+    # A grey-blue rug filmed between a white chair's legs: foreign to the floor, but not the
+    # chair's colour, so only the legs go.
+    s = roomshell.surfaces(SQ, 2.5)[0]
+    shape = (30, 40)  # 0.1 m texels
+    rgb = np.full((*shape, 3), (150, 100, 60), np.uint8)  # wood
+    rgb[::2] = (130, 85, 50)
+    good = np.ones(shape, bool)
+    rug = np.zeros(shape, bool)
+    rug[5:25, 5:25] = True
+    rgb[rug] = (110, 120, 140)
+    legs = np.array([[x, 0.05, z] for x in (1.05, 1.45) for z in (1.05, 1.45)])
+    chair = (np.array([1.0, 0.0, 1.0]), np.array([1.5, 0.9, 1.5]), legs,
+             np.array([[235.0, 235.0, 230.0]]))  # fmt: skip
+    m, foreign = roomshell.base_mask(s, [chair], rgb, good, contact=0.12, grow_m=0.0)
+    assert foreign[rug].mean() > 0.9
+    assert (m & rug).sum() <= 4 * 9  # the legs, grown by a texel
 
 
 def test_copy_fill_continues_stripes_across_a_hole_larger_than_any_source():
@@ -353,8 +374,11 @@ def test_copy_fill_continues_stripes_across_a_hole_larger_than_any_source():
     holes[30:110, 10:190] = True
     damaged = rgb.copy()
     damaged[holes] = 0
-    out = roomshell.copy_fill(damaged, holes, np.ones((h, w), bool), step=1, tile=40)
-    assert out[holes][:, 0].astype(int).std() > 30  # planks, not one flat colour
+    no_rug = np.zeros((h, w), bool)
+    out = roomshell.copy_fill(damaged, holes, np.ones((h, w), bool), step=1, tile=20,
+                              foreign=no_rug)  # fmt: skip
+    err = np.abs(out[holes].astype(int) - rgb[holes].astype(int)).mean()
+    assert err < 20  # planks in line (a flat median would be 50 off, shifted planks 100)
 
 
 def test_copy_fill_keeps_a_rug_inside_its_edge():
