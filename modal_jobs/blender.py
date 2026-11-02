@@ -39,6 +39,7 @@ image = (
     .add_local_dir(REPO / "data" / "assets", "/work/data/assets")
     .add_local_file(REPO / "scripts" / "blender_room.py", "/work/scripts/blender_room.py")
     .add_local_file(REPO / "scripts" / "blender_bedroom.py", "/work/scripts/blender_bedroom.py")
+    .add_local_file(REPO / "scripts" / "blender_living.py", "/work/scripts/blender_living.py")
 )  # fmt: skip
 app = modal.App("movable-reality-blender", image=image)
 VOLUME = "movable-reality-renders"

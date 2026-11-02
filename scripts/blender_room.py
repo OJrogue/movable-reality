@@ -907,6 +907,48 @@ BEDROOM_OBSTACLES = {
 }
 
 
+# Scene blender07: the modern living room, built by scripts/blender_living.py (5.6 x 4.8 m,
+# 2.7 m high; TV wall west, sofa east, windows north, doors and bookshelf south). Paths in
+# Blender x, y. The coffee table sits in the middle with the pouf north-west of it and the
+# lounge chair south-west, so every loop goes round the table, through the 46 cm gap between
+# the table and the pouf, and bulges west (in front of the TV) south of the pouf. The loops
+# are close to convex, so the chest loop aims at its own far side. The main walk is 62 s
+# (blender06: 54 s for a room 45 % smaller): 28 s chest + 2 + 14 s knee, 2 s rise, 16 s up.
+# 1860 frames, about 250 after the 3-5 fps selection, the room's 27 m2 seen from 3 heights.
+CHEST7 = smooth_loop(
+    [(1.5, -1.45), (1.55, 0.2), (1.45, 1.45), (0.4, 1.45), (-0.07, 0.95), (-0.07, 0.45),
+     (-1.0, 0.42), (-1.75, 0.75), (-1.75, -0.25), (-0.6, -0.55), (0.6, -0.6), (1.0, -1.45)]
+)  # fmt: skip
+KNEE7 = smooth_loop(
+    [(1.5, -0.8), (1.5, 1.0), (0.6, 1.05), (-0.07, 0.85), (-0.07, 0.45), (-0.6, 0.4),
+     (-1.4, 0.3), (-1.5, -0.35), (-0.4, -0.5), (0.55, -0.6)]
+)  # fmt: skip
+UP7 = smooth_loop([(1.5, -1.3), (1.5, 1.35), (0.4, 1.45), (-0.07, 0.95), (-0.07, 0.45),
+                   (-1.4, 0.4), (-1.5, -0.3), (-0.5, -0.55), (0.65, -0.62)])  # fmt: skip
+TEST7 = smooth_loop(
+    [(1.4, -1.1), (1.45, 1.3), (0.5, 1.4), (-0.07, 0.95), (-0.07, 0.45), (-1.3, 0.45),
+     (-1.9, -0.3), (-1.2, -0.5), (0.62, -0.58), (1.0, -1.5)]
+)  # fmt: skip
+RING7 = smooth_loop([(-2.3, -1.9), (-2.4, 1.8), (2.3, 1.9), (2.4, -1.9)], iters=3)
+WALKS7 = {"main": 62.0, "test": 20.0}
+# Blender (x0, y0, x1, y1, top z) of everything the walks must keep clear of, each the GT
+# bbox of the last build (with what stands on it) plus 2 cm, for tests/test_blender_living.py.
+LIVING_OBSTACLES = {
+    "media_console": (-2.80, -0.83, -2.37, 1.03, 0.87),
+    "floor_vase": (-2.66, -1.22, -2.46, -1.02, 0.64),
+    "sofa": (1.83, -1.04, 2.80, 1.29, 0.93),
+    "side_table": (2.16, 1.53, 2.80, 2.06, 1.14),
+    "coffee_table": (0.16, -0.39, 1.24, 0.69, 0.52),
+    "pouf": (-0.90, 0.70, -0.30, 1.30, 0.43),
+    "armchair": (-0.85, -2.05, 0.31, -0.81, 1.04),
+    "floor_lamp": (-1.40, -2.27, -0.87, -1.73, 1.70),
+    "bookshelf": (0.33, -2.40, 1.57, -2.04, 2.23),
+    "tall_plant": (-0.43, 1.61, 0.15, 2.30, 1.37),
+    "corner_plant": (-2.80, 1.33, -2.12, 2.11, 0.86),
+    "radiators_curtains": (-2.47, 2.18, 2.17, 2.42, 2.56),
+}
+
+
 # Per scene: id -> objects, outline (None = the blender01 box), size, walks and shake seeds.
 # Polygon scenes add zones (floor pieces with ceiling planes), columns and asset sizes.
 SCENES = {
@@ -990,6 +1032,25 @@ SCENES = {
             "test": _make_test_walk(TEST6, RING6),
         },  # fmt: skip
         "seeds": {"main": 47, "test": 53},
+        "panels": [],
+    },
+    "blender07": {  # built by scripts/blender_living.py, not from objects
+        "builder": "blender_living",
+        "objects": [],
+        "outline": [(-2.8, -2.4), (2.8, -2.4), (2.8, 2.4), (-2.8, 2.4)],
+        "room": (5.6, 4.8, 2.7),
+        "walks": WALKS7,
+        "eye_target": {
+            "main": _make_up_walk(
+                _make_main_walk(CHEST7, KNEE7, t_loop=28.0, t_knee=14.0),
+                44.0,
+                UP7,
+                (0.2, 0.15),
+                t_up=16.0,
+            ),
+            "test": _make_test_walk(TEST7, RING7),
+        },  # fmt: skip
+        "seeds": {"main": 59, "test": 61},
         "panels": [],
     },
 }
@@ -1540,6 +1601,14 @@ def build_scene(assets: Path, gt: Path, scene: str = SCENE_ID) -> None:
         out = gt.parent / gt.name.removesuffix("_gt")
         structure, rec = blender_bedroom.build_bedroom(assets, out)
         blender_bedroom.write_gt(gt, structure, rec)
+        return
+    if cfg.get("builder") == "blender_living":  # blender07, same pattern
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        import blender_living  # noqa: PLC0415
+
+        out = gt.parent / gt.name.removesuffix("_gt")
+        structure, rec = blender_living.build_living(assets, out)
+        blender_living.write_gt(gt, structure, rec)
         return
     if cfg["outline"] is None:
         structure = build_room(assets)
