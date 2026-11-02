@@ -1335,3 +1335,24 @@ test-walk metrics, `sfm.json`, GT pose ATE). Every row predates the lighting cha
 - Build ~1 min, eight 960 x 540 previews at 64 samples in `data/raw/blender07/preview/`.
 - Next: walks for blender07 in `blender_room.py` (SCENES entry with a builder, clearance
   boxes and a test like `test_blender_bedroom.py`), then the render and the pipeline run.
+
+## 2 Nov (evening), blender: blender07 walks and Modal render
+
+- `SCENES["blender07"]` in `blender_room.py` (builder `blender_living`, same hook as
+  blender06), the walks and `LIVING_OBSTACLES` (GT bboxes with what stands on them, +2 cm).
+  Every loop goes round the coffee table, through the 46 cm gap between it and the pouf and
+  bulges west in front of the TV south of the pouf; the loops are close to convex, so the
+  chest loop aims at its own far side (a folded loop swung the view in blender06).
+- Length vs data: main walk 62 s (28 s chest at 1.5 m, 2 s crouch, 14 s knee at 0.6 m,
+  2 s rise, 16 s at 1.5 m with the phone 15 deg up for the ceiling and upper walls), 1860
+  frames, ~250 after the 3-5 fps frame selection. blender06 used 54 s for a room 45 %
+  smaller; longer would only add redundant views. Handheld: shake seed 59, at most
+  58 deg/s turn, 0.85 m/s, mean 0.48 m/s. Test walk 20 s at 1.2 m (seed 61).
+- `tests/test_blender_living.py`: inside the room, clear of furniture, no whip pans,
+  handheld speed, obstacles hold the built GT, chest/knee/up parts.
+- Rendered on Modal (`modal_jobs/blender.py --scene blender07`, 16 samples, 82 chunks of 30
+  frames, ~105 s each, 850 s wall): `data/raw/blender07.mp4` (62 s, the pipeline input) and
+  `blender07_test.mp4` (20 s), GT depth, masks and cameras in `data/raw/blender07_gt/`.
+  Checked on a contact sheet every 4 s.
+- Next: `run_pipeline.py data/raw/blender07.mp4 --scene blender07 --focal35 25`.
+
