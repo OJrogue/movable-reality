@@ -1282,3 +1282,25 @@ test-walk metrics, `sfm.json`, GT pose ATE). Every row predates the lighting cha
   (the daybed mask covers only its frame), not "wall". Room height falls back to 2.5 m when
   no frame sees the ceiling (the synthetic rooms are 2.6 m). Rooms with sloped ceilings keep
   the scan's walls.
+
+## 2 Nov (evening), blender + core: blender06 through the whole pipeline
+
+- `run_pipeline.py data/raw/blender06.mp4 --scene blender06 --focal35 25 --ceiling-height 2.6`:
+  every stage ok in 55 min (reconstruct 18 min, objects 14 min, shell 7 min).
+- `--focal35` for Blender renders is 25, not 26: `extract_frames.py` takes the phone
+  convention (4:3 photo, 34.6 mm wide), and Blender's 26 mm lens on a 36 mm sensor is
+  25 mm in it (1386.6 px at 1920). The first run with 26 (1442 px, 4 % long) gave a pose
+  ATE of 3.9 cm RMSE, 1.26 deg median rotation error and an 11 % scale error. With 25:
+  median ATE 1.6 mm, RMSE 6.4 mm, 0.06 deg (blender01: 1.3 mm, 0.03 deg); the
+  ceiling-height scale is 5 % long (1.749 against 1.667, viewer per GT 1.049).
+- Muse Wonder listed 23 nouns; 12 objects in scene.json (bed, desk, chair, dresser,
+  nightstand, pillow, two plants, trash can, ukulele, two baskets). Laptop, desk lamp, mug,
+  the toy figures, elephant and books rest on furniture and are merged into it by the
+  lift; SAM 3.1 found no blanket, backpack or superhero.
+- Viewer check from the GT test-walk views (`blender_viewer_eval.py views`): desk, chair,
+  ukulele, window, bed, nightstand, plant, posters and door read well; brown smears on the
+  duvet next to the throw. Screenshots not saved.
+- Next: decide whether items on furniture should stay separate objects in this room (the
+  figures on the chest of drawers are the obvious demo targets), and look at the duvet
+  smears.
+
