@@ -1,10 +1,11 @@
-"""Download the CC0 Poly Haven assets for the synthetic Blender rooms (blender01 to blender06).
+"""Download the CC0 Poly Haven assets for the synthetic Blender rooms (blender01 to blender07).
 
     uv run python scripts/blender_assets.py            # -> data/assets/<asset>/ + assets.json
 
 Models come as glTF (textures alongside), floor, wall and fabric textures as JPG maps, the
-sky outside the blender06 window as an HDR. Every Poly Haven asset is CC0. The two
-blender06 posters are public-domain images from Wikimedia Commons (POSTERS). The script
+sky outside the blender06 window as an HDR. Every Poly Haven asset is CC0. The
+blender06 posters and blender07 paintings are public-domain images from Wikimedia Commons
+(POSTERS). The script
 records name, URL, author and licence per asset in data/assets/assets.json, which
 docs/ASSETS.md mirrors. Skips files that already exist.
 """
@@ -55,6 +56,13 @@ MODELS = {
     "modern_ceiling_lamp_01": "1k",
     "wall_clock": "1k",
     "standing_picture_frame_01": "1k",
+    # blender07 (the realistic living room, scripts/blender_living.py)
+    "modern_wooden_cabinet": "2k",
+    "coffee_table_round_01": "2k",
+    "gaming_console": "1k",
+    "ceramic_vase_02": "1k",
+    "ceramic_vase_04": "1k",
+    "wooden_bowl_02": "1k",
 }
 TEXTURES = {
     "laminate_floor_02": "2k",
@@ -74,6 +82,16 @@ COMMONS = "https://commons.wikimedia.org/w/api.php"
 POSTERS = {
     "Tsunami_by_hokusai_19th_century.jpg": "poster_great_wave",
     "NASA-Apollo8-Dec24-Earthrise.jpg": "poster_earthrise",
+    # blender07 paintings (modernist, all public domain)
+    "Kandinsky_-_Jaune_Rouge_Bleu.jpg": "painting_yellow_red_blue",
+    "Piet_Mondriaan,_1930_-_Mondrian_Composition_II_in_Red,_Blue,_and_Yellow.jpg": (
+        "painting_mondrian"
+    ),
+    "Vassily_Kandinsky,_1913_-_Color_Study,_Squares_with_Concentric_Circles.jpg": (
+        "painting_kandinsky"
+    ),
+    "Hilma_af_Klint_-_The_Ten_Largest_No._3_-_Youth_-_1907.jpg": "painting_af_klint",
+    "Ad_Parnassum,_Paul_Klee_(1932,_274).jpg": "painting_klee",
 }
 TEXTURE_MAPS = ("Diffuse", "nor_gl", "Rough")
 

@@ -91,3 +91,37 @@ the bed (frame, upholstered headboard, mattress, pillow; duvet, throw and sweate
 with Blender's cloth solver), the chest of drawers, desk, wall shelf, books, laptop (its
 screen image is drawn by the script), mouse, mug, notebook and pen, waste
 bin, backpack, rug, curtains and rod, the tin robot and the two action figures.
+
+## `blender07`, the realistic living room (2 Nov)
+
+Built by `scripts/blender_living.py`, the second main synthetic test room, in one modern
+Scandinavian style. New assets, all downloaded by `scripts/blender_assets.py`. It also
+reuses Modern Arm Chair 01 (lounge chair), Modern Ceiling Lamp 01 (opal globe pendant,
+scaled 0.75), Side Table 01, Potted Plant 01, 02 and 04 (01 and 02 in white planters built
+here, their terracotta pots cut away), Ceramic Vase 01 and 03 (03 scaled 1.5 as the floor
+vase), Horse Statue 01, Standing Picture Frame 01 (glass faces removed), Wicker Basket 02,
+the blender06 textures (Wood Floor, White Stucco with a deep-teal accent wall, White Oak
+Veneer, Poly Wool Herringbone for the rug, Rough Linen for the sofa, cushions, curtains and
+lamp shades, Waffle Pique Cotton for the throw and the pouf) and the Eilenriede Park HDRI.
+
+| Asset | Kind (res.) | Author(s) | Licence | Role in `blender07` |
+|---|---|---|---|---|
+| [Modern Wooden Cabinet](https://polyhaven.com/a/modern_wooden_cabinet) | model (2k) | Patrik Pangerl | CC0 | slatted media console under the TV (scaled 0.75) |
+| [Coffee Table Round 01](https://polyhaven.com/a/coffee_table_round_01) | model (2k) | Ulan Cabanilla | CC0 | round marble coffee table (scaled 0.8) |
+| [Gaming Console](https://polyhaven.com/a/gaming_console) | model (1k) | Sean Buckley | CC0 | games console on the media console |
+| [Ceramic Vase 02](https://polyhaven.com/a/ceramic_vase_02) | model (1k) | James Ray Cock | CC0 | vase on the bookshelf |
+| [Ceramic Vase 04](https://polyhaven.com/a/ceramic_vase_04) | model (1k) | James Ray Cock | CC0 | white jug vase on the media console |
+| [Wooden Bowl 02](https://polyhaven.com/a/wooden_bowl_02) | model (1k) | Kuutti Siitonen | CC0 | bowls on the coffee table and the bookshelf |
+| [Yellow-Red-Blue (Kandinsky, 1925)](https://commons.wikimedia.org/wiki/File:Kandinsky_-_Jaune_Rouge_Bleu.jpg) | image (1920 px) | Wassily Kandinsky, Wikimedia Commons | Public domain | canvas above the sofa |
+| [Composition II in Red, Blue and Yellow (Mondrian, 1930)](https://commons.wikimedia.org/wiki/File:Piet_Mondriaan,_1930_-_Mondrian_Composition_II_in_Red,_Blue,_and_Yellow.jpg) | image (1920 px) | Piet Mondrian, Wikimedia Commons | Public domain | framed print on the south wall |
+| [Color Study, Squares with Concentric Circles (Kandinsky, 1913)](https://commons.wikimedia.org/wiki/File:Vassily_Kandinsky,_1913_-_Color_Study,_Squares_with_Concentric_Circles.jpg) | image (1920 px) | Wassily Kandinsky, Wikimedia Commons | Public domain | framed print on the TV wall |
+| [Ad Parnassum (Klee, 1932)](https://commons.wikimedia.org/wiki/File:Ad_Parnassum,_Paul_Klee_(1932,_274).jpg) | image (1920 px) | Paul Klee, Wikimedia Commons | Public domain | framed print on the TV wall |
+| [The Ten Largest, No. 3, Youth (af Klint, 1907)](https://commons.wikimedia.org/wiki/File:Hilma_af_Klint_-_The_Ten_Largest_No._3_-_Youth_-_1907.jpg) | image (1920 px) | Hilma af Klint, Wikimedia Commons | Public domain | framed print on the east wall, by the oak door |
+
+Built in `scripts/blender_living.py` (no third-party geometry, mostly with the blender06
+helpers): the room shell with two window holes and reveals, skirting, both casement
+windows, both flush doors, two radiators, curtains and rods, switches, sockets, thermostat,
+smoke detector and the TV cable raceway, the 55" TV (its picture is drawn by the script),
+soundbar, the sofa and its cushions, the pouf, the bookshelf, the planters, the canvas and
+its floater frame, the bordered rug, table lamp, tripod floor lamp, tray, candles, remote,
+mug and books, and the sofa throw (Blender's cloth solver).
