@@ -665,12 +665,15 @@ def copy_fill(rgb: np.ndarray, holes: np.ndarray, keep: np.ndarray, ring: int = 
     the rim a larger correction (up to +-`edge_shift`) fades in on top, so a soft shadow that
     runs on past the hole's edge meets the copy without a step (blender01: the armchair's
     shadow beyond the 1.2 m footprint reach). No learned weights.
-    A hole with no valid offset takes push-pull from its rim."""
+    A hole with no valid offset takes the surface's median colour with the same correction
+    (blender02: the wall behind the bookshelf, 28 % seen, had taken push-pull from a dark
+    corner strip and turned brown)."""
     h, w = holes.shape
     good = keep & ~holes
     f = rgb.astype(np.float64) / 255.0
     base = texture.push_pull(f * good[..., None], good.astype(np.float64))
     out = np.where(holes[..., None], base, f)
+    flat = np.median(f[good], axis=0) if good.any() else np.full(3, 0.5)
     rng = np.random.default_rng(seed)
     for comp in components(holes):
         band = _grow(comp, ring) & good
@@ -697,20 +700,24 @@ def copy_fill(rgb: np.ndarray, holes: np.ndarray, keep: np.ndarray, ring: int = 
                 e = float(((f[yy[inb], xx[inb]] - target[inb]) ** 2).mean())
                 if e < best:
                     best, best_off = e, (dy, dx)
-        if best_off is None:
-            continue
-        dy, dx = best_off
         ry0, ry1 = max(0, y0 - ring), min(h, y1 + ring + 1)
         rx0, rx1 = max(0, x0 - ring), min(w, x1 + ring + 1)
         sl = (slice(ry0, ry1), slice(rx0, rx1))
         cy, cx = np.mgrid[ry0:ry1, rx0:rx1]
-        copy = f[np.clip(cy + dy, 0, h - 1), np.clip(cx + dx, 0, w - 1)]
+        if best_off is None:  # larger than any clean source: the surface's median colour
+            dy, dx = 0, 0
+            copy = np.broadcast_to(flat, cy.shape + (3,)).copy()
+        else:
+            dy, dx = best_off
+            copy = f[np.clip(cy + dy, 0, h - 1), np.clip(cx + dx, 0, w - 1)]
         # The mismatch is taken between the two images' local means over `detail_r` texels
         # (real texels only), so the planks' own detail does not leak into the correction.
         rim = _grow(comp, ring)[sl] & good[sl]
         gw = _box_blur(good[sl][..., None].astype(np.float64), detail_r)
         mean_f = _box_blur(f[sl] * good[sl][..., None], detail_r) / np.maximum(gw, 1e-6)
         cgood = good[np.clip(cy + dy, 0, h - 1), np.clip(cx + dx, 0, w - 1)][..., None]
+        if best_off is None:
+            cgood = np.ones_like(cgood)
         cw = _box_blur(cgood.astype(np.float64), detail_r)
         mean_c = _box_blur(copy * cgood, detail_r) / np.maximum(cw, 1e-6)
         rim &= (gw[..., 0] > 0.5) & (cw[..., 0] > 0.5)  # both means stand on real texels

@@ -301,3 +301,16 @@ def test_main_angle_of_an_l_shaped_floor_with_a_corner_unseen():
         t = np.radians(deg)
         rot = np.array([[np.cos(t), np.sin(t)], [-np.sin(t), np.cos(t)]])
         assert abs(np.degrees(roomshell.main_angle(p @ rot)) - deg) < 0.5
+
+
+def test_copy_fill_takes_the_median_when_no_source_fits():
+    # The hole covers most of the surface; its rim is a dark strip on one side only.
+    h, w = 40, 200
+    rgb = np.full((h, w, 3), 170, dtype=np.uint8)
+    rgb[:, :4] = 60  # a dark corner strip
+    holes = np.zeros((h, w), bool)
+    holes[:, 4:180] = True
+    out = roomshell.copy_fill(rgb, holes, np.ones((h, w), bool), step=4).astype(int)
+    # Deep inside, the surface's own colour within the clamped correction (0.06 = 15 levels),
+    # not the rim's push-pull average (115).
+    assert abs(out[20, 100] - 170).max() <= 16
