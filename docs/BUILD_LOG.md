@@ -1026,3 +1026,33 @@ test-walk metrics, `sfm.json`, GT pose ATE). Every row predates the lighting cha
 - Next: the translucent tops of trained objects (thin surfaces under items), objects
   standing on furniture kept separate (the bowl, the succulent), and running the pipeline
   on the new-lighting renders and on a real phone video.
+
+## 2026-11-02 (Mon), lanes core, ui: known bugs on blender01 (branch lane/fixes)
+
+- Black and translucent items on trained objects. The bowl on the coffee table has no
+  inventory noun, so SAM never labels it. Object training forced the table transparent on
+  its unlabelled pixels against a black target: 5,974 bowl splats became 523, median
+  brightness 0.66 to -0.02. Unlabelled pixels are now ignored (floor and wall still count);
+  after retraining the bowl keeps 5,990 splats at 0.66 (`objtrain.py`).
+- Items left behind when furniture moves. The support rule needed an item's bottom within
+  0.12 m of the parent's top, but SAM misses the succulent's pot and the vase's foot, so
+  their splats start 0.14 and 0.19 m above the surface. The reach is now 0.3 m; both merge
+  (D12), 8 objects. Background splats inside an object's box that land on floor or wall in
+  under 15% of their views are unnamed items and join the object: 13,786 on blender01.
+  Moving the table in the viewer now takes its succulent and bowl and leaves no copy.
+- Ceiling. The shell's ceiling was 0% seen and came out black; an unseen surface now takes
+  the median colour of the upper half of the walls. The viewer's splat styles draw the
+  shell walls, pushed 5 cm out behind the wall splats, and an unseen ceiling, so the scan is
+  a closed room instead of black above about 2 m (`web/src/objects/index.ts`).
+- Windows file lock. The `/scenes` middleware piped file streams without closing them when
+  the viewer aborted a PLY fetch, so Vite kept `background_baked.ply` open and the bake's
+  rename failed. `stream.pipeline` closes them; the bake then ran with the viewer open.
+  PLY and GLB replaces retry for 5 s and name the dev server if the file stays held
+  (`fsutil.replace_file`).
+- The 500 at viewer start was `/api/health` through Vite's proxy before the API server was
+  up; the proxy now answers `{"ok": false}`, and other `/api` calls get a 503.
+- Rebuilt blender01 three times from the objects stage (about 17 min each, one L40S) and once
+  from the lift. Checked in the browser: scan view with a moved table, mesh-only view.
+- Tests: `pytest` 331 passed, 8 skipped; vitest 172 passed; ruff clean; build passes.
+- Still open: thin coloured streaks near the wall tops, and the never-filmed floor smear where
+  the table stood.

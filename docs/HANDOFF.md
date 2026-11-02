@@ -83,16 +83,22 @@ Ideas not built yet, roughly by value for the demo:
    shell's wall quads as targets.
 
 Found in the 1 Nov blender01 run (`docs/BUILD_LOG.md`), to fix first:
-- **Translucent tops of trained objects.** The coffee table's top shows the floor through it
-  after a move, and the verifier rejects the edit for it. The items standing on the table
-  hide its top in most masks.
+- ~~Translucent tops / black items on trained objects~~: fixed 2 Nov. Unlabelled pixels
+  (items no noun named) forced the object transparent on a black target. The bowl went
+  black and lost 90% of its splats. Object training now ignores unlabelled pixels.
+- ~~Moving the table left a copy of its items behind~~: fixed 2 Nov. The support rule's reach
+  went to 0.3 m (SAM misses pots and feet), and unnamed in-box background splats join the
+  object under them. Per D12 the succulent and the vase are now part of their tables
+  (blender01 has 8 objects).
 - ~~Agent and verifier disagree on collisions~~: fixed. The agent moves as far as it fits
   and says so, the verifier sees that reply and accepts it (rerun on blender01: verified).
 - ~~`measure` reports box heights~~: fixed, `top_above_floor_m` (sofa 0.74 m against 0.71 m GT).
-- **Windows: stop the Vite dev server before a bake rerun.** It holds the served
-  `background_baked.ply` open and the bake's rename fails with `PermissionError`.
-- Ceiling stays dark when the walk never looks up. The filming guide's upward loop fixes
-  it; the shell could also tint unseen ceiling texels from the top of the walls.
+- ~~Windows bake lock~~: fixed 2 Nov. The dev server left PLYs open when the viewer aborted a
+  fetch; it now closes them, and PLY/GLB replaces retry with a hint.
+- ~~Ceiling open to black~~: fixed 2 Nov. An unseen ceiling takes the upper wall colour. The
+  splat styles draw the shell walls (5 cm out) and that ceiling behind the scan.
+- Still open: thin coloured streaks near the wall tops (stray background splats in front of
+  the backdrop), and a smear of never-filmed floor where a moved table stood.
 
 ### 3.00 Sat 31 Oct, after the night session (synthetic rooms end to end)
 State. blender01 and blender02 ran through every stage (reconstruct, inventory, SAM, lift,
