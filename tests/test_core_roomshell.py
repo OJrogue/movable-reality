@@ -46,13 +46,15 @@ def test_room_outline_rectangle_turned():
     assert abs(sides[0] - 3) < 0.15 and abs(sides[-1] - 4) < 0.15
 
 
-def test_room_outline_needs_min_frames_and_adds_boxes():
+def test_room_outline_needs_min_frames_and_clips_boxes():
     frames = [_hits([0, 0], [3, 3], seed=s) for s in range(3)]
     frames[0] = np.concatenate([frames[0], _hits([3, 0], [4, 3], n=500)])  # one stray frame
-    poly = roomshell.room_outline(frames, [(np.array([2.5, 0.0]), np.array([3.6, 3.0]))])
-    assert poly[:, 0].max() > 3.5  # the box footprint widens the room
     poly2 = roomshell.room_outline(frames, [])
-    assert poly2[:, 0].max() < 3.2  # the stray frame alone does not
+    assert poly2[:, 0].max() < 3.2  # the stray frame alone does not widen the room
+    # A box 60 cm through the wall (blender02: a desk's lift box) widens it by at most the
+    # 10 cm box reach.
+    poly = roomshell.room_outline(frames, [(np.array([2.5, 0.0]), np.array([3.6, 3.0]))])
+    assert poly[:, 0].max() < poly2[:, 0].max() + 0.15
 
 
 def test_surfaces_normals_point_inward():
@@ -155,3 +157,160 @@ def test_unseen_ceiling_takes_the_upper_wall_colour():
                            fallback=upper)  # fmt: skip
     assert dark[..., :3].max() == 0
     assert np.allclose(lit[..., :3], lit[0, 0, :3]) and lit[0, 0, 0] > 150
+
+
+# ---- surface artifacts (room_shell.py depth test and fill, room_surfaces.py)
+
+SQ = np.array([[0.0, 0.0], [4.0, 0.0], [4.0, 3.0], [0.0, 3.0]])
+
+
+def test_surface_distance_inside_and_outside():
+    pts = np.array([[2.0, 1.0, 1.5], [2.0, 0.02, 1.5], [0.05, 1.0, 1.5], [2.0, -0.1, 1.5],
+                    [-0.3, 1.0, 1.5], [2.0, 2.45, 1.5]])  # fmt: skip
+    d = roomshell.surface_distance(pts, SQ, 2.5)
+    assert np.allclose(d, [1.0, 0.02, 0.05, -0.1, -0.3, 0.05])
+
+
+def test_occluder_zbuffer_nearest_depth_and_grow():
+    K = np.array([[100.0, 0, 50], [0, 100.0, 50], [0, 0, 1]])
+    pts = np.array([[0.0, 0.0, 2.0], [0.0, 0.0, 3.0]])  # both on the principal ray
+    z = roomshell.occluder_zbuffer(pts, K, (100, 100), cell=4, grow=1)
+    assert z.shape == (100, 100)
+    assert z[50, 50] == 2.0
+    assert z[50, 54] == 2.0  # one cell away, closed by grow
+    assert np.isinf(z[0, 0])
+
+
+def test_projector_drops_texels_behind_an_occluder():
+    K = np.array([[50.0, 0, 32], [0, 50.0, 32], [0, 0, 1]])
+    pts = np.array([[0.0, 0.0, 2.0], [0.6, 0.0, 2.0]])  # a wall 2 m ahead, normal to camera
+    img = np.full((64, 64, 3), 200, np.uint8)
+    view = roomshell.View(K, np.eye(3), np.zeros(3), np.zeros(3), img, None,
+                          zbuf=np.full((64, 64), np.inf), z_margin=0.05)  # fmt: skip
+    view.zbuf[:, :40] = 1.0  # a chair at 1 m covers the left of the image
+    pr = roomshell.Projector(pts, np.array([0.0, 0.0, -1.0]))
+    assert pr.add(view) == 1  # only the texel at x = 0.6 m (u = 47) is seen
+    _, seen = pr.result((1, 2))
+    assert seen.tolist() == [[0.0, 1.0]]
+
+
+def test_hole_mask_includes_footprint_and_islands():
+    seen = np.ones((20, 20))
+    seen[5:12, 5:12] = 0
+    seen[8, 8] = 1  # a stray sample in the hole
+    keep = np.ones((20, 20), bool)
+    foot = np.zeros((20, 20), bool)
+    foot[15, 15] = True
+    m = roomshell.hole_mask(seen, keep, foot, grow=0)
+    assert m[8, 8] and m[15, 15] and not m[0, 0]
+
+
+def test_footprint_mask_marks_floor_under_furniture():
+    s = roomshell.surfaces(SQ, 2.5)[0]
+    assert s.kind == "floor"
+    shape = (30, 40)  # 0.1 m texels
+    chair = np.array([[1.05, 0.3, 1.05], [1.05, 3.0, 2.05]])  # the second is above `reach`
+    m = roomshell.footprint_mask(s, chair, shape, reach=1.2, grow_m=0.0)
+    assert m.sum() == 9  # one texel grown by 1
+    rel = chair[0] - s.origin
+    v = int(rel @ s.v / s.size_v * shape[0])
+    u = int(rel @ s.u / s.size_u * shape[1])
+    assert m[v, u]
+
+
+def test_copy_fill_continues_stripes():
+    h, w = 40, 80  # room for a whole-period offset with its ring in bounds
+    stripes = ((np.arange(w) // 4) % 2 * 120 + 60).astype(np.uint8)
+    rgb = np.repeat(np.repeat(stripes[None, :, None], h, 0), 3, 2)
+    holes = np.zeros((h, w), bool)
+    holes[15:25, 20:32] = True
+    damaged = rgb.copy()
+    damaged[holes] = 0
+    out = roomshell.copy_fill(damaged, holes, np.ones((h, w), bool), step=1)
+    err = np.abs(out[holes].astype(int) - rgb[holes].astype(int)).mean()
+    assert err < 5  # planks continue in line, not a blur
+
+
+def test_copy_fill_meets_a_soft_shadow_without_a_step():
+    # Flat floor, a soft shadow darkening the left side (40 levels over 40 texels); the hole
+    # covers part of it. The copy comes from the bright right, so its edge would be a step.
+    h, w = 60, 160
+    x = np.arange(w)
+    shade = np.clip(40 - x, 0, 40)  # 40 levels darker at x = 0, none from x = 40
+    rgb = np.repeat(np.repeat((180 - shade)[None, :, None], h, 0), 3, 2).astype(np.uint8)
+    holes = np.zeros((h, w), bool)
+    holes[20:40, 10:60] = True
+    out = roomshell.copy_fill(rgb, holes, np.ones((h, w), bool), step=1).astype(int)
+    assert abs(out[30, 10] - out[30, 9]).max() <= 8  # the left edge, inside the shadow
+    assert abs(out[30, 45] - 180).max() <= 6  # deep inside: the clean copy
+
+
+def test_surface_splats_reach_outside_and_haze():
+    pts = np.array([[2.0, 1.2, 1.5], [2.0, 1.2, 0.3], [2.0, 1.2, 0.3], [-0.5, 1.0, 1.0],
+                    [2.0, 1.2, 1.5]])  # fmt: skip
+    size = np.array([0.02, 0.02, 0.15, 0.02, 0.2])  # the third reaches the wall at z = 0
+    opacity = np.array([0.9, 0.9, 0.9, 0.9, 0.1])  # the last is a faint 20 cm blob: haze
+    gone = roomshell.surface_splats(pts, size, opacity, SQ, 2.5)
+    assert gone.tolist() == [False, False, True, True, True]
+
+
+def test_neighbour_counts_flags_isolated_points():
+    rng = np.random.default_rng(0)
+    cluster = rng.uniform(0.0, 0.1, size=(50, 3))
+    lone = np.array([[1.0, 1.0, 1.0]])
+    n = roomshell.neighbour_counts(np.vstack([cluster, lone]), cell=0.1)
+    assert n[-1] == 1 and n[:-1].min() >= 50
+
+
+def test_finish_alpha_reaches_past_the_outline():
+    # A 1 x 1 m surface at 5 cm texels, outline the lower-left triangle: the texels the
+    # diagonal cuts stay opaque (no crack along a wall), the far corner stays clear.
+    tri = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    rgba = roomshell.finish(np.full((20, 20, 3), 0.5), np.ones((20, 20)), tri, 0.05, (1.0, 1.0))
+    keep = roomshell.outline_keep(tri, (1.0, 1.0), (20, 20))
+    a = rgba[..., 3] > 0
+    assert a[keep].all()
+    assert (a & ~keep).any()  # grown past the diagonal
+    assert not a[19, 19]
+
+
+def test_surface_colour_gap_matches_the_texture_under_a_point():
+    # 4 x 4 m room, 2.5 m high: the floor texture is grey on the left half, red on the right.
+    poly = np.array([[0.0, 0.0], [4.0, 0.0], [4.0, 4.0], [0.0, 4.0]])
+    surfs = [s for s in roomshell.surfaces(poly, 2.5) if s.kind == "floor"]
+    tex = np.full((40, 40, 4), 255, dtype=np.uint8)
+    tex[:, :, :3] = 128
+    tex[:, 20:, :3] = (200, 30, 30)
+    pts = np.array([[1.0, 0.3, 2.0], [3.0, 0.3, 2.0], [1.0, 0.3, 2.0], [5.0, 0.3, 2.0]])
+    grey, red = np.full(3, 128 / 255), np.array([200, 30, 30]) / 255
+    dist, gap = roomshell.surface_colour_gap(pts, np.stack([grey, red, red, grey]), surfs, [tex])
+    assert np.allclose(dist[:3], 0.3)
+    assert gap[0] < 0.01 and gap[1] < 0.01  # a floor-coloured ghost over each half
+    assert gap[2] > 0.3  # a red thing over the grey half is not
+    assert np.isinf(dist[3]) and np.isinf(gap[3])  # over no surface
+
+
+def test_main_angle_of_an_l_shaped_floor_with_a_corner_unseen():
+    rng = np.random.default_rng(0)
+    ell = np.array([[-2.25, 2.5], [2.25, 2.5], [2.25, -0.5], [0.75, -0.5], [0.75, -2.5],
+                    [-2.25, -2.5]])  # fmt: skip
+    p = rng.uniform(-3, 3, (60000, 2))
+    p = p[roomshell.inside_polygon(p, ell)]
+    p = p[~((p[:, 0] > 0) & (p[:, 1] > 1.5))]  # blender02: the far corner half seen
+    for deg in (6.3, 30.0):
+        t = np.radians(deg)
+        rot = np.array([[np.cos(t), np.sin(t)], [-np.sin(t), np.cos(t)]])
+        assert abs(np.degrees(roomshell.main_angle(p @ rot)) - deg) < 0.5
+
+
+def test_copy_fill_takes_the_median_when_no_source_fits():
+    # The hole covers most of the surface; its rim is a dark strip on one side only.
+    h, w = 40, 200
+    rgb = np.full((h, w, 3), 170, dtype=np.uint8)
+    rgb[:, :4] = 60  # a dark corner strip
+    holes = np.zeros((h, w), bool)
+    holes[:, 4:180] = True
+    out = roomshell.copy_fill(rgb, holes, np.ones((h, w), bool), step=4).astype(int)
+    # Deep inside, the surface's own colour within the clamped correction (0.06 = 15 levels),
+    # not the rim's push-pull average (115).
+    assert abs(out[20, 100] - 170).max() <= 16

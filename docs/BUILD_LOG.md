@@ -1164,3 +1164,121 @@ test-walk metrics, `sfm.json`, GT pose ATE). Every row predates the lighting cha
   cameras in `data/raw/blender06_gt/`. Checked on a contact sheet of every 6th second.
   Next: run the pipeline on it (`run_pipeline.py data/raw/blender06.mp4 --scene blender06
   --focal35 26`).
+
+## 2 Nov (afternoon), lane core: wall and floor artifacts
+
+- OJ: no artifacts on walls and floor. Two scorers measure them on blender01 at the 30 GT
+  test-walk poses (every 20th frame) in the real viewer:
+  - `scripts/blender_viewer_eval.py` maps the GT cameras into the viewer world
+    (`views`), the dev server saves one PNG per pose (`mrEvalRun`, `web/src/bench/evalViews.ts`,
+    `POST /__eval`), and `score` counts the pixels on the GT floor, wall and ceiling masks
+    (eroded 4 px) whose blurred sRGB error is over 0.12. `sheet` draws a contact sheet.
+  - `scripts/artifact_judge.py` asks a Meta vision model (Muse Spark by default; Muse Wonder
+    or Muse Spark Open with `--model`) to list surface artifacts with a kind, severity and
+    box. It needs no GT, so it also works on real rooms. Responses are cached.
+- Causes found: furniture painted onto the shell textures (no depth test), the furniture's
+  shadows baked into the floor (stains once it moves), holes under furniture filled with
+  smeared colour, and the background splats of walls, floor and ceiling (blur, haze, streaks
+  at the wall tops) drawn over the shell.
+- Fixes, all in the pipeline:
+  - `room_shell.py`: every frame gets an occluder depth buffer (background splats more than
+    8 cm from a surface plus every object splat), so texels behind furniture are not
+    projected. The floor under and around each footprint (1.2 m reach, 10 cm margin) and
+    darker-than-local texels near it (`shadow_mask`) are regenerated, by default by copying
+    the surface's own texels at the best-matching offset (`copy_fill`, planks continue in
+    line) with a clamped low-frequency seam correction; `--fill muse` keeps the Muse Image
+    edit. The floor alpha now reaches 2 texels past the outline: the cut texels had left a
+    dotted crack along the wall base. The projection is cached (`--reuse-projection`).
+  - New stage `room_surfaces.py` (in `run_pipeline.py` after the bake, before the LOD): a
+    background splat goes when its 2-sigma extent comes within 6 cm of a shell surface, when
+    it lies outside the room, or when it is haze (over 10 cm, opacity under 0.3), a needle
+    (over 5 cm, 8x its middle axis), a floater (under 10 splats in the 30 cm cube around it)
+    or a leftover inside an object's box grown by 12 cm (it would stay behind as a ghost when
+    the object moves). Each rule was added for an artifact the judge named: the corner fog,
+    dark strokes over the sofa, coloured blobs on the unfilmed upper walls, specks inside the
+    side table, a rainbow haze above the armchair. blender01 keeps 1,959 of 263,520 splats
+    (`objects/background_room.ply`). `room/shell.json` is marked `replaces_splats`, so the
+    viewer draws the shell solid in its true planes and hides the baked floor quad;
+    `--revert` restores the previous background. Helpers `surface_splats` and
+    `neighbour_counts` in `roomshell.py`.
+  - Viewer: faint contact shadows under floor-standing objects (`web/src/objects/shadows.ts`,
+    0.16 alpha, inside the footprint), moving with the object; `?shadows=0` turns them off.
+    Darker or wider shadows scored worse (0.35 alpha: floor 0.052), because the object boxes
+    are larger than the objects.
+- Eval harness bug: in a hidden browser tab no animation frames run, so Spark's LOD cut lagged
+  a pose behind and the first three views showed only the shell or the coarsest splats. The
+  driver now renders every 50 ms while it waits.
+- Results on blender01 (30 views; pixel share is floor / wall, judge is Muse Spark's
+  artifact count / severity sum / frames with an artifact):
+
+  | run | change | pixels floor / wall | judge |
+  |---|---|---|---|
+  | baseline | splat walls and floor, baked floor quad | 0.035 / 0.0007 | 24 / 54 / 15 |
+  | surfaces6 | depth-tested shell, fill, solid shell, background cut at 6 cm | 0.042 / 0.0015 | 32 / 58 / 21 |
+  | surfaces8 | floor alpha past the outline (dotted crack) | 0.042 / 0.0015 | 26 / 57 / 16 |
+  | surfaces9 | background cut by 2-sigma reach, haze | 0.044 / 0.0037 | 30 / 50 / 16 |
+  | surfaces10 | floaters | 0.044 / 0.0034 | 22 / 40 / 11 |
+  | surfaces11 | needles, leftovers in object boxes (5 cm) | 0.045 / 0.0039 | 13 / 25 / 9 |
+  | surfaces12 | object margin 12 cm | 0.045 / 0.0043 | 3 / 5 / 3 |
+  | surfaces14 | surface ghosts (below) | 0.045 / 0.0042 | 6 / 10 / 5 |
+  | surfaces15 | fill seams fade in | 0.044 / 0.0043 | 4 / 8 / 4 |
+  | surfaces16 | outline from edge orientation | 0.046 / 0.0040 | 2 / 4 / 2 |
+
+  The pixel score went up while the artifacts went down. Its floor errors sit under and
+  next to the furniture: the GT has the furniture's contact shadows there, the splat
+  floor kept them baked in, and the shell regenerates that floor on purpose so no shadow
+  stays behind when an object moves. The object boxes being too large and small pose errors
+  add the rest. The 3 remaining judge items: a faint purple haze (000120), a fringe under
+  the cabinet (object splats) and a smear behind the coffee table (000420).
+- Modal rendering for the synthetic rooms: `modal_jobs/blender.py` runs blender_room.py in
+  parallel 30-frame chunks (L4, falling back to A10G or L40S when L4s are short), writes to
+  the Volume `movable-reality-renders` and skips chunks already there. Returning the files
+  through the client lost the connection after 11 of 60 chunks, hence the volume.
+  blender02 both walks with GT: 60 chunks in 6.3 min.
+- Evening, after the reviewer pass (verdict "needs changes"; occluders skip the surface
+  splats, `background_source()` finds the unreduced background on a rebuild, shell.json
+  keeps the `surfaces_*` keys, contact shadows survive the mesh styles, the eval hooks live
+  in `web/src/bench/evalViews.ts`, `/__eval` rejects paths outside `data/scenes`):
+  - Surface ghosts: the last 1,959 background splats on blender01 were beige fuzz 10 to
+    60 cm off the walls and floor in the colour of the wall behind. `room_surfaces.py` now
+    drops a splat within 1 m of a surface whose colour is within 0.10 (RGB) of the shell
+    texture under it (`surface_colour_gap`); blender01 keeps 161 to 325.
+  - Fill seams: `copy_fill` measures the rim mismatch between local means of real texels
+    and fades a larger correction (up to 0.2) in over 30 texels from the rim, so a soft
+    shadow that runs on past the regenerated floor meets the copy without a step (the
+    floor beside blender01's sofa). A hole no copy fits starts from the surface's median
+    colour instead of push-pull from its rim.
+  - Outline: `main_angle` averages the floor coverage's edge directions with 4-fold
+    symmetry; the smallest bounding box had turned blender02's L 6 deg, which split the
+    wall at its convex corner. An object box adds floor only within 10 cm of the floor the
+    frames saw (blender02's desk#2 box reached 33 cm through the wall). Corners against GT:
+    blender01 within 5 cm (9 cm before), blender02 within 6 cm (40 cm before). Snapping
+    walls to the densest splat layer was tried and dropped: blender02 has a dense layer
+    24 cm inside the alcove wall and the daybed hides the south wall.
+  - Not a box room: when more than 10 % of the background splats survive, the room has
+    structure the shell does not model and the stage keeps the scan's splats (`--force`).
+- More rooms (Modal renders, 30 test-walk views each):
+
+  | room | run | pixels floor / wall | judge |
+  |---|---|---|---|
+  | blender02 (L-shaped) | baseline (splat walls) | 0.055 / 0.016 | 85 / 175 / 28 |
+  | blender02 | surfaces1 (angle 6 deg off) | 0.090 / 0.034 | 92 / 187 / 28 |
+  | blender02 | surfaces3 (outline, median fill) | 0.087 / 0.032 | 73 / 155 / 28 |
+  | blender04 (attic) | baseline | 0.044 / 0.023 | 71 / 158 / 29 |
+  | blender04 | shell applied (`--force`) | 0.046 / 0.028 | 95 / 194 / 29 |
+
+  blender04 now keeps its baseline (the gate). The judge varies by about 10 items between
+  identical runs on blender02. Most of blender02's items are now object splats seen against
+  the walls (halos round the armchair and plant, colour inside the desk legs), and its
+  pixel errors are the regenerated floor under the daybed plus a wall the main walk saw
+  darker than the test walk (in the baseline too). blender03 is still in the pipeline.
+- Tests: 24 roomshell tests (surface colour gap, the fading seam, the median fill, the
+  L-shaped main angle, clipped boxes); `uv run pytest` passes apart from the blender lane's
+  uncommitted `test_blender_bedroom.py`; vitest 175; `npm run build` ok.
+- Still open, all in the object splats rather than the walls and floor: the white fill
+  under blender01's cabinet arch, colour specks inside its side table, halos round
+  blender02's armchair and plant, blender04's smeared bed and lamp needles. A mask-vote
+  cleanup of object splats was tried and dropped: label 0 in the SAM masks is "unlabeled"
+  (the daybed mask covers only its frame), not "wall". Room height falls back to 2.5 m when
+  no frame sees the ceiling (the synthetic rooms are 2.6 m). Rooms with sloped ceilings keep
+  the scan's walls.
