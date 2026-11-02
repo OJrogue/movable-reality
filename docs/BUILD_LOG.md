@@ -1069,3 +1069,35 @@ test-walk metrics, `sfm.json`, GT pose ATE). Every row predates the lighting cha
 - Tests: `pytest` 333 passed, 8 skipped; vitest 172 passed; ruff clean; build passes.
 - Still open: the never-filmed floor where a moved table stood shows a smear, and faint
   streaks below the needle cut.
+
+## 2 Nov (later), core: SAM 3D meshes upright and on the floor
+
+- Bug: SAM 3D meshes (and the completed splats, which share their matrix) stood tilted;
+  blender01's coffee table leaned 16 degrees and dipped into the floor. The mesh frame was
+  right (the mesh matches the completed splats under every axis permutation); the
+  registration was not. SAM 3D's single-view pose was 2 to 15 degrees off level, and the
+  free ICP fitted the model to a partial scan by tilting it further (coffee table 7 -> 16,
+  potted plant#2 2 -> 20, books#0 upside down at 144).
+- Fix in `completion.register` (stage 6, so every new scene gets it): the pose guess is
+  levelled so SAM 3D's local +Z (its canonical up) lies on world +-Y
+  (`splat_ops.level_rotation`), and ICP fits only a rotation about world Y
+  (`splat_ops.umeyama_yaw`, `icp(upright=True)`). An object whose opaque scan reaches
+  within 5 cm of the floor (0.2 % quantile) then rests on y = 0; the shelf items are not
+  moved. `completion.json` reports `levelled_deg` and `floor_shift_m`.
+- Review fixes: the pose is always turned to local +Z up (books#0 was 176 degrees, upside
+  down); after the floor shift a last ICP with y and scale locked refits yaw and x, z;
+  `icp_rms_after_m` is the final pose, `icp_rms_free_m` the pose before the floor rule;
+  stale report entries (merged objects) are dropped.
+- blender01 rerun from the SAM 3D cache (no Modal calls) and LOD rebuilt. Levelling per
+  object (degrees, from `completion.json`): armchair 14.5, sofa 9.5, coffee table 7.2,
+  cabinet 5.4, books 176.4, others 1.9 to 3.7. Seven floor objects sit at y = 0 within
+  2.3 cm (floor lamp moved down 11 cm, cabinet 17 cm). Final ICP RMS against the free fit:
+  coffee table 0.037 (0.032), cabinet 0.078 (0.048), potted plant#1 0.071 (0.055), the
+  others within 2 mm. The RMS before this change was overwritten in `completion.json`
+  (0.041 for the coffee table, measured in this session, not kept). Viewer check with
+  `?objects=mesh`: screenshot not saved.
+- Tests: `pytest` test_core_m4 27 passed (5 new: levelling, yaw-only fit, tilted guess,
+  floor contact, free-rotation path). ruff clean.
+- Still open: the cabinet and potted plant#1 models hit the 1.25 scale clamp and are
+  shorter than their scans, so resting them on the floor costs 2 to 3 cm RMS; potted
+  plant#2 (on the cabinet) comes out much taller than its scan (219 opaque splats).

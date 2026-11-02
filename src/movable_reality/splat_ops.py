@@ -274,6 +274,42 @@ def umeyama(
     return R, mu_d - s * R @ mu_s, s
 
 
+def umeyama_yaw(
+    src: np.ndarray, dst: np.ndarray, with_scale: bool = True
+) -> tuple[np.ndarray, np.ndarray, float]:
+    """Least-squares (R, t, s) with dst ~ s R src + t, R a rotation about +Y only, so an
+    upright object stays upright."""
+    mu_s, mu_d = src.mean(0), dst.mean(0)
+    a, b = src - mu_s, dst - mu_d
+    # R_y(th) a = (c ax + s az, ay, -s ax + c az); b . R a is maximal at this th.
+    th = math.atan2((a[:, 2] * b[:, 0] - a[:, 0] * b[:, 2]).sum(),
+                    (a[:, 0] * b[:, 0] + a[:, 2] * b[:, 2]).sum())  # fmt: skip
+    c, s_ = math.cos(th), math.sin(th)
+    R = np.array([[c, 0.0, s_], [0.0, 1.0, 0.0], [-s_, 0.0, c]])
+    var = (a**2).sum()
+    s = float((b * (a @ R.T)).sum() / var) if with_scale and var > 0 else 1.0
+    return R, mu_d - s * R @ mu_s, s
+
+
+def level_rotation(R: np.ndarray, up_axis: int) -> tuple[np.ndarray, float]:
+    """Smallest rotation L such that L R puts local axis `up_axis` on world +Y (objects in a
+    room stand upright, so an upside-down guess is turned over). Returns (L, tilt in degrees
+    before levelling, 180 for upside down)."""
+    u = np.asarray(R, dtype=np.float64)[:, up_axis]
+    u = u / np.linalg.norm(u)
+    target = np.array([0.0, 1.0, 0.0])
+    axis = np.cross(u, target)
+    sin, cos = float(np.linalg.norm(axis)), float(np.clip(u @ target, -1.0, 1.0))
+    tilt = math.degrees(math.atan2(sin, cos))
+    if sin < 1e-12:
+        if cos > 0:
+            return np.eye(3), tilt
+        return np.diag([1.0, -1.0, -1.0]), tilt  # exactly upside down: half turn about X
+    k = axis / sin
+    K = np.array([[0.0, -k[2], k[1]], [k[2], 0.0, -k[0]], [-k[1], k[0], 0.0]])
+    return np.eye(3) + sin * K + (1 - cos) * K @ K, tilt
+
+
 def nearest(query: np.ndarray, ref: np.ndarray, chunk: int = 2048) -> tuple[np.ndarray, np.ndarray]:
     """Index into `ref` and distance of the nearest neighbour of every query point."""
     idx = np.empty(len(query), dtype=np.int64)
@@ -294,6 +330,8 @@ def icp(
     iters: int = 20,
     scale_range: tuple[float, float] = (0.8, 1.25),
     trim: float = 0.9,
+    upright: bool = False,
+    lock_y: bool = False,
 ) -> tuple[np.ndarray, float, float]:
     """Register a complete model `full` to a partial scan `partial` (both N x 3).
 
@@ -301,7 +339,11 @@ def icp(
     object's surface, so this direction has no false matches from unseen sides). The worst
     (1 - trim) matches are dropped and a similarity is fitted. The accumulated scale stays in
     `scale_range`. RMS is over the best `trim` share of the scan, so floaters do not decide
-    it. Returns (best 4x4 M with partial ~ M full, trimmed RMS before, trimmed RMS of M)."""
+    it. `upright` fits rotations about +Y only (umeyama_yaw), for a model already levelled.
+    `lock_y` (with upright) also keeps scale and height: only the yaw and the x, z offset
+    change, for a model already resting on the floor.
+    Returns (best 4x4 M with partial ~ M full, trimmed RMS before, trimmed RMS of M)."""
+    fit = umeyama_yaw if upright else umeyama
 
     def trimmed_rms(pts: np.ndarray) -> float:
         d = nearest(partial, pts)[1]
@@ -314,7 +356,11 @@ def icp(
     for _ in range(iters):
         j, d = nearest(partial, cur)
         keep = d <= np.quantile(d, trim)
-        R, t, s = umeyama(cur[j[keep]], partial[keep])
+        if lock_y:
+            R, t, s = umeyama_yaw(cur[j[keep]], partial[keep], with_scale=False)
+            t[1] = 0.0  # R turns about Y, so y is unchanged
+        else:
+            R, t, s = fit(cur[j[keep]], partial[keep])
         total = (np.linalg.det(M[:3, :3]) ** (1 / 3)) * s
         lo, hi = scale_range
         if not lo <= total <= hi:

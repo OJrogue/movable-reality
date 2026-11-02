@@ -79,18 +79,31 @@ def register(
     n_points: int = 2000,
     scan_alpha: np.ndarray | None = None,
     max_scale_change: float = 0.25,
+    up_axis: int | None = 2,
+    floor_tol: float = 0.05,
 ) -> tuple[np.ndarray, dict]:
     """Recon-frame splats of the completed object, aligned to the scanned object.
 
     `recon_from_local` is the first guess from SAM 3D's pose and the frame's camera, and it
-    fixes orientation. Scale comes from the boxes, unless it departs from the (metric) guess
+    fixes orientation. The single-view pose is often a few degrees off level, so with
+    `up_axis` set (SAM 3D's canonical frame is Z-up) the guess is first levelled to put that
+    local axis on world +Y, and ICP then turns the object about world Y only. Without the
+    constraint ICP fits a tilted object to a partial scan (blender01's coffee table came out
+    16 degrees off level). None keeps the full 3D rotation. A levelled object whose scan
+    reaches within `floor_tol` m of the floor is then moved in y to rest on it.
+    Scale comes from the boxes, unless it departs from the (metric) guess
     by more than `max_scale_change`. Floaters are dropped from the scan first (`clean_scan`).
     ICP on the splat centres (scan matched to the model, trimmed, similarity) runs from the
     pose guess and from `coarse_starts`, and the start with the lowest trimmed RMS wins.
-    Returns splats with `generated` = 1 and a report (scale, ICP RMS before and after, m,
-    and the final recon_from_local matrix)."""
+    Returns splats with `generated` = 1 and a report (scale, tilt removed, ICP RMS before and
+    after, m, and the final recon_from_local matrix)."""
     W = np.asarray(world_from_recon, dtype=np.float64)
     W0 = W @ recon_from_local
+    tilt = 0.0
+    if up_axis is not None:
+        L, tilt = so.level_rotation(W0[:3, :3], up_axis)
+        c0 = W0[:3, :3] @ so.xyz(local).mean(0) + W0[:3, 3]  # level about the model centre
+        W0 = so.similarity(L, c0 - L @ c0, 1.0) @ W0
     alpha = so.opacity(local)
     full = so.xyz(local)[alpha >= 0.5] if (alpha >= 0.5).sum() >= 100 else so.xyz(local)
     full_w = so.subsample(full @ W0[:3, :3].T + W0[:3, 3], n_points)
@@ -104,17 +117,35 @@ def register(
     best = None
     for C in starts:
         moved = full_w @ C[:3, :3].T + C[:3, 3]
-        M_icp, rms0, rms = so.icp(moved, scan_w)
+        M_icp, rms0, rms = so.icp(moved, scan_w, upright=up_axis is not None)
         if best is None or rms < best[3]:
             best = (M_icp @ C, rms0, len(starts), rms)
     M, rms0, n_starts, rms = best
+    rms_free = rms
+    # A scan that reaches the floor (y = 0) stands on it: rest the model's bottom there, as
+    # ICP on a partial scan leaves it a few cm above or below (blender01's floor lamp, +11 cm).
+    # Bottoms are 0.2 % quantiles of the opaque splats before clean_scan, which cuts thin legs.
+    # A last ICP with y and scale locked then refits yaw and x, z on the floor.
+    floor_shift = 0.0
+    scan_raw = scan_recon @ W[:3, :3].T + W[:3, 3]
+    if up_axis is not None and so.robust_bounds(scan_raw, scan_alpha, pct=0.2)[0][1] < floor_tol:
+        MW0 = M @ W0
+        bottom = so.robust_bounds(full @ MW0[:3, :3].T + MW0[:3, 3], pct=0.2)[0][1]
+        floor_shift = -float(bottom)
+        M = so.similarity(np.eye(3), [0.0, floor_shift, 0.0], 1.0) @ M
+        moved = full_w @ M[:3, :3].T + M[:3, 3]
+        M_icp, _, rms = so.icp(moved, scan_w, upright=True, lock_y=True)
+        M = M_icp @ M
     recon_final = np.linalg.inv(W) @ M @ W0
     out = so.apply_matrix(so.standard(local, generated=1), recon_final)
     return out, {
         "coarse_scale": round(s, 4),
         "total_scale": round(float(so.decompose(M)[2]), 4),
+        "levelled_deg": round(tilt, 2),
+        "floor_shift_m": round(floor_shift, 4),
         "starts": n_starts,
         "icp_rms_before_m": round(rms0, 4),
-        "icp_rms_after_m": round(rms, 4),
+        "icp_rms_free_m": round(rms_free, 4),  # before the floor rule
+        "icp_rms_after_m": round(rms, 4),  # final pose
         "recon_from_local": recon_final.tolist(),  # the mesh of the same run uses it too
     }

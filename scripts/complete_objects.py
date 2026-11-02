@@ -65,6 +65,8 @@ def main() -> int:
     cams = {int(c.name.rsplit("/", 1)[-1].split(".")[0]): c for c in read_model(root / "recon")}
     report_path = root / "completion.json"
     report = json.loads(report_path.read_text()) if report_path.exists() else {}
+    ids = {o.id for o in scene.objects if o.source == "scan"}
+    report = {k: v for k, v in report.items() if k in ids}  # objects merged or renamed since
 
     todo = [o for o in scene.objects if o.source == "scan" and (not args.only or o.id == args.only)]
     if args.only and not todo:
