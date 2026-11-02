@@ -98,7 +98,7 @@ def main() -> int:
     ap.add_argument(
         "--max-kept",
         type=float,
-        default=0.10,
+        default=0.18,
         help="share of background splats kept above which the room is not a box",
     )
     ap.add_argument("--force", action="store_true", help="apply even when not a box room")
@@ -155,8 +155,10 @@ def main() -> int:
     n = int(keep.sum())
     if n > args.max_kept * len(keep) and not args.force:
         # The room has structure the shell (vertical walls, flat ceiling) does not model:
-        # blender04's attic kept 25 % (its roof slopes), the box rooms 0.1 to 2 %. Its
-        # splats stay, and with them the scan's own walls.
+        # blender04's attic kept 25 % (its roof slopes), the box rooms 0.1 to 2 % and the
+        # cluttered blender06 bedroom 11.5 % (lamp, shelf, curtains, radiator). A share is a
+        # heuristic: clutter and slopes are told apart only by how much of them there is.
+        # Its splats stay, and with them the scan's own walls.
         revert(root, scene, shell)
         shell["surfaces_skipped"] = (f"{n} of {len(keep)} background splats off the shell "
                                      f"(over --max-kept {args.max_kept})")  # fmt: skip

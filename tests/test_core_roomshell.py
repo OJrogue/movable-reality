@@ -314,3 +314,91 @@ def test_copy_fill_takes_the_median_when_no_source_fits():
     # Deep inside, the surface's own colour within the clamped correction (0.06 = 15 levels),
     # not the rim's push-pull average (115).
     assert abs(out[20, 100] - 170).max() <= 16
+
+
+def test_base_mask_keeps_the_floor_between_legs_and_drops_a_painted_base():
+    s = roomshell.surfaces(SQ, 2.5)[0]
+    shape = (30, 40)  # 0.1 m texels
+    rgb = np.full((*shape, 3), 120, np.uint8)
+    rgb[::2] = 140  # planks
+    good = np.ones(shape, bool)
+
+    def at(x, z):
+        rel = np.array([x, 0.0, z]) - s.origin
+        return int(rel @ s.v / s.size_v * shape[0]), int(rel @ s.u / s.size_u * shape[1])
+
+    # A desk: legs at its corners, the floor between them filmed in the floor's colour.
+    legs = np.array([[x, 0.05, z] for x in (0.55, 1.45) for z in (0.55, 1.45)])
+    black = np.array([[20.0, 20.0, 20.0]])
+    desk = (np.array([0.5, 0.0, 0.5]), np.array([1.5, 0.75, 1.5]), legs, black)
+    m, _ = roomshell.base_mask(s, [desk], rgb, good, contact=0.12, grow_m=0.0)
+    assert m[at(0.55, 0.55)] and not m[at(1.0, 1.0)]
+    # A bed whose wooden base was painted onto the floor under it: the whole box goes.
+    v0, u0 = at(2.5, 0.5)
+    v1, u1 = at(3.5, 1.5)
+    rgb[min(v0, v1) : max(v0, v1) + 1, min(u0, u1) : max(u0, u1) + 1] = (230, 190, 140)
+    rgb[at(2.55, 1.45)] = (100, 120, 170)  # a blue rug's corner reaches under the bed
+    bed = (np.array([2.5, 0.0, 0.5]), np.array([3.5, 0.5, 1.5]), np.array([[3.45, 0.05, 1.45]]),
+           np.array([[230.0, 190.0, 140.0]]))  # fmt: skip
+    m, foreign = roomshell.base_mask(s, [bed], rgb, good, contact=0.12, grow_m=0.0)
+    assert m[at(3.0, 1.0)] and m[at(2.55, 0.55)] and not m[at(1.0, 1.0)]
+    assert foreign[at(3.0, 1.0)] and not foreign[at(1.0, 1.0)]
+    assert foreign[at(2.55, 1.45)] and not m[at(2.55, 1.45)]  # the rug stays
+
+
+def test_base_mask_keeps_a_rug_under_a_chair():
+    # A grey-blue rug filmed between a white chair's legs: foreign to the floor, but not the
+    # chair's colour, so only the legs go.
+    s = roomshell.surfaces(SQ, 2.5)[0]
+    shape = (30, 40)  # 0.1 m texels
+    rgb = np.full((*shape, 3), (150, 100, 60), np.uint8)  # wood
+    rgb[::2] = (130, 85, 50)
+    good = np.ones(shape, bool)
+    rug = np.zeros(shape, bool)
+    rug[5:25, 5:25] = True
+    rgb[rug] = (110, 120, 140)
+    legs = np.array([[x, 0.05, z] for x in (1.05, 1.45) for z in (1.05, 1.45)])
+    chair = (np.array([1.0, 0.0, 1.0]), np.array([1.5, 0.9, 1.5]), legs,
+             np.array([[235.0, 235.0, 230.0]]))  # fmt: skip
+    m, foreign = roomshell.base_mask(s, [chair], rgb, good, contact=0.12, grow_m=0.0)
+    assert foreign[rug].mean() > 0.9
+    assert (m & rug).sum() <= 4 * 9  # the legs, grown by a texel
+
+
+def test_copy_fill_continues_stripes_across_a_hole_larger_than_any_source():
+    # Planks along y; the hole covers most of the width, so no single offset fits it.
+    h, w = 120, 200
+    stripes = ((np.arange(w) // 6) % 2 * 100 + 70).astype(np.uint8)
+    rgb = np.repeat(np.repeat(stripes[None, :, None], h, 0), 3, 2)
+    holes = np.zeros((h, w), bool)
+    holes[30:110, 10:190] = True
+    damaged = rgb.copy()
+    damaged[holes] = 0
+    no_rug = np.zeros((h, w), bool)
+    out = roomshell.copy_fill(damaged, holes, np.ones((h, w), bool), step=1, tile=20,
+                              foreign=no_rug)  # fmt: skip
+    err = np.abs(out[holes].astype(int) - rgb[holes].astype(int)).mean()
+    assert err < 20  # planks in line (a flat median would be 50 off, shifted planks 100)
+
+
+def test_copy_fill_keeps_a_rug_inside_its_edge():
+    # Planks with a flat grey rug on the left and a wall (outside `keep`) on the right.
+    h, w = 120, 200
+    stripes = ((np.arange(w) // 6) % 2 * 60 + 90).astype(np.uint8)
+    rgb = np.repeat(np.repeat(stripes[None, :, None], h, 0), 3, 2)
+    rug = np.zeros((h, w), bool)
+    rug[10:110, :60] = True
+    rgb[rug] = 200
+    keep = np.ones((h, w), bool)
+    keep[:, 90:] = False
+    # A hole beside the rug: past the seam correction at its edge, no rug.
+    holes = np.zeros((h, w), bool)
+    holes[30:90, 60:90] = True
+    out = roomshell.copy_fill(rgb, holes, keep, step=1, tile=20, foreign=rug)
+    deep = out[30:90, 72:90, 0].astype(int)
+    assert (np.abs(deep - 200) < 15).mean() < 0.05
+    # A hole inside the rug, larger than a piece: rug.
+    holes = np.zeros((h, w), bool)
+    holes[20:100, 5:45] = True
+    out = roomshell.copy_fill(rgb, holes, keep, step=1, tile=20, foreign=rug)
+    assert (np.abs(out[holes][:, 0].astype(int) - 200) < 15).mean() > 0.95
