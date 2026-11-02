@@ -173,19 +173,25 @@ def simplify_loop(loop: np.ndarray, tol: float) -> np.ndarray:
     return np.concatenate([a[:-1], b[:-1]])
 
 
-def main_angle(xz: np.ndarray) -> float:
-    """Rotation (radians, 0 to 90 deg) whose axis-aligned box around the points is smallest:
-    the room's main wall direction."""
-
-    def area(th: float) -> float:
-        c, s = np.cos(th), np.sin(th)
-        r = xz @ np.array([[c, -s], [s, c]])
-        return float(np.prod(np.percentile(r, 99, 0) - np.percentile(r, 1, 0)))
-
-    coarse = np.radians(np.arange(0.0, 90.0, 1.0))
-    best = coarse[int(np.argmin([area(t) for t in coarse]))]
-    fine = best + np.radians(np.arange(-1.0, 1.0, 0.05))
-    return float(fine[int(np.argmin([area(t) for t in fine]))])
+def main_angle(xz: np.ndarray, cell: float = 0.03, blur: int = 4) -> float:
+    """Rotation (radians, 0 to 90 deg) of the room's main wall direction: the points are
+    rasterised, and the edge directions of that coverage image are averaged with 4-fold
+    symmetry (angle x 4 on the unit circle), so every wall along either axis votes for the
+    same angle. The smallest bounding box, used before, turned blender02's L-shaped floor
+    6 deg off, its corner half seen; this is 0.2 deg off on blender01 and blender02 (3 cm
+    cells, 12 cm blur)."""
+    p = np.asarray(xz, dtype=np.float64)
+    lo = np.percentile(p, 0.5, 0) - 4 * cell
+    ij = np.floor((p - lo) / cell).astype(int)
+    ok = (ij >= 0).all(1)
+    ij = ij[ok]
+    shape = tuple(ij.max(0)[::-1] + 5)
+    img = np.zeros(shape)
+    np.add.at(img, (ij[:, 1], ij[:, 0]), 1.0)
+    occ = _box_blur((img > 0)[..., None].astype(np.float64), blur)[..., 0]
+    gy, gx = np.gradient(occ)
+    w = gx**2 + gy**2
+    return float(np.angle(np.sum(w * np.exp(4j * np.arctan2(gy, gx)))) / 4 % (np.pi / 2))
 
 
 def rectify(poly: np.ndarray, snap_deg: float = 10.0, step_m: float = 0.4) -> np.ndarray:
@@ -248,13 +254,17 @@ def room_outline(
     min_frames: int = 3,
     close_m: float = 0.3,
     tol_m: float = 0.08,
+    box_reach_m: float = 0.1,
 ) -> np.ndarray:
     """Room outline (N, 2) in world x, z, with positive signed area in those axes.
 
     floor_hits: per frame, the x, z points where its floor pixels meet the floor plane. A
     cell is floor when at least `min_frames` frames hit it, so a few pixels of wall that
     SAM put in the floor mask (which land behind the wall) do not count. The grid is
-    turned to the room's main wall direction, so walls run along cell edges."""
+    turned to the room's main wall direction, so walls run along cell edges. Object boxes
+    add the floor under them (a bed no frame saw under) only within `box_reach_m` of the
+    floor the frames saw, closed and filled: blender02's lift gave a desk a box 33 cm
+    through the wall, and the outline followed it."""
     allp = np.concatenate(floor_hits)
     th = main_angle(allp[:: max(1, len(allp) // 50_000)])
     c, s = np.cos(th), np.sin(th)
@@ -270,13 +280,16 @@ def room_outline(
         once[ij[ok, 1], ij[ok, 0]] = True
         hits += once
     occ = hits >= min_frames
+    r_close = max(1, round(close_m / cell))
+    seen = _grow(ortho_convex(_largest(_fill_holes(_close(occ, r_close)))),
+                 round(box_reach_m / cell))  # fmt: skip
     for blo, bhi in boxes_xz:  # objects stand on floor no frame saw
         corners = np.array([[blo[0], blo[1]], [bhi[0], blo[1]], [bhi[0], bhi[1]], [blo[0], bhi[1]]])
         g = (corners @ rot - lo) / cell
         a = np.clip(np.floor(g.min(0)).astype(int), 0, np.array(shape[::-1]) - 1)
         b = np.clip(np.floor(g.max(0)).astype(int), 0, np.array(shape[::-1]) - 1)
-        occ[a[1] : b[1] + 1, a[0] : b[0] + 1] = True
-    occ = ortho_convex(_largest(_fill_holes(_close(occ, max(1, round(close_m / cell))))))
+        occ[a[1] : b[1] + 1, a[0] : b[0] + 1] |= seen[a[1] : b[1] + 1, a[0] : b[0] + 1]
+    occ = ortho_convex(_largest(_fill_holes(_close(occ, r_close))))
     loop = _trace(occ) * cell + lo
     poly = rectify(simplify_loop(loop, tol_m)) @ rot.T  # back to world x, z
     area = 0.5 * np.sum(poly[:, 0] * np.roll(poly[:, 1], -1) - np.roll(poly[:, 0], -1) * poly[:, 1])

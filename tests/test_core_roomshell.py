@@ -46,13 +46,15 @@ def test_room_outline_rectangle_turned():
     assert abs(sides[0] - 3) < 0.15 and abs(sides[-1] - 4) < 0.15
 
 
-def test_room_outline_needs_min_frames_and_adds_boxes():
+def test_room_outline_needs_min_frames_and_clips_boxes():
     frames = [_hits([0, 0], [3, 3], seed=s) for s in range(3)]
     frames[0] = np.concatenate([frames[0], _hits([3, 0], [4, 3], n=500)])  # one stray frame
-    poly = roomshell.room_outline(frames, [(np.array([2.5, 0.0]), np.array([3.6, 3.0]))])
-    assert poly[:, 0].max() > 3.5  # the box footprint widens the room
     poly2 = roomshell.room_outline(frames, [])
-    assert poly2[:, 0].max() < 3.2  # the stray frame alone does not
+    assert poly2[:, 0].max() < 3.2  # the stray frame alone does not widen the room
+    # A box 60 cm through the wall (blender02: a desk's lift box) widens it by at most the
+    # 10 cm box reach.
+    poly = roomshell.room_outline(frames, [(np.array([2.5, 0.0]), np.array([3.6, 3.0]))])
+    assert poly[:, 0].max() < poly2[:, 0].max() + 0.15
 
 
 def test_surfaces_normals_point_inward():
@@ -286,3 +288,16 @@ def test_surface_colour_gap_matches_the_texture_under_a_point():
     assert gap[0] < 0.01 and gap[1] < 0.01  # a floor-coloured ghost over each half
     assert gap[2] > 0.3  # a red thing over the grey half is not
     assert np.isinf(dist[3]) and np.isinf(gap[3])  # over no surface
+
+
+def test_main_angle_of_an_l_shaped_floor_with_a_corner_unseen():
+    rng = np.random.default_rng(0)
+    ell = np.array([[-2.25, 2.5], [2.25, 2.5], [2.25, -0.5], [0.75, -0.5], [0.75, -2.5],
+                    [-2.25, -2.5]])  # fmt: skip
+    p = rng.uniform(-3, 3, (60000, 2))
+    p = p[roomshell.inside_polygon(p, ell)]
+    p = p[~((p[:, 0] > 0) & (p[:, 1] > 1.5))]  # blender02: the far corner half seen
+    for deg in (6.3, 30.0):
+        t = np.radians(deg)
+        rot = np.array([[np.cos(t), np.sin(t)], [-np.sin(t), np.cos(t)]])
+        assert abs(np.degrees(roomshell.main_angle(p @ rot)) - deg) < 0.5
