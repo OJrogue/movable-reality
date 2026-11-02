@@ -13,11 +13,12 @@ from __future__ import annotations
 
 import io
 import math
-import os
 from pathlib import Path
 
 import numpy as np
 from plyfile import PlyData, PlyElement
+
+from .fsutil import replace_file
 
 GENERATED = "generated"
 CORE = ["x", "y", "z", "nx", "ny", "nz", "f_dc_0", "f_dc_1", "f_dc_2"]
@@ -61,7 +62,7 @@ def write_vertices(path: Path, v: np.ndarray) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(".ply.tmp")
     PlyData([PlyElement.describe(v, "vertex")], byte_order="<").write(str(tmp))
-    os.replace(tmp, path)
+    replace_file(tmp, path)
 
 
 def xyz(v: np.ndarray) -> np.ndarray:

@@ -70,3 +70,16 @@ def test_merge_duplicates_joins_one_thing_under_two_nouns():
     verts = {"sofa#1": cloud((0, 0, 0), 900), "armchair#0": cloud((0.05, 0, 0), 300),
              "table#0": cloud((2, 0, 0), 500)}  # fmt: skip
     assert merge_duplicates(verts) == {"armchair#0": "sofa#1"}
+
+
+def test_high_needles_drops_only_long_thin_splats_above_the_cameras():
+    from movable_reality.objtrain import high_needles
+
+    names = ["x", "y", "z", "scale_0", "scale_1", "scale_2"]
+    v = np.zeros(4, dtype=[(n, "f4") for n in names])
+    v["y"] = [2.1, 2.1, 1.0, 2.1]  # world = recon here
+    s = np.log([[0.40, 0.02, 0.01], [0.05, 0.05, 0.05], [0.40, 0.02, 0.01], [0.20, 0.10, 0.01]])
+    for i, n in enumerate(["scale_0", "scale_1", "scale_2"]):
+        v[n] = s[:, i]
+    # needle up high, round splat up high, needle at camera height, wide flat splat up high
+    assert high_needles(v, np.eye(4), cam_top=1.5).tolist() == [True, False, False, False]

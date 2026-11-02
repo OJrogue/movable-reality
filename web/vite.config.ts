@@ -1,5 +1,6 @@
 import {
   createReadStream,
+  type ReadStream,
   existsSync,
   mkdirSync,
   readdirSync,
@@ -7,7 +8,8 @@ import {
   statSync,
   writeFileSync,
 } from "node:fs";
-import type { IncomingMessage } from "node:http";
+import type { IncomingMessage, ServerResponse } from "node:http";
+import { pipeline as pipeStream } from "node:stream";
 import { extname, join, normalize, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import basicSsl from "@vitejs/plugin-basic-ssl";
@@ -19,6 +21,13 @@ import {
   type SceneSummary,
   summarize,
 } from "./src/ui/sceneIndex";
+
+// pipe() leaves the file open when the browser aborts the request (the viewer aborts PLY
+// fetches it does not need). On Windows that open handle blocked the bake from replacing
+// background_baked.ply (1 Nov); stream.pipeline() closes the file when the response closes.
+function send(src: ReadStream, res: ServerResponse): void {
+  pipeStream(src, res, () => {});
+}
 
 // Dev only: serve ../data/scenes at /scenes so the viewer reads pipeline output directly.
 // For hosting, copy precomputed scenes into web/public/scenes or pass ?base=<url>.
@@ -103,11 +112,11 @@ function serveLocalScenes(): Plugin {
               res.statusCode = 206;
               res.setHeader("Content-Range", `bytes ${start}-${end}/${size}`);
               res.setHeader("Content-Length", String(end - start + 1));
-              createReadStream(file, { start, end }).pipe(res);
+              send(createReadStream(file, { start, end }), res);
               return;
             }
             res.setHeader("Content-Length", String(size));
-            createReadStream(file).pipe(res);
+            send(createReadStream(file), res);
             return;
           }
         }
@@ -237,7 +246,20 @@ export default defineConfig({
     // Core lane: the scene server (uv run python -m movable_reality.server, port 8000)
     // holds the agent and the edit API; the viewer works without it (local edits only).
     proxy: {
-      "/api": "http://127.0.0.1:8000",
+      "/api": {
+        target: "http://127.0.0.1:8000",
+        changeOrigin: true, // what the plain string form set
+        // Scene server down (not started yet, or local-only use): the viewer falls back to
+        // local edits. Answer the health probe instead of a bare 500 in the console.
+        configure: (proxy) => {
+          proxy.on("error", (_err, req, res) => {
+            if (!("writeHead" in res) || res.headersSent) return;
+            const health = req.url?.startsWith("/api/health");
+            res.writeHead(health ? 200 : 503, { "content-type": "application/json" });
+            res.end(JSON.stringify({ ok: false, error: "scene server not running on :8000" }));
+          });
+        },
+      },
       "/ws": { target: "ws://127.0.0.1:8000", ws: true },
     },
   },

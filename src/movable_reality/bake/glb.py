@@ -15,6 +15,8 @@ from pathlib import Path
 
 import numpy as np
 
+from ..fsutil import replace_file
+
 GLB_MAGIC = 0x46546C67  # "glTF"
 CHUNK_JSON = 0x4E4F534A
 CHUNK_BIN = 0x004E4942
@@ -139,7 +141,7 @@ def write_quad_glb(path: Path, corners: np.ndarray, image: bytes, mime: str, **k
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(".glb.tmp")
     tmp.write_bytes(quad_glb(corners, image, mime, **kw))
-    tmp.replace(path)
+    replace_file(tmp, path)
 
 
 def read_glb(data: bytes) -> tuple[dict, bytes]:

@@ -25,9 +25,9 @@ where it stood. Moving an object then leaves a ghost behind and drags background
 - duplicates: two trained objects whose boxes overlap (60% of the smaller one) are one
   thing under two nouns, and install() hides the smaller.
 - object o: rendered alone on black, compared with frame * mask_o, plus an opacity term
-  that pulls alpha to mask_o. Pixels of other objects (which may cover o, grown by 3 px)
-  and of any other SAM item, and a 2 px band on the mask edge are ignored. Floor and wall
-  pixels are not. Splats
+  that pulls alpha to mask_o. Pixels of other objects (which may cover o, grown by 3 px),
+  of any other SAM item, unlabelled pixels (an item no noun named) and a 2 px band on the
+  mask edge are ignored. Floor and wall pixels are not. Splats
   outside the object fade and are pruned.
 - background: rendered alone, compared with the frame outside the objects' masks (grown
   by 6 px). A second, colour-only pass adds the frame inpainted where the objects are,
@@ -161,6 +161,71 @@ def label_hits(means, cams, obj_index, obj_masks, n_obj: int):
         present[oi.unique().long()] = 1
         seen[idx] += present
     return n_in, n_free, hits, seen
+
+
+def struct_share(means, cams, masks, struct_vals):
+    """Per Gaussian centre: the share of the views in frame where it lands on a floor, wall or
+    ceiling pixel. Wall is segmented on every third frame only, so a wall splat scores about
+    a third; an item no noun named scores near 0 (its pixels are unlabelled)."""
+    import torch  # noqa: PLC0415
+
+    n_in = torch.zeros(len(means), dtype=torch.int32, device=means.device)
+    n_st = torch.zeros_like(n_in)
+    for cam, mk in zip(cams, masks, strict=True):
+        sm = torch.isin(mk, struct_vals)  # one frame at a time, not a list on the GPU
+        vm, K = cam["viewmat"], cam["K"]
+        pc = means @ vm[:3, :3].T + vm[:3, 3]
+        z = pc[:, 2]
+        uv = (pc[:, :2] / z.clamp(min=1e-6)[:, None]) @ K[:2, :2].T + K[:2, 2]
+        u, v = uv[:, 0].long(), uv[:, 1].long()
+        ok = (z > 0.05) & (u >= 0) & (u < cam["W"]) & (v >= 0) & (v < cam["H"])
+        idx = ok.nonzero()[:, 0]
+        n_in[idx] += 1
+        n_st[idx] += sm[v[idx], u[idx]].int()
+    return n_st.float() / n_in.clamp(min=1).float()
+
+
+ITEM_STRUCT_SHARE = 0.15  # below this, an in-box background splat is an unnamed item
+
+
+def box_rect(corners, cam):
+    """[H, W] bool: the image rectangle that the 8 box corners (recon frame) project to; the
+    whole frame when a corner is behind the camera."""
+    import torch  # noqa: PLC0415
+
+    vm, K = cam["viewmat"], cam["K"]
+    pc = corners @ vm[:3, :3].T + vm[:3, 3]
+    out = torch.zeros((cam["H"], cam["W"]), dtype=torch.bool, device=corners.device)
+    if bool((pc[:, 2] <= 0.05).any()):
+        out[:] = True
+        return out
+    uv = (pc[:, :2] / pc[:, 2:3]) @ K[:2, :2].T + K[:2, 2]
+    u0, v0 = (int(x) for x in uv.min(0).values.floor().clamp(min=0))
+    u1 = int(uv[:, 0].max().ceil().clamp(max=cam["W"]))
+    v1 = int(uv[:, 1].max().ceil().clamp(max=cam["H"]))
+    if u1 > u0 and v1 > v0:
+        out[v0:v1, u0:u1] = True
+    return out
+
+
+def high_needles(
+    v: np.ndarray,
+    world_from_recon: np.ndarray,
+    cam_top: float,
+    above: float = 0.2,
+    long_m: float = 0.15,
+    ratio: float = 6.0,
+) -> np.ndarray:
+    """Bool per vertex: long thin background splats (longest axis over `long_m` metres and
+    `ratio` times the middle one) whose centre is `above` metres over the highest camera. A
+    walk at chest height sees the top of the walls only at a grazing angle, and those
+    splats grew into coloured streaks across the room; the room shell backdrop covers the
+    walls there instead (blender01, 2 Nov: about 100 of 226k splats)."""
+    W = np.asarray(world_from_recon, dtype=np.float64)
+    s = float(np.cbrt(abs(np.linalg.det(W[:3, :3]))))
+    y = np.stack([v["x"], v["y"], v["z"]], 1) @ W[1, :3] + W[1, 3]
+    sc = np.sort(np.exp(np.stack([v["scale_0"], v["scale_1"], v["scale_2"]], 1)) * s, axis=1)
+    return (y > cam_top + above) & (sc[:, 2] > long_m) & (sc[:, 2] > ratio * sc[:, 1])
 
 
 BG_FILL_WEIGHT = 1.0  # colour-only pass, so the fill cannot add geometry
@@ -465,6 +530,7 @@ def main() -> None:
                                  device=dev))  # fmt: skip
         masks.append(torch.tensor(np.asarray(Image.open(mpath)), device=dev))
     centres = np.array([c["centre"] for c in cams])
+    m_np = np.asarray(scene["world_from_recon"], dtype=np.float64)
     scene_scale = float(np.linalg.norm(centres - centres.mean(0), axis=1).max()) * 1.1
     print(f"{len(cams)} frames with masks, scene scale {scene_scale:.2f}", flush=True)
     ply_of = {o["id"]: o["ply"] for o in scene["objects"]}
@@ -482,8 +548,9 @@ def main() -> None:
         lut[labels[o]] = k + 1
     all_vals = torch.tensor(sorted({v for vs in labels.values() for v in vs}), device=dev)
     struct_vals = torch.tensor(
-        [int(k) for k, n in sam.items() if n.split("#")[0] in STRUCTURE] or [0], device=dev
-    )
+        [int(k) for k, n in sam.items() if n.split("#")[0] in STRUCTURE],
+        dtype=torch.long, device=dev,
+    )  # fmt: skip
     report: dict = {"frames": len(cams), "folded": folded, "objects": {}}
 
     # The cut. The lift vote leaves parts of objects in the background (blender01: most of the
@@ -534,12 +601,38 @@ def main() -> None:
     m = torch.tensor(scene["world_from_recon"], dtype=torch.float32, device=dev)
     world = bg["means"] @ m[:3, :3].T + m[:3, 3]
     inside = torch.zeros_like(ghost)
+    in_box, volume = {}, {}
     for o in oids:
         w = seeds[o]["means"].to(dev) @ m[:3, :3].T + m[:3, 3]
         lo, hi = torch.quantile(w[:: max(1, len(w) // 100_000)], torch.tensor([0.01, 0.99],
                                 device=dev), dim=0)  # fmt: skip
-        inside |= ((world > lo - 0.02) & (world < hi + 0.02)).all(1) & (world[:, 1] > FLOOR_CLEAR)
-    junk = (ghost | (best >= 0.25)) & ~gone & inside
+        in_box[o] = ((world > lo - 0.02) & (world < hi + 0.02)).all(1) & (world[:, 1] > FLOOR_CLEAR)
+        volume[o] = float((hi - lo).prod())
+        inside |= in_box[o]
+    # Items no noun named (blender01's bowl and succulent on the coffee table) are unlabelled
+    # in every view, so neither the cut nor the ghost rule takes them, and they stayed in the
+    # background: moving the table left a copy of them behind (1 Nov). Items resting on
+    # furniture belong to it (D12): an in-box splat that rarely lands on floor or wall joins
+    # the smallest object box holding it (a bowl inside the table's box and the sofa's goes
+    # to the table). Splats that land on objects are the junk rule's below, not items.
+    junk_like = ghost | (best >= 0.25)
+    with torch.no_grad():
+        share = struct_share(bg["means"], cams, masks, struct_vals)
+    items = inside & ~gone & ~junk_like & (share < ITEM_STRUCT_SHARE)
+    joined: dict[str, int] = {}
+    for o in sorted(oids, key=lambda o: volume[o]):
+        sel = (items & in_box[o]).nonzero()[:, 0]
+        items[sel] = False
+        joined[o] = len(sel)
+        if not len(sel):
+            continue
+        gone[sel] = True
+        for key in seeds[o]:
+            seeds[o][key] = torch.cat([seeds[o][key], bg[key][sel].detach().cpu()])
+        moved[o] += len(sel)
+    report["items_joined"] = joined
+    print(f"background: unnamed item GSs joined their object {joined}", flush=True)
+    junk = junk_like & ~gone & inside
     gone |= junk
     report["junk_removed"] = int(junk.sum())
     hidden_kept = (ghost & ~gone)[~gone]
@@ -565,14 +658,23 @@ def main() -> None:
             save_params(params, out / Path(ply_of[oid]).name)
             continue
         cache: dict = {}
+        with torch.no_grad():
+            lo, hi = torch.quantile(params["means"][:: max(1, len(params["means"]) // 100_000)],
+                                    torch.tensor([0.01, 0.99], device=dev), dim=0)  # fmt: skip
+        corners = torch.stack([torch.where(torch.tensor(b, dtype=torch.bool, device=dev), hi, lo)
+                               for b in np.ndindex(2, 2, 2)])  # fmt: skip
 
-        def parts(i, vt=vt, cache=cache):
+        def parts(i, vt=vt, cache=cache, corners=corners):
             if i not in cache:
                 m = torch.isin(masks[i], vt)
-                # Other SAM items may cover o (another object, a bowl on it), so their pixels
-                # say nothing about it. Floor, wall and unlabelled pixels count: o must be
-                # transparent there.
-                other = (masks[i] > 0) & ~torch.isin(masks[i], struct_vals) & ~m
+                # Other SAM items may cover o (another object), so their pixels say nothing
+                # about it. Nor do unlabelled pixels inside o's projected box: an item no
+                # noun named (the bowl on blender01's coffee table) is unlabelled, and forcing
+                # o transparent on a black target there turned the bowl black and pruned 90%
+                # of it (1 Nov). Floor and wall pixels count, and so do unlabelled pixels
+                # outside the box: wall is segmented on every third frame only.
+                labelled_other = (masks[i] > 0) & ~torch.isin(masks[i], struct_vals) & ~m
+                other = labelled_other | ((masks[i] == 0) & box_rect(corners, cams[i]))
                 ignore = grow(other, 3) | (grow(m, 2) & ~shrink(m, 2))
                 w = (~ignore).float()
                 cache[i] = (m, w)
@@ -650,6 +752,12 @@ def main() -> None:
     rf = train_part(params, list(range(len(cams))), cams, fill_weight, a.fill_steps,
                     scene_scale, dev, log="background fill", colour_only=True)  # fmt: skip
     save_params(params, out / "background.ply")
+    bv = read_vertices(out / "background.ply")
+    cam_top = float((centres @ m_np[:3, :3].T + m_np[:3, 3])[:, 1].max())
+    needles = high_needles(bv, m_np, cam_top)
+    write_vertices(out / "background.ply", bv[~needles])
+    report["high_needles_removed"] = int(needles.sum())
+    print(f"background: {int(needles.sum())} needle GSs above the cameras removed", flush=True)
     report["background"] = {**r, "fill_seconds": rf["seconds"]}
     # Two nouns for one thing (blender01: the armchair is sofa#1 and armchair#0) train into
     # two copies, because both label sets cover it. install() hides the smaller copy.

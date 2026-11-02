@@ -19,6 +19,7 @@ from pathlib import Path
 import numpy as np
 
 from .bake.glb import CHUNK_BIN, CHUNK_JSON, GLB_MAGIC, _pad, read_glb
+from .fsutil import replace_file
 
 BYTE, UBYTE, SHORT, USHORT, UINT, FLOAT = 5120, 5121, 5122, 5123, 5125, 5126
 _DTYPE = {
@@ -194,7 +195,7 @@ def write_mesh_glb(path: Path, vertices, colours, faces, **kw) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(".glb.tmp")
     tmp.write_bytes(mesh_glb(vertices, colours, faces, **kw))
-    tmp.replace(path)
+    replace_file(tmp, path)
 
 
 def _mean_nearest(a: np.ndarray, b: np.ndarray, chunk: int = 512) -> float:

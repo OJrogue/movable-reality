@@ -7,12 +7,13 @@ opacity (logit), scale_0..2 (log), rot_0..3 (quaternion w x y z).
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
 from plyfile import PlyData, PlyElement
+
+from ..fsutil import replace_file
 
 SH_C0 = 0.28209479177387814
 GENERATED = "generated"
@@ -139,7 +140,7 @@ def write_generated(path: Path, flags: np.ndarray, out: Path | None = None) -> P
     out.parent.mkdir(parents=True, exist_ok=True)
     tmp = out.with_name(out.name + ".tmp")
     new.write(str(tmp))
-    os.replace(tmp, out)
+    replace_file(tmp, out)
     return out
 
 

@@ -93,6 +93,30 @@ def test_support_merges_items_and_loose_splats():
     assert (out[2000:2400] == 0).all() and (out[2400:] == 2).all()
 
 
+def test_support_merges_an_item_whose_lower_part_sam_missed():
+    # blender01: the succulent's pot is unlabelled, so its splats start 0.15 m above the
+    # coffee table's top; it still rests on the table.
+    rng = np.random.default_rng(5)
+    table = _box(rng, [-0.6, 0, -0.3], [0.6, 0.40, 0.3], 2000)
+    plant = _box(rng, [-0.3, 0.55, -0.05], [-0.2, 0.70, 0.05], 300)
+    world = np.vstack([table, plant])
+    ids = np.r_[np.zeros(2000), np.ones(300)].astype(int)
+    _, merged = support(world, ids, [0, 1], LiftParams())
+    assert merged == {1: 0}
+
+
+def test_support_keeps_a_chair_tucked_under_a_table():
+    # SAM missed the chair's legs, so its splats start at the seat, inside the table's
+    # footprint and below its top: it must not merge into the table.
+    rng = np.random.default_rng(6)
+    table = _box(rng, [-0.8, 0, -0.5], [0.8, 0.75, 0.5], 3000)
+    chair = _box(rng, [-0.2, 0.45, 0.1], [0.2, 0.9, 0.45], 500)
+    world = np.vstack([table, chair])
+    ids = np.r_[np.zeros(3000), np.ones(500)].astype(int)
+    _, merged = support(world, ids, [0, 1], LiftParams())
+    assert merged == {}
+
+
 def test_full_res_camera_inverts_mapanything_crop():
     from movable_reality.recon import full_res_camera
 

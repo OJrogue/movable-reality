@@ -1026,3 +1026,46 @@ test-walk metrics, `sfm.json`, GT pose ATE). Every row predates the lighting cha
 - Next: the translucent tops of trained objects (thin surfaces under items), objects
   standing on furniture kept separate (the bowl, the succulent), and running the pipeline
   on the new-lighting renders and on a real phone video.
+
+## 2026-11-02 (Mon), lanes core, ui: known bugs on blender01 (branch lane/fixes)
+
+- Black and translucent items on trained objects. The bowl on the coffee table has no
+  inventory noun, so SAM never labels it. Object training forced the table transparent on
+  its unlabelled pixels against a black target: 5,974 bowl splats became 523, median
+  brightness 0.66 to -0.02. Unlabelled pixels inside the object's projected 3D box are now
+  ignored; outside it they still count, because wall is labelled on every third frame
+  only. After retraining the bowl keeps 6,000 splats at 0.66 (`objtrain.py`).
+- Items left behind when furniture moves. The support rule needed an item's bottom within
+  0.12 m of the parent's top, but SAM misses the succulent's pot and the vase's foot, so
+  their splats start 0.14 and 0.19 m above the surface. The rule now accepts a bottom from
+  0.1 m below to 0.3 m above the parent's top (a chair tucked under a table, whose seat
+  starts well below the top, stays separate; test added). The succulent and the vase merge
+  into their tables (D12), 9 objects. Moving the table in the viewer now takes its
+  succulent and bowl and leaves no copy. A second rule in object training lets in-box
+  background splats that land on neither objects nor floor and wall join the smallest box
+  holding them: 584 splats on blender01. A first version also took the splats the junk
+  rule removes (13,786 joined, junk 768 instead of about 14,000); the reviewer caught it.
+- Ceiling. The shell's ceiling was 0% seen and came out black; an unseen surface (seen
+  share inside the outline under 2%) now takes the median colour of the upper half of the
+  walls. The viewer's splat styles draw a backdrop from the shell: every wall moved 5 cm
+  out along its own normal (normals are now in `room/shell.json`), an unseen ceiling, and
+  the shell floor 1 cm under the baked floor, each stretched 8 cm past its edges. The scan
+  is a closed room instead of black above about 2 m (`web/src/objects/index.ts`).
+- Streaks at the wall tops. Long thin background splats (over 15 cm, 6x their middle axis)
+  more than 0.2 m above the highest camera are removed after background training: 35 on
+  blender01. The walk sees the wall tops only at a grazing angle. Fainter streaks lower
+  down remain; a lower cut would start taking real wall splats.
+- Windows file lock. The `/scenes` middleware piped file streams without closing them when
+  the viewer aborted a PLY fetch, so Vite kept `background_baked.ply` open and the bake's
+  rename failed. `stream.pipeline` closes them; the bake then ran with the viewer open.
+  PLY, GLB and scene.json replaces retry for 4.5 s and name the dev server if the file
+  stays held (`fsutil.replace_file`).
+- The 500 at viewer start was `/api/health` through Vite's proxy before the API server was
+  up; the proxy now answers `{"ok": false}`, and other `/api` calls get a 503.
+- Rebuilt blender01 from the objects stage five times (about 17 min each, one L40S) and from
+  the lift twice. Checked in the browser: scan view with a moved table, mesh-only view.
+- Reviewer: needs changes, no blockers; all nine findings fixed (above), and the lane
+  notes are in the PR.
+- Tests: `pytest` 333 passed, 8 skipped; vitest 172 passed; ruff clean; build passes.
+- Still open: the never-filmed floor where a moved table stood shows a smear, and faint
+  streaks below the needle cut.

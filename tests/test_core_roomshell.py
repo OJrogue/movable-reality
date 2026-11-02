@@ -142,3 +142,16 @@ def test_projector_through_similarity():
     assert pr.add(roomshell.View(K, R, t, centre, img, None, near=0.1 / 2.4)) == 1
     rgb, _ = pr.result((1, 1))
     assert np.allclose(rgb[0, 0] * 255, (10, 200, 30))
+
+
+def test_unseen_ceiling_takes_the_upper_wall_colour():
+    wall_rgb = np.zeros((10, 4, 3))
+    wall_rgb[:5] = [0.8, 0.7, 0.6]  # upper half
+    wall_rgb[5:] = [0.2, 0.2, 0.2]  # skirting, lower half
+    upper = roomshell.upper_wall_colour([(wall_rgb, np.ones((10, 4)))])
+    assert np.allclose(upper, [0.8, 0.7, 0.6])
+    dark = roomshell.finish(np.zeros((6, 6, 3)), np.zeros((6, 6)), None, 0.01, (0.06, 0.06))
+    lit = roomshell.finish(np.zeros((6, 6, 3)), np.zeros((6, 6)), None, 0.01, (0.06, 0.06),
+                           fallback=upper)  # fmt: skip
+    assert dark[..., :3].max() == 0
+    assert np.allclose(lit[..., :3], lit[0, 0, :3]) and lit[0, 0, 0] > 150
