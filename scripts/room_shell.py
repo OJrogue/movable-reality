@@ -163,6 +163,7 @@ def main() -> int:
         report["surfaces"].append({
             "glb": rel, "kind": s.kind, "size_m": [round(s.size_u, 3), round(s.size_v, 3)],
             "texture_px": [w, h], "seen_share": round(float(seen[inside].mean()), 3),
+            "normal": np.round(s.normal, 4).tolist(),  # world, into the room
             "bytes": (root / rel).stat().st_size,
         })  # fmt: skip
         print(f"  {rel}: {s.size_u:.2f} x {s.size_v:.2f} m, {w} x {h} px, "

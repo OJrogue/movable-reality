@@ -415,14 +415,15 @@ def finish(rgb: np.ndarray, seen: np.ndarray, outline_uv, texel: float, size,
     """RGBA uint8: unseen texels filled by push-pull, alpha 0 outside the outline. A surface
     seen less than UNSEEN_SHARE has nothing to push-pull from: its unseen texels take
     `fallback` (the upper wall colour) when given."""
-    if fallback is not None and float(np.mean(seen > 0)) < UNSEEN_SHARE:
+    h, w = seen.shape
+    keep = np.ones((h, w), dtype=bool)
+    if outline_uv is not None:
+        j, i = np.meshgrid((np.arange(w) + 0.5) * size[0] / w, (np.arange(h) + 0.5) * size[1] / h)
+        keep = inside_polygon(np.stack([j.ravel(), i.ravel()], 1), outline_uv).reshape(h, w)
+    # Seen share inside the outline, as shell.json reports it and the viewer reads it.
+    if fallback is not None and float(np.mean(seen[keep] > 0)) < UNSEEN_SHARE:
         rgb = np.where(seen[..., None] > 0, rgb, np.asarray(fallback, dtype=rgb.dtype))
         seen = np.ones_like(seen)
-    filled = texture.push_pull(rgb * seen[..., None], seen)
-    img = texture.to_uint8(filled)
-    h, w = seen.shape
-    if outline_uv is None:
-        return np.dstack([img, np.full((h, w), 255, np.uint8)])
-    j, i = np.meshgrid((np.arange(w) + 0.5) * size[0] / w, (np.arange(h) + 0.5) * size[1] / h)
-    keep = inside_polygon(np.stack([j.ravel(), i.ravel()], 1), outline_uv).reshape(h, w)
-    return np.dstack([img, np.where(keep, 255, 0).astype(np.uint8)])
+    img = texture.to_uint8(texture.push_pull(rgb * seen[..., None], seen))
+    alpha = np.where(keep, 255, 0).astype(np.uint8)  # keep is all True without an outline
+    return np.dstack([img, alpha])

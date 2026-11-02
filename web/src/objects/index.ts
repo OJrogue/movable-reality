@@ -25,8 +25,7 @@ export function nextStyle(s: ObjectStyle): ObjectStyle {
 
 /** room/shell.json as scripts/room_shell.py writes it (only the fields read here). */
 export interface ShellReport {
-  outline_xz?: number[][];
-  surfaces?: { glb: string; kind: string; seen_share: number }[];
+  surfaces?: { glb: string; kind: string; seen_share: number; normal?: number[] }[];
 }
 
 /** Shell ceilings the capture never saw (their texture is the upper wall colour). */
@@ -34,25 +33,34 @@ export function unseenCeilings(r: ShellReport, minSeen = 0.02): string[] {
   return (r.surfaces ?? []).filter((s) => s.kind === "ceiling" && s.seen_share < minSeen).map((s) => s.glb);
 }
 
-/** The backdrop the splat styles draw behind the scan: the shell walls and any unseen
- * ceiling. A walk that never looks up leaves no splats above about 2 m, so the room was
- * open to black there, with the background's stray splats hanging in it (blender01, 1 Nov). */
-export function backdropFiles(r: ShellReport): string[] {
-  const walls = (r.surfaces ?? []).filter((s) => s.kind === "wall").map((s) => s.glb);
-  return [...walls, ...unseenCeilings(r)];
+/** The backdrop the splat styles draw behind the scan: each shell wall moved `push` metres
+ * out along its own normal, so the wall splats stay in front of it and hide it wherever the
+ * scan has them, plus any unseen ceiling. A walk that never looks up leaves no splats above
+ * about 2 m, so the room was open to black there, with the background's stray splats
+ * hanging in it (blender01, 1 Nov). Walls without a normal (older shells) are left out.
+ * The shell floor goes 1 cm under the bake's floor quad. */
+export function backdropParts(
+  r: ShellReport,
+  push = 0.05,
+): { glb: string; kind: string; offset: [number, number, number] }[] {
+  const walls = (r.surfaces ?? [])
+    .filter((s) => s.kind === "wall" && s.normal?.length === 3)
+    .map((s) => ({ glb: s.glb, kind: s.kind, offset: s.normal!.map((v) => -v * push) as [number, number, number] }));
+  const ceilings = unseenCeilings(r).map((glb) => ({ glb, kind: "ceiling", offset: [0, 0, 0] as [number, number, number] }));
+  // The shell floor, 1 cm under the baked floor quad, fills the band the bake leaves along
+  // the walls (the bake's floor stops where the floor splats do).
+  const floors = (r.surfaces ?? [])
+    .filter((s) => s.kind === "floor")
+    .map((s) => ({ glb: s.glb, kind: "floor", offset: [0, -0.01, 0] as [number, number, number] }));
+  return [...walls, ...ceilings, ...floors];
 }
 
-/** World-space scale about the outline's centre that moves every wall `push` metres out,
- * so the wall splats stay in front of the backdrop and hide it wherever the scan has them. */
-export function backdropScale(outline: number[][], push = 0.05): { cx: number; cz: number; sx: number; sz: number } | null {
-  if (outline.length < 3) return null;
-  const xs = outline.map((p) => p[0]);
-  const zs = outline.map((p) => p[1]);
-  const [x0, x1, z0, z1] = [Math.min(...xs), Math.max(...xs), Math.min(...zs), Math.max(...zs)];
-  const hx = (x1 - x0) / 2;
-  const hz = (z1 - z0) / 2;
-  if (hx <= 0 || hz <= 0) return null;
-  return { cx: x0 + hx, cz: z0 + hz, sx: 1 + push / hx, sz: 1 + push / hz };
+/** Uniform scale about a backdrop surface's own centre (it stays in its plane) that makes it
+ * reach `reach` metres past each edge: moved-out walls would leave gaps at the corners and
+ * under the ceiling otherwise. size: the surface's world bounding box. */
+export function backdropStretch(kind: string, size: { x: number; y: number; z: number }, reach = 0.08): number {
+  const extent = kind === "wall" ? Math.hypot(size.x, size.z) : Math.min(size.x, size.z);
+  return extent > 0 ? 1 + (2 * reach) / extent : 1;
 }
 
 /** Room files for the meshonly style: the shell quads, else the fused room mesh, else none. */
@@ -217,8 +225,8 @@ export function installObjects(ctx: ViewerContext): ObjectsHandle {
       });
   };
 
-  // Backdrop for the splat styles (backdropFiles), pushed out behind the wall splats
-  // (backdropScale). `key` is the shell's file list, so a rebuilt shell reloads it.
+  // Backdrop for the splat styles (backdropParts). `key` is the shell's file list, so a
+  // rebuilt shell reloads it.
   let cap: { key: string; group: THREE.Group } | null = null;
   const loadCap = (m: SceneManifest) => {
     const key = (m.room_planes ?? []).join(" ");
@@ -227,32 +235,40 @@ export function installObjects(ctx: ViewerContext): ObjectsHandle {
       cap.group.removeFromParent();
       dispose(cap.group);
     }
-    const group = new THREE.Group(); // world frame: centre, scale, back
+    const group = new THREE.Group(); // world frame
     group.name = "room-backdrop";
-    const back = new THREE.Group();
-    const recon = new THREE.Group();
-    recon.matrixAutoUpdate = false;
-    recon.matrix.copy(matrixFromRows(m.world_from_recon));
-    group.add(back);
-    back.add(recon);
     view.root.add(group);
     const entry = { key, group };
     cap = entry;
     if (!key) return;
+    const recon = matrixFromRows(m.world_from_recon);
     fetch(`${ctx.sceneBase}/room/shell.json`, { cache: "no-store" })
       .then((r) => (r.ok ? (r.json() as Promise<ShellReport>) : {}))
       .then((r: ShellReport) => {
-        const sc = backdropScale(r.outline_xz ?? []);
-        if (!sc) return [];
-        group.position.set(sc.cx, 0, sc.cz);
-        group.scale.set(sc.sx, 1, sc.sz);
-        back.position.set(-sc.cx, 0, -sc.cz);
-        return Promise.all(backdropFiles(r).map((f) => loader.loadAsync(`${ctx.sceneBase}/${f}`)));
+        const parts = backdropParts(r);
+        return Promise.all(parts.map((p) => loader.loadAsync(`${ctx.sceneBase}/${p.glb}`).then((g) => ({ g, p }))));
       })
-      .then((gltfs) => {
+      .then((loaded) => {
         if (cap !== entry) return;
-        for (const g of gltfs) recon.add(g.scene);
-        if (gltfs.length) console.info(`[objects] room backdrop: ${gltfs.length} shell surface(s)`);
+        for (const { g, p } of loaded) {
+          // outer: world offset and stretch about the centre c; inner: -c; then recon frame.
+          const frame = new THREE.Group();
+          frame.matrixAutoUpdate = false;
+          frame.matrix.copy(recon);
+          frame.add(g.scene);
+          frame.updateMatrixWorld(true); // no parent yet: world = recon, as under view.root
+          const box = new THREE.Box3().setFromObject(frame);
+          const c = box.getCenter(new THREE.Vector3());
+          const outer = new THREE.Group();
+          outer.position.set(c.x + p.offset[0], c.y + p.offset[1], c.z + p.offset[2]);
+          outer.scale.setScalar(backdropStretch(p.kind, box.getSize(new THREE.Vector3())));
+          const inner = new THREE.Group();
+          inner.position.copy(c).negate();
+          outer.add(inner);
+          inner.add(frame);
+          group.add(outer);
+        }
+        if (loaded.length) console.info(`[objects] room backdrop: ${loaded.length} shell surface(s)`);
       })
       .catch((err) => console.warn(`[objects] room backdrop: ${String(err)}`));
   };

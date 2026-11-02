@@ -9,7 +9,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { pipeline } from "node:stream";
+import { pipeline as pipeStream } from "node:stream";
 import { extname, join, normalize, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import basicSsl from "@vitejs/plugin-basic-ssl";
@@ -24,9 +24,9 @@ import {
 
 // pipe() leaves the file open when the browser aborts the request (the viewer aborts PLY
 // fetches it does not need). On Windows that open handle blocked the bake from replacing
-// background_baked.ply (1 Nov); pipeline() closes the file when the response closes.
+// background_baked.ply (1 Nov); stream.pipeline() closes the file when the response closes.
 function send(src: ReadStream, res: ServerResponse): void {
-  pipeline(src, res, () => {});
+  pipeStream(src, res, () => {});
 }
 
 // Dev only: serve ../data/scenes at /scenes so the viewer reads pipeline output directly.
@@ -248,6 +248,7 @@ export default defineConfig({
     proxy: {
       "/api": {
         target: "http://127.0.0.1:8000",
+        changeOrigin: true, // what the plain string form set
         // Scene server down (not started yet, or local-only use): the viewer falls back to
         // local edits. Answer the health probe instead of a bare 500 in the console.
         configure: (proxy) => {

@@ -9,12 +9,13 @@ rotation, translation and a uniform scale when lift_ids corrected MapAnything's 
 from __future__ import annotations
 
 import math
-import os
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
+
+from .fsutil import replace_file
 
 SCHEMA_VERSION = 1
 Vec3 = tuple[float, float, float]
@@ -199,7 +200,7 @@ class Scene(BaseModel):
         path.parent.mkdir(parents=True, exist_ok=True)
         tmp = path.with_suffix(".json.tmp")
         tmp.write_text(self.model_dump_json(indent=2), encoding="utf-8")
-        os.replace(tmp, path)
+        replace_file(tmp, path)
 
     # ------------------------------------------------------------ queries
 

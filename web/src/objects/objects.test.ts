@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { backdropFiles, backdropScale, nextStyle, parseStyle, roomFiles, unseenCeilings } from "./index";
+import { backdropParts, backdropStretch, nextStyle, parseStyle, roomFiles, unseenCeilings } from "./index";
 
 describe("roomFiles", () => {
   it("prefers the shell quads, then the room mesh", () => {
@@ -44,23 +44,31 @@ describe("unseenCeilings", () => {
   });
 });
 
-describe("backdrop", () => {
-  it("draws the walls and only an unseen ceiling", () => {
+describe("backdropParts", () => {
+  it("moves each wall out along its own normal and keeps an unseen ceiling in place", () => {
     const r = {
       surfaces: [
-        { glb: "f.glb", kind: "floor", seen_share: 0.9 },
-        { glb: "c.glb", kind: "ceiling", seen_share: 0.5 },
-        { glb: "w0.glb", kind: "wall", seen_share: 0.6 },
+        { glb: "f.glb", kind: "floor", seen_share: 0.9, normal: [0, 1, 0] },
+        { glb: "c.glb", kind: "ceiling", seen_share: 0, normal: [0, -1, 0] },
+        { glb: "w0.glb", kind: "wall", seen_share: 0.6, normal: [0, 0, 1] },
+        { glb: "w1.glb", kind: "wall", seen_share: 0.6, normal: [-0.6, 0, 0.8] }, // angled
+        { glb: "old.glb", kind: "wall", seen_share: 0.6 }, // shell from before normals
       ],
     };
-    expect(backdropFiles(r)).toEqual(["w0.glb"]);
+    const parts = backdropParts(r, 0.05);
+    expect(parts.map((p) => p.glb)).toEqual(["w0.glb", "w1.glb", "c.glb", "f.glb"]);
+    expect(parts[3].offset).toEqual([0, -0.01, 0]);
+    expect(parts[0].offset[2]).toBeCloseTo(-0.05);
+    expect(Math.hypot(...parts[1].offset)).toBeCloseTo(0.05);
+    expect(parts[2].offset).toEqual([0, 0, 0]);
   });
-  it("pushes every wall of a 4 x 2 m room out by the same distance", () => {
-    const sc = backdropScale([[0, 0], [4, 0], [4, 2], [0, 2]], 0.05)!;
-    expect(sc.cx).toBe(2);
-    expect(sc.cz).toBe(1);
-    expect(sc.cx + (4 - sc.cx) * sc.sx).toBeCloseTo(4.05); // east wall
-    expect(sc.cz + (0 - sc.cz) * sc.sz).toBeCloseTo(-0.05); // north wall
-    expect(backdropScale([[0, 0], [1, 0]])).toBeNull();
+});
+
+describe("backdropStretch", () => {
+  it("makes a wall reach past both ends and a ceiling past its short sides", () => {
+    const f = backdropStretch("wall", { x: 4, y: 2.5, z: 0 }, 0.08);
+    expect(4 * f).toBeCloseTo(4.16);
+    expect(backdropStretch("ceiling", { x: 4, y: 0, z: 5 }, 0.08) * 4).toBeCloseTo(4.16);
+    expect(backdropStretch("wall", { x: 0, y: 2.5, z: 0 })).toBe(1);
   });
 });

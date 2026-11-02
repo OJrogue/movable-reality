@@ -282,11 +282,12 @@ def support(
             if parent == child or parent in merged:
                 continue
             plo, phi = tops[parent]
-            # The child's bottom lies above the parent's base and at most ITEM_REACH above
-            # its top. SAM often misses the lower part of an item (the succulent's pot, the
-            # vase's foot on blender01), so its splats start 0.14 to 0.19 m above the surface
-            # it stands on; 0.12 m never merged them (1 Nov). A shelf item counts too.
-            on_top = plo[1] + 0.05 < clo[1] < phi[1] + ITEM_REACH
+            # The child's bottom lies near the parent's top: at most 0.1 m below it and
+            # ITEM_REACH above. SAM often misses the lower part of an item (the succulent's
+            # pot, the vase's foot on blender01), so its splats start 0.14 to 0.19 m above
+            # the surface it stands on; 0.12 m never merged them (1 Nov). A chair tucked
+            # under a table starts well below the top and stays separate.
+            on_top = phi[1] - 0.1 < clo[1] < phi[1] + ITEM_REACH
             inside = plo[0] <= ccx <= phi[0] and plo[2] <= ccz <= phi[2]
             if (
                 on_top
