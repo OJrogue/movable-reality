@@ -1084,11 +1084,20 @@ test-walk metrics, `sfm.json`, GT pose ATE). Every row predates the lighting cha
   (`splat_ops.umeyama_yaw`, `icp(upright=True)`). An object whose opaque scan reaches
   within 5 cm of the floor (0.2 % quantile) then rests on y = 0; the shelf items are not
   moved. `completion.json` reports `levelled_deg` and `floor_shift_m`.
-- blender01 rerun from the SAM 3D cache (no Modal calls) and LOD rebuilt: every mesh up
-  axis is on world Y; seven floor objects sit at y = 0 within 2.3 cm (floor lamp was
-  +11 cm, cabinet +17 cm); ICP RMS coffee table 0.041 -> 0.032 m, the others within 5 mm
-  of before. Checked in the viewer with `?objects=mesh`.
-- Tests: `pytest` 26 in test_core_m4 (4 new: levelling, yaw-only fit, tilted guess,
-  floor contact); full suite 337 passed, 8 skipped. ruff clean.
-- Still open: potted plant#2 (on the cabinet) comes out much taller than its scan, as
-  before; its scan has only 219 opaque splats.
+- Review fixes: the pose is always turned to local +Z up (books#0 was 176 degrees, upside
+  down); after the floor shift a last ICP with y and scale locked refits yaw and x, z;
+  `icp_rms_after_m` is the final pose, `icp_rms_free_m` the pose before the floor rule;
+  stale report entries (merged objects) are dropped.
+- blender01 rerun from the SAM 3D cache (no Modal calls) and LOD rebuilt. Levelling per
+  object (degrees, from `completion.json`): armchair 14.5, sofa 9.5, coffee table 7.2,
+  cabinet 5.4, books 176.4, others 1.9 to 3.7. Seven floor objects sit at y = 0 within
+  2.3 cm (floor lamp moved down 11 cm, cabinet 17 cm). Final ICP RMS against the free fit:
+  coffee table 0.037 (0.032), cabinet 0.078 (0.048), potted plant#1 0.071 (0.055), the
+  others within 2 mm. The RMS before this change was overwritten in `completion.json`
+  (0.041 for the coffee table, measured in this session, not kept). Viewer check with
+  `?objects=mesh`: screenshot not saved.
+- Tests: `pytest` test_core_m4 27 passed (5 new: levelling, yaw-only fit, tilted guess,
+  floor contact, free-rotation path). ruff clean.
+- Still open: the cabinet and potted plant#1 models hit the 1.25 scale clamp and are
+  shorter than their scans, so resting them on the floor costs 2 to 3 cm RMS; potted
+  plant#2 (on the cabinet) comes out much taller than its scan (219 opaque splats).

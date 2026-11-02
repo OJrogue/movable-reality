@@ -87,7 +87,7 @@ def register(
     `recon_from_local` is the first guess from SAM 3D's pose and the frame's camera, and it
     fixes orientation. The single-view pose is often a few degrees off level, so with
     `up_axis` set (SAM 3D's canonical frame is Z-up) the guess is first levelled to put that
-    local axis on world +-Y, and ICP then turns the object about world Y only. Without the
+    local axis on world +Y, and ICP then turns the object about world Y only. Without the
     constraint ICP fits a tilted object to a partial scan (blender01's coffee table came out
     16 degrees off level). None keeps the full 3D rotation. A levelled object whose scan
     reaches within `floor_tol` m of the floor is then moved in y to rest on it.
@@ -121,9 +121,11 @@ def register(
         if best is None or rms < best[3]:
             best = (M_icp @ C, rms0, len(starts), rms)
     M, rms0, n_starts, rms = best
+    rms_free = rms
     # A scan that reaches the floor (y = 0) stands on it: rest the model's bottom there, as
-    # ICP on a partial scan leaves it a few cm above or below (blender01's floor lamp, +12 cm).
+    # ICP on a partial scan leaves it a few cm above or below (blender01's floor lamp, +11 cm).
     # Bottoms are 0.2 % quantiles of the opaque splats before clean_scan, which cuts thin legs.
+    # A last ICP with y and scale locked then refits yaw and x, z on the floor.
     floor_shift = 0.0
     scan_raw = scan_recon @ W[:3, :3].T + W[:3, 3]
     if up_axis is not None and so.robust_bounds(scan_raw, scan_alpha, pct=0.2)[0][1] < floor_tol:
@@ -131,6 +133,9 @@ def register(
         bottom = so.robust_bounds(full @ MW0[:3, :3].T + MW0[:3, 3], pct=0.2)[0][1]
         floor_shift = -float(bottom)
         M = so.similarity(np.eye(3), [0.0, floor_shift, 0.0], 1.0) @ M
+        moved = full_w @ M[:3, :3].T + M[:3, 3]
+        M_icp, _, rms = so.icp(moved, scan_w, upright=True, lock_y=True)
+        M = M_icp @ M
     recon_final = np.linalg.inv(W) @ M @ W0
     out = so.apply_matrix(so.standard(local, generated=1), recon_final)
     return out, {
@@ -140,6 +145,7 @@ def register(
         "floor_shift_m": round(floor_shift, 4),
         "starts": n_starts,
         "icp_rms_before_m": round(rms0, 4),
-        "icp_rms_after_m": round(rms, 4),
+        "icp_rms_free_m": round(rms_free, 4),  # before the floor rule
+        "icp_rms_after_m": round(rms, 4),  # final pose
         "recon_from_local": recon_final.tolist(),  # the mesh of the same run uses it too
     }

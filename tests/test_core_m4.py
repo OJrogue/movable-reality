@@ -351,10 +351,13 @@ def test_level_rotation_puts_the_up_axis_on_world_y():
     L, tilt = so.level_rotation(R, 1)
     np.testing.assert_allclose((L @ R)[:, 1], [0, 1, 0], atol=1e-9)
     assert 5 < tilt < 20
-    # upside down stays upside down (nearest of +-Y), and the heading is kept
+    # upside down is turned over to +Y, and the tilt says so
     L, tilt = so.level_rotation(rot("x", 175), 1)
-    np.testing.assert_allclose((L @ rot("x", 175))[:, 1], [0, -1, 0], atol=1e-9)
-    assert tilt == pytest.approx(5)
+    np.testing.assert_allclose((L @ rot("x", 175))[:, 1], [0, 1, 0], atol=1e-9)
+    assert tilt == pytest.approx(175)
+    L, tilt = so.level_rotation(np.diag([1.0, -1.0, -1.0]), 1)
+    np.testing.assert_allclose((L @ np.diag([1.0, -1.0, -1.0]))[:, 1], [0, 1, 0], atol=1e-9)
+    assert tilt == pytest.approx(180)
     L, tilt = so.level_rotation(rot("y", 40), 1)
     np.testing.assert_allclose(L, np.eye(3))
     assert tilt == pytest.approx(0)
@@ -367,8 +370,9 @@ def test_umeyama_yaw_fits_rotation_about_y_only():
     np.testing.assert_allclose(R2, R, atol=1e-9)
     np.testing.assert_allclose(t2, t, atol=1e-9)
     assert s2 == pytest.approx(s)
-    R3, _, _ = so.umeyama_yaw(p, p @ (rot("y", 20) @ rot("x", 15)).T)
-    assert R3[1, 1] == pytest.approx(1.0) and np.allclose(R3[1], [0, 1, 0])
+    # a tilted target: the yaw part (20 degrees) is still recovered
+    R3, _, _ = so.umeyama_yaw(p, p @ (rot("y", 20) @ rot("x", 8)).T)
+    assert math.degrees(math.atan2(R3[0, 2], R3[0, 0])) == pytest.approx(20, abs=3)
 
 
 def test_register_levels_a_tilted_pose_guess():
@@ -412,3 +416,16 @@ def test_register_rests_floor_objects_on_the_floor():
         so.standard(sam3d_like(canon)), guess @ so.similarity(np.eye(3), [0, 0, 1.0], 1.0), shelf, W
     )
     assert info["floor_shift_m"] == 0.0
+
+
+def test_register_free_rotation_path():
+    """up_axis=None keeps the full 3D ICP: a guess 6 degrees off in pitch is corrected."""
+    canon = box_points((0.5, 0.9, 0.5), n=5000)
+    W = so.similarity(rot("x", 180), [0, 0, 0], 1.0)
+    world_true = canon + [0.0, 0.45, 0.0]
+    recon_true = world_true @ np.linalg.inv(W)[:3, :3].T
+    scan = recon_true[recon_true[:, 2] < 0.0]
+    guess = np.linalg.inv(W) @ so.similarity(rot("x", 6), [0.03, 0.45, 0.0], 1.0)
+    v, info = register(so.standard(sam3d_like(canon)), guess, scan, W, up_axis=None)
+    assert info["levelled_deg"] == 0.0 and info["floor_shift_m"] == 0.0
+    assert np.abs(so.xyz(v) - recon_true).max() < 0.04
