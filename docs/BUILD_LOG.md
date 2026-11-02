@@ -1164,6 +1164,7 @@ test-walk metrics, `sfm.json`, GT pose ATE). Every row predates the lighting cha
   cameras in `data/raw/blender06_gt/`. Checked on a contact sheet of every 6th second.
   Next: run the pipeline on it (`run_pipeline.py data/raw/blender06.mp4 --scene blender06
   --focal35 26`).
+
 ## 2 Nov (afternoon), lane core: wall and floor artifacts
 
 - OJ: no artifacts on walls and floor. Two scorers measure them on blender01 at the 30 GT
