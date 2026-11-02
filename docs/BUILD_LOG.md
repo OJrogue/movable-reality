@@ -1304,3 +1304,34 @@ test-walk metrics, `sfm.json`, GT pose ATE). Every row predates the lighting cha
   figures on the chest of drawers are the obvious demo targets), and look at the duvet
   smears.
 
+
+## 2 Nov (night), blender: blender07, the realistic living room
+
+- New builder `scripts/blender_living.py` (blender06 helpers from `blender_bedroom.py`):
+  a 5.6 x 4.8 x 2.7 m living room in one modern Scandinavian style (light oak, warm grey
+  fabric, matte black metal, white ceramics, abstract art). Two casement windows (north,
+  park HDRI, a radiator and curtains each), two closed flush doors (south, white and oak),
+  a deep-teal TV wall with a wall-mounted 55" TV (picture on), soundbar, slatted oak media
+  console and games console; a low grey sofa with linen cushions and a cloth-draped throw,
+  a marble coffee table with books, tray, candle, remote, mug and bowl on a bordered rug, a
+  lounge chair, knitted pouf, side table with lamp, tripod floor lamp, opal globe pendant,
+  an oak and black-steel bookshelf between the doors, three plants (white planters), five
+  public-domain modernist paintings (Kandinsky x2, Mondrian, Klee, af Klint), skirting,
+  switches, sockets, thermostat, smoke detector and a TV cable raceway. 53 GT objects.
+- First pass mixed styles (carved leather sofa, industrial pendant, baroque armchair, worn
+  shelf, brass urn, van Gogh and Monet); OJ asked for one modern style, so the sofa, pouf,
+  bookshelf and planters are now built here and the period assets are gone. A contact
+  sheet of candidate Poly Haven assets showed no modern sofa among them.
+- 6 new CC0 Poly Haven models and 5 Wikimedia Commons paintings in `blender_assets.py`
+  (licence checked as public domain on download). Credits in `docs/ASSETS.md`.
+- `cloth_sheet` takes the room size (`half=`), so other rooms can use it. Pitfall: some
+  glTFs carry keyframes and the cloth solver's frame steps replayed them (the media console
+  snapped back to the origin); `blender_living.py` clears the animation data on import.
+- `check_clipping` fails the build when meshes interpenetrate (BVH triangle overlap that
+  no 3 mm nudge resolves; touching is fine). It found the radiator valves in the curtains,
+  the cushions in the sofa (one inside the arm), a plant in a curtain, the armchair legs in
+  the rug and the bookshelf 13 mm into the skirting; all fixed. Leaning books now tip back
+  onto their row instead of away from it; the photo frame model faces +x, not -y.
+- Build ~1 min, eight 960 x 540 previews at 64 samples in `data/raw/blender07/preview/`.
+- Next: walks for blender07 in `blender_room.py` (SCENES entry with a builder, clearance
+  boxes and a test like `test_blender_bedroom.py`), then the render and the pipeline run.

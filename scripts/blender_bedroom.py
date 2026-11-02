@@ -731,12 +731,15 @@ def pillow(name: str, centre, size, mat, rot=(0.0, 0.0, 0.0), seed: int = 0):
 
 def cloth_sheet(name: str, x0, x1, y0, y1, z, nx, ny, mat, colliders: list, frames: int,
                 stiffness: float, mass: float, thickness: float, seed: int,
-                pin_x: float | None = None, noise: float = 0.003):  # fmt: skip
+                pin_x: float | None = None, noise: float = 0.003,
+                half: tuple[float, float] | None = None):  # fmt: skip
     """Drop a sheet onto colliders (and the floor) with Blender's cloth solver and keep the
     last frame. Faint noise on the start shape breaks the symmetry so it folds naturally.
     Vertices with x < pin_x stay put (a duvet edge tucked under the pillow), so the weight
-    hanging over the foot cannot pull the sheet off the bed."""
+    hanging over the foot cannot pull the sheet off the bed. half = the room's half width
+    and length (default this bedroom's; blender_living.py passes its own)."""
     bpy = _bpy()
+    HX, HY = half or (globals()["HX"], globals()["HY"])  # noqa: N806
     import bmesh  # noqa: PLC0415
 
     rng = np.random.default_rng(seed)
