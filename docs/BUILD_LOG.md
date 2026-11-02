@@ -1158,3 +1158,9 @@ test-walk metrics, `sfm.json`, GT pose ATE). Every row predates the lighting cha
   `openings` are in the `world_openings` format now, so `blender_capture_guide.py` draws
   them. The cloth sims are deterministic across builds (same vertices with 1 thread and
   all threads), so the Modal chunks agree.
+- Rendered on Modal (`modal_jobs/blender.py --scene blender06`, 16 samples, 74 chunks of 30
+  frames, 95 to 165 s each): `data/raw/blender06.mp4` (main walk, 54 s, 1620 frames, the
+  pipeline input) and `blender06_test.mp4` (20 s, 600 frames), with GT depth, masks and
+  cameras in `data/raw/blender06_gt/`. Checked on a contact sheet of every 6th second.
+  Next: run the pipeline on it (`run_pipeline.py data/raw/blender06.mp4 --scene blender06
+  --focal35 26`).
