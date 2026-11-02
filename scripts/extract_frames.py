@@ -61,7 +61,6 @@ def main() -> int:
     ap.add_argument("--scene", required=True)
     ap.add_argument("--fps", type=float, default=4.0, help="target selected frames per second")
     ap.add_argument("--oversample", type=int, default=4, help="candidates per selected frame")
-    ap.add_argument("--max-frames", type=int, default=200)
     ap.add_argument("--long-side", type=int, default=1920)
     ap.add_argument("--force", action="store_true")
     ap.add_argument(
@@ -117,9 +116,6 @@ def main() -> int:
         for start in range(0, len(cands), args.oversample):
             window = range(start, min(start + args.oversample, len(cands)))
             chosen.append(max(window, key=lambda i: scores[i]))
-        if len(chosen) > args.max_frames:
-            keep = np.linspace(0, len(chosen) - 1, args.max_frames).round().astype(int)
-            chosen = [chosen[k] for k in keep]
 
         meta = []
         for new_idx, ci in enumerate(chosen):

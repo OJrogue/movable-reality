@@ -866,6 +866,44 @@ def _make_up_walk(base, t_base: float, loop, centre, t_rise=2.0, t_up=14.0, deg=
     return eye_target
 
 
+def _make_key_walk(keys):
+    """Walk through hand-placed keys (t, eye xyz, a point to look at): eye position and view
+    direction (yaw, pitch, unwrapped) are interpolated with a Catmull-Rom spline (Hermite
+    form, tangents from neighbouring keys scaled to non-uniform times). Interpolating the
+    angles, not the look-at points, keeps a turn between two far-apart targets even."""
+    t = np.array([k[0] for k in keys], float)
+    eye = np.array([k[1] for k in keys], float)
+    d = np.array([np.subtract(k[2], k[1]) for k in keys], float)
+    yaw = np.unwrap(np.arctan2(d[:, 1], d[:, 0]))
+    pitch = np.arctan2(d[:, 2], np.hypot(d[:, 0], d[:, 1]))
+    val = np.column_stack([eye, yaw, pitch])
+
+    def cr(tt):
+        i = int(np.clip(np.searchsorted(t, tt, side="right") - 1, 0, len(t) - 2))
+        u = (tt - t[i]) / (t[i + 1] - t[i])
+        u = min(max(u, 0.0), 1.0)
+        p0, p1, p2, p3 = val[max(i - 1, 0)], val[i], val[i + 1], val[min(i + 2, len(t) - 1)]
+        # Non-uniform keys: tangents from neighbouring slopes (Catmull-Rom, time-scaled).
+        h = t[i + 1] - t[i]
+        m1 = (p2 - p0) / (t[i + 1] - t[max(i - 1, 0)]) * h if i > 0 else (p2 - p1)
+        m2 = (p3 - p1) / (t[min(i + 2, len(t) - 1)] - t[i]) * h if i + 2 < len(t) else (p2 - p1)
+        u2, u3 = u * u, u * u * u
+        return (
+            (2 * u3 - 3 * u2 + 1) * p1
+            + (u3 - 2 * u2 + u) * m1
+            + (-2 * u3 + 3 * u2) * p2
+            + (u3 - u2) * m2
+        )
+
+    def eye_target(tt):
+        v = cr(tt)
+        e, yw, pt = v[:3], v[3], v[4]
+        dirv = np.array([math.cos(yw) * math.cos(pt), math.sin(yw) * math.cos(pt), math.sin(pt)])
+        return e, e + 2.0 * dirv
+
+    return eye_target
+
+
 # Scene blender06: the realistic bedroom, built by scripts/blender_bedroom.py (3.6 x 4.2 m,
 # bed against the west wall, desk on the east wall, chest of drawers and door on the south
 # wall, window on the north wall). Paths in Blender x, y. The desk chair closes the corridor
@@ -908,29 +946,70 @@ BEDROOM_OBSTACLES = {
 
 
 # Scene blender07: the modern living room, built by scripts/blender_living.py (5.6 x 4.8 m,
-# 2.7 m high; TV wall west, sofa east, windows north, doors and bookshelf south). Paths in
-# Blender x, y. The coffee table sits in the middle with the pouf north-west of it and the
-# lounge chair south-west, so every loop goes round the table, through the 46 cm gap between
-# the table and the pouf, and bulges west (in front of the TV) south of the pouf. The loops
-# are close to convex, so the chest loop aims at its own far side. The main walk is 62 s
-# (blender06: 54 s for a room 45 % smaller): 28 s chest + 2 + 14 s knee, 2 s rise, 16 s up.
-# 1860 frames, about 250 after the 3-5 fps selection, the room's 27 m2 seen from 3 heights.
-CHEST7 = smooth_loop(
-    [(1.5, -1.45), (1.55, 0.2), (1.45, 1.45), (0.4, 1.45), (-0.07, 0.95), (-0.07, 0.45),
-     (-1.0, 0.42), (-1.75, 0.75), (-1.75, -0.25), (-0.6, -0.55), (0.6, -0.6), (1.0, -1.45)]
-)  # fmt: skip
-KNEE7 = smooth_loop(
-    [(1.5, -0.8), (1.5, 1.0), (0.6, 1.05), (-0.07, 0.85), (-0.07, 0.45), (-0.6, 0.4),
-     (-1.4, 0.3), (-1.5, -0.35), (-0.4, -0.5), (0.55, -0.6)]
-)  # fmt: skip
-UP7 = smooth_loop([(1.5, -1.3), (1.5, 1.35), (0.4, 1.45), (-0.07, 0.95), (-0.07, 0.45),
-                   (-1.4, 0.4), (-1.5, -0.3), (-0.5, -0.55), (0.65, -0.62)])  # fmt: skip
-TEST7 = smooth_loop(
-    [(1.4, -1.1), (1.45, 1.3), (0.5, 1.4), (-0.07, 0.95), (-0.07, 0.45), (-1.3, 0.45),
-     (-1.9, -0.3), (-1.2, -0.5), (0.62, -0.58), (1.0, -1.5)]
-)  # fmt: skip
-RING7 = smooth_loop([(-2.3, -1.9), (-2.4, 1.8), (2.3, 1.9), (2.4, -1.9)], iters=3)
-WALKS7 = {"main": 62.0, "test": 20.0}
+# 2.7 m high; TV wall west, sofa east, windows north, doors and bookshelf south). Eye and
+# look-at keys in Blender x, y, z, so the walk can visit the whole free floor, not one loop:
+# the coffee table sits mid-room with the pouf north-west and the lounge chair south-west,
+# which leaves a ring round the table (through the 46 cm table-pouf gap) and dead-end
+# pockets south-west (white door, floor lamp), west (TV), north-west and north-east. The
+# 122 s main walk goes through every pocket at 1.5 m, looking at each wall and piece of
+# furniture from 1-4 m (64 s), crouches and rings the table at 0.6 m (36 s, under the
+# console, sofa, table and chair), then rings it at 1.55 m with the phone tilted up to the
+# upper walls and ceiling (20 s). About 490 frames at 4 fps (extract_frames has no cap).
+C7, K7, U7 = 1.5, 0.6, 1.55  # chest, knee and upward eye heights
+KEYS7_MAIN = [
+    # chest: bookshelf corner, past the lounge chair, into the south-west pocket, TV wall,
+    # north-west pocket, through the pouf gap, north strip, sofa side, back to the start
+    (0.0, (1.35, -1.55, C7), (0.0, -2.2, 1.0)),
+    (4.0, (1.0, -1.6, C7), (-1.0, -2.2, 1.2)),
+    (8.0, (0.5, -0.62, C7), (-0.6, -1.6, 0.6)),
+    (12.0, (-0.3, -0.55, C7), (-1.8, -2.2, 1.0)),
+    (16.0, (-1.5, -0.95, C7), (-2.6, -2.0, 0.9)),
+    (20.0, (-1.9, -1.5, C7), (1.0, -1.5, 0.9)),
+    (24.0, (-1.85, -0.4, C7), (-2.7, 1.2, 1.0)),
+    (28.0, (-1.7, 0.6, C7), (-2.7, 1.6, 1.0)),
+    (32.0, (-1.5, 1.45, C7), (-2.6, -0.5, 1.0)),
+    (36.0, (-1.6, 1.15, C7), (0.5, 2.1, 1.1)),
+    (40.0, (-1.0, 0.35, C7), (2.6, 0.2, 1.1)),
+    (44.0, (-0.07, 0.55, C7), (0.3, 2.3, 1.1)),
+    (48.0, (0.35, 1.35, C7), (2.6, 2.2, 1.0)),
+    (52.0, (1.4, 1.55, C7), (2.6, 0.0, 0.8)),
+    (56.0, (1.5, 0.6, C7), (2.5, -1.8, 1.0)),
+    (60.0, (1.5, -0.6, C7), (1.0, -2.4, 1.0)),
+    (64.0, (1.45, -1.45, C7), (-2.7, 0.3, 1.0)),
+    # crouch, knee-height ring the same way round
+    (68.0, (1.45, -1.25, K7), (0.0, -2.3, 0.4)),
+    (72.0, (0.5, -0.6, K7), (-0.6, -1.6, 0.3)),
+    (76.0, (-0.4, -0.55, K7), (-2.6, 0.0, 0.4)),
+    (80.0, (-1.5, 0.1, K7), (-2.5, -1.0, 0.4)),
+    (84.0, (-1.4, 0.9, K7), (0.0, 1.9, 0.4)),
+    (87.0, (-0.75, 0.42, K7), (1.0, -0.2, 0.3)),
+    (90.0, (-0.07, 0.5, K7), (2.3, 0.4, 0.3)),
+    (93.0, (-0.05, 0.98, K7), (0.9, 2.3, 0.5)),
+    (96.0, (0.7, 1.15, K7), (2.4, 1.6, 0.4)),
+    (99.0, (1.45, 0.85, K7), (2.5, -0.9, 0.3)),
+    (102.0, (1.45, -0.5, K7), (0.0, -2.3, 0.4)),
+    # stand, phone up: upper walls and ceiling all round
+    (106.0, (1.3, -1.2, U7), (-2.5, -2.0, 2.4)),
+    (110.0, (0.5, -0.62, U7), (-2.6, 1.0, 2.4)),
+    (114.0, (-0.4, -0.5, U7), (0.5, 2.4, 2.4)),
+    (118.0, (-0.07, 0.6, U7), (2.6, 0.8, 2.4)),
+    (122.0, (0.45, 1.3, U7), (1.0, -2.4, 2.4)),
+]
+KEYS7_TEST = [
+    # 1.2-1.7 m, the other way round, views between the main ones
+    (0.0, (-0.3, -0.55, 1.3), (2.6, -1.0, 1.0)),
+    (3.0, (0.5, -0.6, 1.5), (-1.5, -2.3, 1.1)),
+    (6.0, (1.0, -1.3, 1.7), (-2.5, -1.5, 1.2)),
+    (10.0, (1.5, 0.2, 1.2), (-2.5, 1.8, 1.0)),
+    (14.0, (0.9, 1.45, 1.6), (-0.5, -2.3, 1.0)),
+    (17.0, (-0.05, 1.0, 1.4), (-2.6, 1.6, 1.2)),
+    (20.0, (-0.07, 0.45, 1.3), (-2.6, -0.8, 1.2)),
+    (25.0, (-1.3, 0.3, 1.7), (2.5, 2.0, 1.4)),
+    (30.0, (-1.75, -1.0, 1.25), (1.0, 2.3, 1.2)),
+]
+
+
+WALKS7 = {"main": 122.0, "test": 30.0}
 # Blender (x0, y0, x1, y1, top z) of everything the walks must keep clear of, each the GT
 # bbox of the last build (with what stands on it) plus 2 cm, for tests/test_blender_living.py.
 LIVING_OBSTACLES = {
@@ -1041,14 +1120,8 @@ SCENES = {
         "room": (5.6, 4.8, 2.7),
         "walks": WALKS7,
         "eye_target": {
-            "main": _make_up_walk(
-                _make_main_walk(CHEST7, KNEE7, t_loop=28.0, t_knee=14.0),
-                44.0,
-                UP7,
-                (0.2, 0.15),
-                t_up=16.0,
-            ),
-            "test": _make_test_walk(TEST7, RING7),
+            "main": _make_key_walk(KEYS7_MAIN),
+            "test": _make_key_walk(KEYS7_TEST),
         },  # fmt: skip
         "seeds": {"main": 59, "test": 61},
         "panels": [],

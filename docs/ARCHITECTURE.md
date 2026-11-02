@@ -49,7 +49,7 @@ data/scenes/<scene_id>/
 
 ### 1. Frame selection (`scripts/extract_frames.py`, CPU)
 Sample candidates at 4x the target rate, keep the sharpest frame (variance of Laplacian)
-in each window. Default target 4 fps, max 200 frames. Writes `frames/`, `frames.json`
+in each window. Default target 4 fps, no frame cap (200 until 2 Nov; a longer walk now means more frames). Writes `frames/`, `frames.json`
 and `sam_input.mp4` from exactly those frames so SAM and reconstruction share indices.
 
 ### 2. Reconstruction (`modal_jobs/reconstruct.py`, GPU)
