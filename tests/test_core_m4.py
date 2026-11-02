@@ -258,7 +258,7 @@ def test_register_end_to_end_on_synthetic_object():
     recon_true = world_true @ np.linalg.inv(W)[:3, :3].T
     scan = recon_true[recon_true[:, 2] < 0.0]  # partial: one side only
     guess = np.linalg.inv(W) @ so.similarity(rot("y", 3), [0.05, 0.45, 0.0], 0.9)
-    v, info = register(so.standard(sam3d_like(canon)), guess, scan, W)
+    v, info = register(so.standard(sam3d_like(canon)), guess, scan, W, up_axis=1)
     assert (v[so.GENERATED] == 1).all()
     # RMS is bounded below by the spacing of 2000 random samples (about 1.5 cm here)
     assert info["icp_rms_after_m"] < info["icp_rms_before_m"] and info["icp_rms_after_m"] < 0.025
@@ -307,7 +307,7 @@ def test_register_survives_floaters_noise_and_yaw_error():
     floaters = scan.mean(0) + rng.normal(0, 0.6, (int(0.07 * len(scan)), 3))
     scan = np.concatenate([scan, floaters])
     guess = np.linalg.inv(W) @ so.similarity(rot("y", 15), [0.05, 0.45, 0.03], 0.9)
-    v, info = register(so.standard(sam3d_like(canon)), guess, scan, W)
+    v, info = register(so.standard(sam3d_like(canon)), guess, scan, W, up_axis=1)
     assert np.abs(so.xyz(v) - recon_true).max() < 0.06
     assert info["icp_rms_after_m"] < 0.03
 
@@ -342,5 +342,73 @@ def test_register_with_scaled_world_from_recon():
     recon_true = (np.linalg.inv(W)[:3, :3] @ world_true.T).T
     scan = recon_true[recon_true[:, 2] < 0.0]
     guess = np.linalg.inv(W) @ so.similarity(rot("y", 3), [0.05, 0.45, 0.0], 0.95)
-    v, info = register(so.standard(sam3d_like(canon)), guess, scan, W)
+    v, info = register(so.standard(sam3d_like(canon)), guess, scan, W, up_axis=1)
     assert np.abs(so.xyz(v) - recon_true).max() < 0.03
+
+
+def test_level_rotation_puts_the_up_axis_on_world_y():
+    R = rot("y", 30) @ rot("x", 12) @ rot("z", -5)
+    L, tilt = so.level_rotation(R, 1)
+    np.testing.assert_allclose((L @ R)[:, 1], [0, 1, 0], atol=1e-9)
+    assert 5 < tilt < 20
+    # upside down stays upside down (nearest of +-Y), and the heading is kept
+    L, tilt = so.level_rotation(rot("x", 175), 1)
+    np.testing.assert_allclose((L @ rot("x", 175))[:, 1], [0, -1, 0], atol=1e-9)
+    assert tilt == pytest.approx(5)
+    L, tilt = so.level_rotation(rot("y", 40), 1)
+    np.testing.assert_allclose(L, np.eye(3))
+    assert tilt == pytest.approx(0)
+
+
+def test_umeyama_yaw_fits_rotation_about_y_only():
+    p = box_points(n=500)
+    R, t, s = rot("y", -35), np.array([0.5, 0.1, -2.0]), 1.2
+    R2, t2, s2 = so.umeyama_yaw(p, s * p @ R.T + t)
+    np.testing.assert_allclose(R2, R, atol=1e-9)
+    np.testing.assert_allclose(t2, t, atol=1e-9)
+    assert s2 == pytest.approx(s)
+    R3, _, _ = so.umeyama_yaw(p, p @ (rot("y", 20) @ rot("x", 15)).T)
+    assert R3[1, 1] == pytest.approx(1.0) and np.allclose(R3[1], [0, 1, 0])
+
+
+def test_register_levels_a_tilted_pose_guess():
+    """blender01's coffee table: the single-view pose was 7 degrees off level and the free
+    ICP made it 16. A Z-up canonical model with a 12 degree roll in the guess must come out
+    standing upright on the scan."""
+    canon_y = box_points((0.9, 0.45, 0.6), n=5000)  # wide, low table, y-up
+    canon = canon_y @ rot("x", 90).T  # SAM 3D's frame is Z-up: local +Z is up
+    W = so.similarity(rot("x", 180), [0, 0, 0], 1.0)
+    world_true = canon_y + [0.0, 0.225, 0.0]
+    recon_true = world_true @ np.linalg.inv(W)[:3, :3].T
+    scan = recon_true[recon_true[:, 2] < 0.05]  # partial: one side only
+    world_from_local = so.similarity(
+        rot("y", 4) @ rot("z", 12) @ rot("x", -90), [0.03, 0.25, 0.0], 1.0
+    )
+    guess = np.linalg.inv(W) @ world_from_local
+    v, info = register(so.standard(sam3d_like(canon)), guess, scan, W)
+    assert info["levelled_deg"] == pytest.approx(12, abs=0.5)
+    M = W @ np.asarray(info["recon_from_local"])
+    up = M[:3, :3] @ [0, 0, 1]
+    assert np.degrees(np.arccos(up[1] / np.linalg.norm(up))) < 0.01
+    assert np.abs(so.xyz(v) - recon_true).max() < 0.04
+
+
+def test_register_rests_floor_objects_on_the_floor():
+    """A scan that reaches the floor puts the model's bottom at y = 0, even when the scan
+    of the lower part is too sparse for ICP to pull it down; a shelf item is not moved."""
+    canon_y = box_points((0.4, 1.6, 0.4), n=5000)  # tall lamp-like box, y-up
+    canon = canon_y @ rot("x", 90).T
+    W = np.eye(4)
+    world_true = canon_y + [0.0, 0.8, 0.0]
+    scan = np.concatenate(
+        [world_true[world_true[:, 1] > 0.8], world_true[world_true[:, 1] < 0.02][:20]]
+    )
+    guess = so.similarity(rot("x", -90), [0.0, 0.9, 0.0], 1.0)  # 10 cm too high
+    v, info = register(so.standard(sam3d_like(canon)), guess, scan, W)
+    lo, _ = so.robust_bounds(so.xyz(v))
+    assert abs(lo[1]) < 0.01 and info["floor_shift_m"] != 0.0
+    shelf = world_true + [0.0, 1.0, 0.0]  # same object 1 m up: no floor contact
+    v, info = register(
+        so.standard(sam3d_like(canon)), guess @ so.similarity(np.eye(3), [0, 0, 1.0], 1.0), shelf, W
+    )
+    assert info["floor_shift_m"] == 0.0

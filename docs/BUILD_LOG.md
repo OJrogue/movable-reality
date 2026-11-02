@@ -1069,3 +1069,26 @@ test-walk metrics, `sfm.json`, GT pose ATE). Every row predates the lighting cha
 - Tests: `pytest` 333 passed, 8 skipped; vitest 172 passed; ruff clean; build passes.
 - Still open: the never-filmed floor where a moved table stood shows a smear, and faint
   streaks below the needle cut.
+
+## 2 Nov (later), core: SAM 3D meshes upright and on the floor
+
+- Bug: SAM 3D meshes (and the completed splats, which share their matrix) stood tilted;
+  blender01's coffee table leaned 16 degrees and dipped into the floor. The mesh frame was
+  right (the mesh matches the completed splats under every axis permutation); the
+  registration was not. SAM 3D's single-view pose was 2 to 15 degrees off level, and the
+  free ICP fitted the model to a partial scan by tilting it further (coffee table 7 -> 16,
+  potted plant#2 2 -> 20, books#0 upside down at 144).
+- Fix in `completion.register` (stage 6, so every new scene gets it): the pose guess is
+  levelled so SAM 3D's local +Z (its canonical up) lies on world +-Y
+  (`splat_ops.level_rotation`), and ICP fits only a rotation about world Y
+  (`splat_ops.umeyama_yaw`, `icp(upright=True)`). An object whose opaque scan reaches
+  within 5 cm of the floor (0.2 % quantile) then rests on y = 0; the shelf items are not
+  moved. `completion.json` reports `levelled_deg` and `floor_shift_m`.
+- blender01 rerun from the SAM 3D cache (no Modal calls) and LOD rebuilt: every mesh up
+  axis is on world Y; seven floor objects sit at y = 0 within 2.3 cm (floor lamp was
+  +11 cm, cabinet +17 cm); ICP RMS coffee table 0.041 -> 0.032 m, the others within 5 mm
+  of before. Checked in the viewer with `?objects=mesh`.
+- Tests: `pytest` 26 in test_core_m4 (4 new: levelling, yaw-only fit, tilted guess,
+  floor contact); full suite 337 passed, 8 skipped. ruff clean.
+- Still open: potted plant#2 (on the cabinet) comes out much taller than its scan, as
+  before; its scan has only 219 opaque splats.
