@@ -168,8 +168,37 @@ PHASES_06 = {
           "Film it right after the main capture, same light."]),
     ],
 }  # fmt: skip
+PHASES_07 = {
+    "main": [
+        (0.0, 28.0, "1/5  Chest-height loop round the coffee table",
+         ["From the bookshelf corner walk up in front of the sofa, back",
+          "along the windows, between the table and the pouf, out in front",
+          "of the TV and back past the lounge chair. Phone at 1.5 m, a",
+          "little down, aimed across the loop at the far side of the room."]),
+        (28.0, 30.0, "2/5  Crouch",
+         ["Lower the phone to knee height.",
+          "Keep filming, keep the phone pointed across the room."]),
+        (30.0, 44.0, "3/5  Knee-height loop",
+         ["The same loop a little tighter at 0.6 m, phone nearly level,",
+          "so the sofa front, the table legs and under the console are seen."]),
+        (44.0, 46.0, "4/5  Stand up",
+         ["Stand up again at the start of the first loop.",
+          "Keep filming, tilt the phone a little up."]),
+        (46.0, 62.0, "5/5  Upward loop",
+         ["Walk round the coffee table once more, phone at 1.5 m,",
+          "pointing at the room centre and about 15 deg UP,",
+          "so the tops of the walls, the pendant and the ceiling are seen."]),
+    ],
+    "test": [
+        (0.0, 20.0, "Test walk (never used for training)",
+         ["A loop at 1.2 m round the table, the phone sweeping the walls",
+          "the other way round from angles the main loop did not use.",
+          "Film it right after the main capture, same light."]),
+    ],
+}  # fmt: skip
 PHASES = {"blender01": PHASES_01, "blender02": PHASES_02, "blender03": PHASES_03,
-          "blender04": PHASES_04, "blender05": PHASES_01, "blender06": PHASES_06}  # fmt: skip
+          "blender04": PHASES_04, "blender05": PHASES_01, "blender06": PHASES_06,
+          "blender07": PHASES_07}  # fmt: skip
 TIPS = [
     "Before filming: lock focus and exposure (long-press on iPhone), 1080p60 or 4K30,",
     "lamps on, curtains still, no people or pets, screens off. Move slowly, no fast turns.",
