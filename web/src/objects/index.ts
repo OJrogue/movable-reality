@@ -184,7 +184,12 @@ export function installObjects(ctx: ViewerContext): ObjectsHandle {
         if (!r) continue;
         sh = makeShadow(r);
         sh.name = `shadow:${o.id}`;
-        node.pivot.children[0].add(sh); // the offset group: scene frame of the unedited object
+        // A sibling of the offset group with its -centre offset (scene frame of the unedited
+        // object): setSplatsShown hides the offset group in the mesh styles.
+        const frame = new THREE.Group();
+        frame.position.copy(node.pivot.children[0].position);
+        frame.add(sh);
+        node.pivot.add(frame);
         shadows.set(o.id, sh);
       }
       if (sh) sh.visible = shellSolid && o.visible;

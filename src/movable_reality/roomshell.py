@@ -371,6 +371,18 @@ def surface_splats(pts: np.ndarray, size: np.ndarray, opacity: np.ndarray, poly:
     return (d - reach * size <= gap) | haze
 
 
+SURFACES_PLY = "objects/background_room.ply"  # room_surfaces.py's reduced background
+
+
+def background_source(scene: dict, shell: dict | None) -> str:
+    """The background PLY the room stages read: the scan's, never room_surfaces.py's own
+    reduced output (a rerun would filter its own result), then the pre-bake PLY."""
+    if scene.get("background_ply") == SURFACES_PLY and shell and shell.get("surfaces_source_ply"):
+        return shell["surfaces_source_ply"]
+    bake = scene.get("plane_bake") or {}
+    return bake.get("source_background_ply") or scene.get("background_ply")
+
+
 def neighbour_counts(pts: np.ndarray, cell: float = 0.1) -> np.ndarray:
     """Per point, the number of points (itself included) in the 3 x 3 x 3 grid cells of size
     `cell` around its own. A splat with only a few is a floater (blender01: coloured 7 cm
@@ -575,6 +587,35 @@ def _box_blur(img: np.ndarray, r: int) -> np.ndarray:
     return (c[k:, k:] - c[:-k, k:] - c[k:, :-k] + c[:-k, :-k]) / (k * k)
 
 
+def surface_colour_gap(pts: np.ndarray, colours: np.ndarray, surfs: list[Surface],
+                       textures: list[np.ndarray], blur: float = 0.05,
+                       ) -> tuple[np.ndarray, np.ndarray]:  # fmt: skip
+    """Per world point, the distance to the nearest surface in front of it (the one it lies
+    over, along that surface's normal) and the largest RGB difference (0 to 1) between its
+    colour and that surface's texture under it, blurred over `blur` metres. Textures are
+    uint8 (rows along v, columns along u) as room_shell.py writes them. Points over no
+    surface get an infinite distance."""
+    p = np.asarray(pts, dtype=np.float64)
+    dist = np.full(len(p), np.inf)
+    gap = np.full(len(p), np.inf)
+    for s, tex in zip(surfs, textures, strict=True):
+        h, w = tex.shape[:2]
+        r = max(1, round(blur * w / s.size_u))
+        img = _box_blur(tex[..., :3], r) / 255.0
+        q = p - s.origin
+        dn, u, v = q @ s.normal, q @ s.u, q @ s.v
+        over = (dn >= 0) & (dn < dist) & (u >= 0) & (u < s.size_u) & (v >= 0) & (v < s.size_v)
+        if tex.shape[-1] == 4:  # outside the floor or ceiling outline
+            j = np.clip((u / s.size_u * w).astype(int), 0, w - 1)
+            i = np.clip((v / s.size_v * h).astype(int), 0, h - 1)
+            over &= tex[i, j, 3] > 0
+        j = np.clip((u[over] / s.size_u * w).astype(int), 0, w - 1)
+        i = np.clip((v[over] / s.size_v * h).astype(int), 0, h - 1)
+        dist[over] = dn[over]
+        gap[over] = np.abs(img[i, j] - colours[over]).max(1)
+    return dist, gap
+
+
 def components(m: np.ndarray) -> list[np.ndarray]:
     """4-connected components of a bool mask, each as a bool mask (largest first)."""
     lab = np.zeros(m.shape, dtype=np.int32)
@@ -599,7 +640,7 @@ def components(m: np.ndarray) -> list[np.ndarray]:
 
 def copy_fill(rgb: np.ndarray, holes: np.ndarray, keep: np.ndarray, ring: int = 6,
               step: int = 3, detail_r: int = 10, max_shift: float = 0.06,
-              seed: int = 0) -> np.ndarray:  # fmt: skip
+              fade: int = 30, edge_shift: float = 0.2, seed: int = 0) -> np.ndarray:  # fmt: skip
     """Fill `holes` of a room-surface texture (H, W, 3) uint8 from the surface itself.
 
     Per hole, the offset whose shifted copy lands on real texels (inside `keep`, not a
@@ -607,7 +648,10 @@ def copy_fill(rgb: np.ndarray, holes: np.ndarray, keep: np.ndarray, ring: int = 
     differences on a sample of the ring) is chosen, so planks and tiles continue in line.
     The copy keeps its own colour and lighting; a smooth correction interpolated from the
     rim mismatch (its `detail_r` box blur, clamped to +-`max_shift`) removes the seam
-    without letting a dark rim (a contact shadow) spread into the hole. No learned weights.
+    without letting a dark rim (a contact shadow) spread into the hole. Within `fade` texels of
+    the rim a larger correction (up to +-`edge_shift`) fades in on top, so a soft shadow that
+    runs on past the hole's edge meets the copy without a step (blender01: the armchair's
+    shadow beyond the 1.2 m footprint reach). No learned weights.
     A hole with no valid offset takes push-pull from its rim."""
     h, w = holes.shape
     good = keep & ~holes
@@ -648,10 +692,27 @@ def copy_fill(rgb: np.ndarray, holes: np.ndarray, keep: np.ndarray, ring: int = 
         sl = (slice(ry0, ry1), slice(rx0, rx1))
         cy, cx = np.mgrid[ry0:ry1, rx0:rx1]
         copy = f[np.clip(cy + dy, 0, h - 1), np.clip(cx + dx, 0, w - 1)]
+        # The mismatch is taken between the two images' local means over `detail_r` texels
+        # (real texels only), so the planks' own detail does not leak into the correction.
         rim = _grow(comp, ring)[sl] & good[sl]
-        diff = np.where(rim[..., None], f[sl] - copy, 0.0)
+        gw = _box_blur(good[sl][..., None].astype(np.float64), detail_r)
+        mean_f = _box_blur(f[sl] * good[sl][..., None], detail_r) / np.maximum(gw, 1e-6)
+        cgood = good[np.clip(cy + dy, 0, h - 1), np.clip(cx + dx, 0, w - 1)][..., None]
+        cw = _box_blur(cgood.astype(np.float64), detail_r)
+        mean_c = _box_blur(copy * cgood, detail_r) / np.maximum(cw, 1e-6)
+        rim &= (gw[..., 0] > 0.5) & (cw[..., 0] > 0.5)  # both means stand on real texels
+        if not rim.any():
+            rim = _grow(comp, ring)[sl] & good[sl]
+            mean_f, mean_c = f[sl], copy
+        diff = np.where(rim[..., None], mean_f - mean_c, 0.0)
         corr = texture.push_pull(diff, rim.astype(np.float64))
-        corr = np.clip(_box_blur(corr, detail_r), -max_shift, max_shift)
+        corr = _box_blur(corr, detail_r)
+        near = np.zeros(comp[sl].shape)  # 1 at the rim, 0 from `fade` texels in
+        ring_m = ~comp[sl]
+        for k in range(fade, 0, -max(1, fade // 10)):
+            near = np.maximum(near, np.where(_grow(ring_m, k), 1.0 - k / (fade + 1), 0.0))
+        edge = np.clip(corr, -edge_shift, edge_shift) - np.clip(corr, -max_shift, max_shift)
+        corr = np.clip(corr, -max_shift, max_shift) + near[..., None] * edge
         m = comp[sl]
         out[sl][m] = (copy + corr)[m]
     return texture.to_uint8(out)

@@ -229,6 +229,20 @@ def test_copy_fill_continues_stripes():
     assert err < 5  # planks continue in line, not a blur
 
 
+def test_copy_fill_meets_a_soft_shadow_without_a_step():
+    # Flat floor, a soft shadow darkening the left side (40 levels over 40 texels); the hole
+    # covers part of it. The copy comes from the bright right, so its edge would be a step.
+    h, w = 60, 160
+    x = np.arange(w)
+    shade = np.clip(40 - x, 0, 40)  # 40 levels darker at x = 0, none from x = 40
+    rgb = np.repeat(np.repeat((180 - shade)[None, :, None], h, 0), 3, 2).astype(np.uint8)
+    holes = np.zeros((h, w), bool)
+    holes[20:40, 10:60] = True
+    out = roomshell.copy_fill(rgb, holes, np.ones((h, w), bool), step=1).astype(int)
+    assert abs(out[30, 10] - out[30, 9]).max() <= 8  # the left edge, inside the shadow
+    assert abs(out[30, 45] - 180).max() <= 6  # deep inside: the clean copy
+
+
 def test_surface_splats_reach_outside_and_haze():
     pts = np.array([[2.0, 1.2, 1.5], [2.0, 1.2, 0.3], [2.0, 1.2, 0.3], [-0.5, 1.0, 1.0],
                     [2.0, 1.2, 1.5]])  # fmt: skip
@@ -244,3 +258,31 @@ def test_neighbour_counts_flags_isolated_points():
     lone = np.array([[1.0, 1.0, 1.0]])
     n = roomshell.neighbour_counts(np.vstack([cluster, lone]), cell=0.1)
     assert n[-1] == 1 and n[:-1].min() >= 50
+
+
+def test_finish_alpha_reaches_past_the_outline():
+    # A 1 x 1 m surface at 5 cm texels, outline the lower-left triangle: the texels the
+    # diagonal cuts stay opaque (no crack along a wall), the far corner stays clear.
+    tri = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    rgba = roomshell.finish(np.full((20, 20, 3), 0.5), np.ones((20, 20)), tri, 0.05, (1.0, 1.0))
+    keep = roomshell.outline_keep(tri, (1.0, 1.0), (20, 20))
+    a = rgba[..., 3] > 0
+    assert a[keep].all()
+    assert (a & ~keep).any()  # grown past the diagonal
+    assert not a[19, 19]
+
+
+def test_surface_colour_gap_matches_the_texture_under_a_point():
+    # 4 x 4 m room, 2.5 m high: the floor texture is grey on the left half, red on the right.
+    poly = np.array([[0.0, 0.0], [4.0, 0.0], [4.0, 4.0], [0.0, 4.0]])
+    surfs = [s for s in roomshell.surfaces(poly, 2.5) if s.kind == "floor"]
+    tex = np.full((40, 40, 4), 255, dtype=np.uint8)
+    tex[:, :, :3] = 128
+    tex[:, 20:, :3] = (200, 30, 30)
+    pts = np.array([[1.0, 0.3, 2.0], [3.0, 0.3, 2.0], [1.0, 0.3, 2.0], [5.0, 0.3, 2.0]])
+    grey, red = np.full(3, 128 / 255), np.array([200, 30, 30]) / 255
+    dist, gap = roomshell.surface_colour_gap(pts, np.stack([grey, red, red, grey]), surfs, [tex])
+    assert np.allclose(dist[:3], 0.3)
+    assert gap[0] < 0.01 and gap[1] < 0.01  # a floor-coloured ghost over each half
+    assert gap[2] > 0.3  # a red thing over the grey half is not
+    assert np.isinf(dist[3]) and np.isinf(gap[3])  # over no surface

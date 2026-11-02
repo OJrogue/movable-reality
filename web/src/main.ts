@@ -99,22 +99,12 @@ renderer.setAnimationLoop((time: number, frame?: XRFrame) => {
   return renderer.domElement.toDataURL("image/jpeg", 0.85);
 };
 
-// Camera hook for scripted views (scripts/blender_viewer_eval.py): camera-to-world rows in
-// the viewer's world frame (three.js camera axes) and a vertical field of view in degrees.
-// Turns the desktop controls off until it is called with no pose.
-(window as unknown as { mrCamera: (rows?: number[][], fovDeg?: number) => void }).mrCamera = (rows, fovDeg) => {
-  ctx.controlsEnabled = !rows;
-  if (!rows) return;
-  rig.position.set(0, 0, 0);
-  rig.quaternion.identity();
-  matrixFromRows(rows).decompose(camera.position, camera.quaternion, new THREE.Vector3());
-  if (fovDeg) camera.fov = fovDeg;
-  camera.updateProjectionMatrix();
-};
-
+// Dev only: window.mrCamera / mrEvalRun for scripts/blender_viewer_eval.py (bench/evalViews.ts).
 if (import.meta.env.DEV) {
-  installEvalViews(sceneId, renderer.domElement);
-  (window as unknown as { mrScene: THREE.Scene }).mrScene = scene; // console inspection
+  installEvalViews({
+    sceneId, canvas: renderer.domElement, camera, rig, scene,
+    setControls: (on) => (ctx.controlsEnabled = on),
+  });
 }
 
 function addSinglePly(url: string): void {

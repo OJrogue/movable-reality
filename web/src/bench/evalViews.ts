@@ -11,14 +11,39 @@ interface EvalViews {
   views: { name: string; c2w: number[][] }[];
 }
 
+import * as THREE from "three";
+import { matrixFromRows } from "../scene";
+
+export interface EvalHost {
+  sceneId: string | null;
+  canvas: HTMLCanvasElement;
+  camera: THREE.PerspectiveCamera;
+  rig: THREE.Object3D; // the camera's parent (desktop walk, XR reference space)
+  scene: THREE.Scene;
+  setControls: (on: boolean) => void;
+}
+
 type Win = {
   mrCamera: (rows?: number[][], fovDeg?: number) => void;
   mrCapture: () => string;
   mrEvalRun?: (run: string, file?: string, waitMs?: number, warmMs?: number) => Promise<{ saved: number; size: number[] }>;
 };
 
-export function installEvalViews(sceneId: string | null, canvas: HTMLCanvasElement): void {
-  const w = window as unknown as Win;
+export function installEvalViews(host: EvalHost): void {
+  const { sceneId, canvas, camera, rig } = host;
+  const w = window as unknown as Win & { mrScene?: THREE.Scene };
+  w.mrScene = host.scene; // console inspection
+  // Camera-to-world rows in the viewer's world frame (three.js camera axes) and a vertical
+  // field of view in degrees. Turns the desktop controls off until called with no pose.
+  w.mrCamera = (rows, fovDeg) => {
+    host.setControls(!rows);
+    if (!rows) return;
+    rig.position.set(0, 0, 0);
+    rig.quaternion.identity();
+    matrixFromRows(rows).decompose(camera.position, camera.quaternion, new THREE.Vector3());
+    if (fovDeg) camera.fov = fovDeg;
+    camera.updateProjectionMatrix();
+  };
   w.mrEvalRun = async (run, file = "viewer_views.json", waitMs = 2500, warmMs = 15000) => {
     const meta = (await (await fetch(`/scenes/${sceneId}/eval/${file}`, { cache: "no-store" })).json()) as EvalViews;
     let saved = 0;

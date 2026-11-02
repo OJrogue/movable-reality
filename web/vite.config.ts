@@ -10,7 +10,7 @@ import {
 } from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { pipeline as pipeStream } from "node:stream";
-import { extname, join, normalize, relative, sep } from "node:path";
+import { extname, join, normalize, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import basicSsl from "@vitejs/plugin-basic-ssl";
 import { defineConfig, type Plugin } from "vite";
@@ -218,7 +218,8 @@ function benchEndpoint(): Plugin {
  * scripts/blender_viewer_eval.py).
  */
 function evalEndpoint(): Plugin {
-  const safe = (s: string | null) => (s && /^[\w.-]+$/.test(s) ? s : null);
+  // One path part each, never "." or "..": a name starts with a word character or "-".
+  const safe = (s: string | null) => (s && /^[\w-][\w.-]*$/.test(s) ? s : null);
   return {
     name: "eval-endpoint",
     configureServer(server) {
@@ -234,6 +235,7 @@ function evalEndpoint(): Plugin {
           const text = await readBody(req);
           const b64 = text.replace(/^data:image\/png;base64,/, "");
           const dir = join(SCENES_DIR, scene, "eval", "viewer", run);
+          if (!resolve(dir).startsWith(resolve(SCENES_DIR) + sep)) throw new Error("outside data/scenes");
           mkdirSync(dir, { recursive: true });
           writeFileSync(join(dir, `${view}.png`), Buffer.from(b64, "base64"));
           res.end(JSON.stringify({ ok: true }));

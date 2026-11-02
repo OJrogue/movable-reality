@@ -25,13 +25,14 @@ from movable_reality.bake import gaussians, glb, texture
 from movable_reality.config import scene_dir
 from movable_reality.coverage.colmap import read_model
 from movable_reality.lift import STRUCTURE, ceiling_from_histogram
-from movable_reality.roommesh import source_background, unit_m
+from movable_reality.roommesh import unit_m
 from movable_reality.roomshell import (
     FILL_PROMPT,
     ON_WALL,
     UNSEEN_SHARE,
     Projector,
     View,
+    background_source,
     blend_fill,
     copy_fill,
     finish,
@@ -44,7 +45,7 @@ from movable_reality.roomshell import (
     room_outline,
     shadow_mask,
     size_hint,
-    surface_distance,
+    surface_splats,
     surfaces,
     upper_wall_colour,
 )
@@ -127,8 +128,10 @@ def main() -> int:
     ap.add_argument(
         "--occluder-gap",
         type=float,
-        default=0.08,
-        help="background splats farther than this (m) from a surface occlude it",
+        default=0.06,
+        help="background splats that stay farther than this (m) from a surface occlude it; "
+        "the same rule and default as room_surfaces.py --gap, so a splat is either kept as an "
+        "occluder or painted onto the shell, never lost",
     )
     ap.add_argument(
         "--z-margin",
@@ -146,7 +149,9 @@ def main() -> int:
     W = np.asarray(scene.world_from_recon, dtype=np.float64)
     unit = unit_m(W)  # world metres per recon unit; camera depths are in recon units
     lin, trans = W[:3, :3], W[:3, 3]
-    bg_rel = source_background(scene.model_dump())
+    shell_path = root / "room" / "shell.json"
+    old_shell = json.loads(shell_path.read_text()) if shell_path.exists() else None
+    bg_rel = background_source(scene.model_dump(), old_shell)
     g = gaussians.gaussians_from_vertices(gaussians.vertices(gaussians.read_ply(root / bg_rel)))
     m = np.asarray(g.means, dtype=np.float64) @ lin.T + trans
     solid = g.opacities >= 0.3
@@ -205,7 +210,8 @@ def main() -> int:
     # Occluders for the depth test: every scanned object's splats, and the background splats
     # off the room surfaces (items no noun named). SAM's masks miss object edges, shadows
     # and unnamed items, which then got painted onto the walls and floor (blender01, 2 Nov).
-    occ = [m[solid & (surface_distance(m, poly, height) > args.occluder_gap)]]
+    size = np.exp(np.asarray(g.log_scales, dtype=np.float64)).max(1) * unit
+    occ = [m[solid & ~surface_splats(m, size, g.opacities, poly, height, gap=args.occluder_gap)]]
     for o in scene.objects:
         if o.source == "scan" and (root / o.ply).exists():
             ov = gaussians.vertices(gaussians.read_ply(root / o.ply))
@@ -220,7 +226,8 @@ def main() -> int:
     # result, keyed by the inputs that change it, while the hole fill is tuned.
     cache = root / "room" / "fill" / "projection.npz"
     key = json.dumps([np.round(poly, 4).tolist(), round(height, 4), args.texel, args.views,
-                      args.occluder_gap, args.z_margin, len(frames)])  # fmt: skip
+                      args.occluder_gap, args.z_margin, len(frames), len(occ_w),
+                      round(float(occ_w.sum()), 2)])  # fmt: skip  # a re-lift changes the occluders
     results, used = None, len(frames)
     if args.reuse_projection and cache.exists():
         z = np.load(cache, allow_pickle=False)
@@ -306,6 +313,9 @@ def main() -> int:
         print(f"  {rel}: {s.size_u:.2f} x {s.size_v:.2f} m, {w} x {h} px, "
               f"{seen[inside].mean():.0%} seen, {generated:.0%} generated")  # fmt: skip
     report["seconds"] = round(time.time() - t0, 1)
+    if old_shell:  # room_surfaces.py's record: the background still points at its output
+        report.update({k: v for k, v in old_shell.items()
+                       if k.startswith("surfaces_") or k == "replaces_splats"})  # fmt: skip
     (out / "shell.json").write_text(json.dumps(report, indent=2))
     scene = Scene.load(root / "scene.json")
     scene.room_planes = rels
