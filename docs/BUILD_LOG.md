@@ -1474,6 +1474,48 @@ test-walk metrics, `sfm.json`, GT pose ATE). Every row predates the lighting cha
   (189) and `npm run build` pass. Not checked on a headset or a real phone.
 - Next: a real showcase recording, `room01` once filmed, and its card image.
 
+## 3 Nov (evening), core: a real showcase room from Tanks and Temples
+
+- Stock sites (Pexels, Mixkit, Uppbeat) only have 6-15 s gimbal clips of rooms, too short
+  for MapAnything and gsplat. Picked the Tanks and Temples "Meeting room" training scene
+  instead: a raw 4K handheld walk of a real room with tables and chairs, CC BY 4.0, with a
+  laser-scan ground truth.
+- Downloaded to `data/raw/tnt_meetingroom/` (gitignored): the 371 benchmark camera poses
+  (1 fps image set, COLMAP frame), the COLMAP-to-scan similarity (scale about 1.46) and the
+  crop polygon. Source, licence and credit are in `SOURCE.md` there.
+- Google Drive's download quota blocked `Meetingroom.mp4` (4.27 GB) and the scan
+  `Meetingroom.ply` (1.2 GB) for scripted downloads; OJ downloads them by hand. The video is
+  in place: 3840 x 2160 H.264, 29.97 fps, 370 s, matching the 371 poses.
+- The room is about 17 x 13 m (crop polygon), so a 30-60 s cut would cover only part of it.
+  Plan: the whole video through `extract_frames.py --fps 1.3` (about 480 frames).
+- Smaller real rooms: Meta's Eyeful Tower captures (MIT, tripod rig stills, not video; e.g.
+  `raf_furnishedroom`, `apartment`, `lounge_room`, `vr_room`) and short Wikimedia Commons
+  clips (a 44 s hotel suite, CC BY 3.0; a 60 s furnished room, public domain), not yet
+  previewed.
+- Next: run `run_pipeline.py` on the whole video, then check scale and geometry against the
+  scan (needs a T&T reader next to `blender_gt_eval.py`).
+- Smaller room downloaded: Eyeful Tower `raf_furnishedroom` (Meta, MIT) into
+  `data/raw/eyeful_furnishedroom/` (486 MB, gitignored, `SOURCE.md` there). A furnished
+  lounge in a lab, about 5 x 7.5 m of rig spots: 22 per-camera clips (154 tripod spots
+  each, 1368 x 2048, 12 fps), poses for all 3388 images, and a held-out test camera (17).
+  Not a handheld video: each clip steps between tripod spots, and `run_pipeline.py` does
+  not pass `--fps`, so the frames stage needs `extract_frames.py --fps 12 --oversample 1`
+  by hand to keep every spot.
+- Eyeful furnished room through the pipeline, reconstruction only:
+  - Camera 20 alone (154 frames, scene `eyeful_furnished`): SfM registered 66, the run used
+    MapAnything's poses, and gsplat reached PSNR 12.7 dB on its own views. Stopped before
+    the lift.
+  - Cameras 14/20/26 per spot, up and down (462 frames, `eyeful_furnished3`, clip
+    `snake_14_20_26.mp4`): SfM registered 217 and the run fell back to MapAnything again;
+    PSNR 15.3 dB.
+  - Against the rig poses in `cameras.json` (Sim3): MapAnything's ATE is 0.59 m median, 4.4 m
+    max, rotation error 15 deg median, with 286 of 462 frames over 0.5 m. Distances within a
+    spot match the rig, so the frame mapping is right; the global poses are wrong.
+  - Likely causes: tripod spots instead of a walk (the rig spins up to 176 deg three times),
+    and large plain walls, carpet and blinds that look alike from many spots.
+  - Not a pipeline-ready capture as it stands. Options: train on the rig poses (needs a
+    pose import in `reconstruct.py`), or use the Tanks and Temples video instead.
+
 ## 3 Nov (evening), ui + docs: new hook, no VR, input videos per room
 
 - Landing hero rewritten in plainer words ("Try the new layout before you lift the sofa."),
@@ -1537,6 +1579,45 @@ verifier. Each fix below came from a command that went wrong:
   insert. The living room was rebuilding in another session, so it was only checked for the
   bounds fix. The demo manifests were restored after each test.
 - Next: test voice and the living room once its pipeline run is done.
+- Tanks and Temples Meeting room, reconstruction only (`tnt_meetingroom`, 482 frames from the
+  whole 370 s video at 1.3 fps, self-calibrated): 60 min including one Modal reconnect.
+  - SfM registered all 482 frames, mean reprojection 0.82 px at 1920 x 1080; fx 1208 / fy 1222.
+  - gsplat (quality, 30k): PSNR 16.6 dB, SSIM 0.67, LPIPS 0.55 on every 8th frame held out;
+    843k Gaussians (blender07: 36.8 dB on the same split, 3.5M).
+  - Poses vs the benchmark's COLMAP poses, Sim3 in scan metres: median 0.28 m. MapAnything's
+    own poses: 1.0 m. Shifting our frames by one against the reference makes it worse, so the
+    frame mapping is right.
+  - Held-out renders: exposure drifts in the video (the real frames are darker near the
+    windows), and near tables and chairs smear. Even from a training pose in the viewer the
+    chairs ghost, so it is not only coverage.
+  - Not good enough for the showcase yet. Untested remedies: gsplat's pose and appearance
+    optimisation, denser frames.
+
+## 3 Nov: premade mesh library and removing items (lane core, ui)
+
+- **Library:** `scripts/build_library.py` packs 29 curated CC0 models into `data/library/` (glb
+  on the floor at the origin, 27 MB, thumbnails from Blender). A scene holds them as objects
+  with `source: "library"`: no splats, so `SceneView` skips the PLY and `web/src/library/` hangs
+  the mesh under the object's pivot. Move, rotate, remove, undo and picking are the existing code.
+  They are lit PBR models under a neutral `RoomEnvironment` light; unlit planes and splats ignore it.
+- **Viewer:** the top bar's + opens Add (grid by category; a click stands the item where the
+  user looks, faces them, square to the walls, and selects it; a small item looked at on a table
+  stands on it) and In this room (every object with Remove or Restore). The selection bar has a
+  Remove button, the only way to delete on a phone until now was the agent.
+- **Agent:** `add_from_library` (floor at x, z, or `on_object_id`), catalogue in the system prompt,
+  `insert_object` only when the library has nothing that fits. `POST /api/scenes/{id}/library`
+  for the panel: hosted visitors can add too, since nothing is written to the scene folder.
+- `fits` no longer exempts an added object's first pose (the scan exemption would have hidden every
+  collision), and the server now serves .js as JavaScript on Windows, where the registry can say
+  text/plain.
+- Result on blender06, in the hosted layout (MR_SESSIONS=1) at 1280 x 800 and in the 375 x 812
+  mobile emulation: add, undo, remove, restore, Remove button. Real agent command "Delete the
+  ukulele, add a potted plant by the window, and put a ceramic vase on the dresser": all three
+  done, vase on the dresser's top at 1.07 m, verifier yes. The plant went by the far wall: the
+  agent has no window positions. Removing the bed left a clean floor there on this synthetic room.
+- Not tested: blender07 and real captures, a real phone, voice, the deployed demo (library not
+  uploaded yet). `?server=0` does not nudge an item off other furniture. Cached agent replies
+  miss once, since the prompt and tool list changed.
 
 ## 3 Nov: hosted demo on Modal and security pass (lane core, renderer)
 
@@ -1565,5 +1646,5 @@ verifier. Each fix below came from a command that went wrong:
 - **Known:** with `max_containers=1` a redeploy waits for open viewers (up to 10 min). A running
   container needs a redeploy to see newly published files.
 - Next: blender07 has no LOD locally (34 meshes), so the live copy is older than the local scene.
-  Rebuild, publish and redeploy once its rework is done. The deployed build also held other
-  sessions' uncommitted work (mesh library, gizmo); the library route was only checked for the 403.
+  Rebuild, publish and redeploy once its rework is done. The library route was only checked for the
+  403; library panel not tested on the live URL.
