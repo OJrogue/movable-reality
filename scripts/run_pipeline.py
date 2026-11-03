@@ -93,7 +93,11 @@ def stages(a: argparse.Namespace) -> list[Stage]:
         Stage("complete", "SAM 3D Objects completions and meshes",
               [*PY, "scripts/complete_objects.py", "--scene", s, "--mesh"],
               ["objects_trained/report.json"], ["completion.json"], optional=True),
-        Stage("shell", "room as textured quads", [*PY, "scripts/room_shell.py", "--scene", s],
+        # The tape-measured height also places the shell's ceiling: its own estimate took the
+        # 99th percentile on blender07 (3.01 m for 2.7), and the real ceiling splats then hung
+        # 30 cm below the quad, too far for room_surfaces.py to remove (3 Nov).
+        Stage("shell", "room as textured quads", [*PY, "scripts/room_shell.py", "--scene", s,
+              *(["--height", str(a.ceiling_height)] if a.ceiling_height else [])],
               ["ids/gaussian_ids.npy"], ["room/shell.json"], optional=True),
         Stage("bake", "floor quad", [*PY, "scripts/bake_planes.py", "--scene", s, "--labels",
               "floor"], ["objects_trained/report.json"], ["planes"], optional=True),

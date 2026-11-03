@@ -90,3 +90,10 @@ def test_only_runs_one_stage(tmp_path):
 
 def test_bake_runs_before_lod():
     assert rp.NAMES.index("bake") < rp.NAMES.index("lod")
+
+
+def test_ceiling_height_reaches_the_room_shell():
+    a = argparse.Namespace(**{**vars(ARGS), "ceiling_height": 2.7})
+    shell = next(st for st in rp.stages(a) if st.name == "shell")
+    assert shell.cmd[-2:] == ["--height", "2.7"]
+    assert "--height" not in next(st for st in rp.stages(ARGS) if st.name == "shell").cmd
