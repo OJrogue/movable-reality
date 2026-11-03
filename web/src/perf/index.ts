@@ -196,7 +196,7 @@ export function installPerf(ctx: ViewerContext): PerfHandle {
   ctx.onManifest((m) => {
     if (!ctx.sceneBase) return;
     countPly(`${ctx.sceneBase}/${m.background_ply}`);
-    for (const o of m.objects) countPly(`${ctx.sceneBase}/${o.ply}`);
+    for (const o of m.objects) if (o.ply) countPly(`${ctx.sceneBase}/${o.ply}`);
   });
   const plyParam = p.get("ply");
   if (plyParam) countPly(plyParam);

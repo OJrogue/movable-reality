@@ -50,6 +50,8 @@ def main() -> int:
         else:
             size, tris = pack_model(src, out)
         credit = credits.get(c.asset, {})
+        if not credit.get("license"):
+            raise SystemExit(f"{c.asset}: no licence in assets.json (run blender_assets.py)")
         items.append(
             LibraryItem(
                 id=c.asset, label=c.label, category=c.category, on_surface=c.on_surface,

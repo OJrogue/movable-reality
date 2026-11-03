@@ -63,6 +63,12 @@ MODELS = {
     "ceramic_vase_02": "1k",
     "ceramic_vase_04": "1k",
     "wooden_bowl_02": "1k",
+    # only in the mesh library (src/movable_reality/library.py)
+    "sofa_03": "2k",
+    "Ottoman_01": "2k",
+    "throw_pillows_01": "2k",
+    "brass_vase_01": "1k",
+    "mantel_clock_01": "1k",
 }
 TEXTURES = {
     "laminate_floor_02": "2k",

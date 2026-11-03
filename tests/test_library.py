@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -182,7 +183,47 @@ def test_server_route_adds_and_nudges(catalog_dir: Path, tmp_path: Path, monkeyp
     saved = Scene.load(scenes / "s" / "scene.json")
     assert saved.get("lib#1").center[0] != 1.5 or saved.get("lib#1").center[2] != 1.5
     assert post(library_id="vase", on_object_id="table#1").status_code == 200
+    assert post(library_id="vase", x=1e308, z=0, on_object_id="table#1").status_code == 400
     assert Scene.load(scenes / "s" / "scene.json").get("lib#2").bbox_min[1] == pytest.approx(0.7)
     assert post(library_id="throne", x=0, z=0).status_code == 400
     assert post(library_id="sofa").status_code == 400
     assert post(library_id="vase", on_object_id="nope").status_code == 400
+
+
+def test_add_on_top_stays_over_the_object():
+    scene, vase = _scene(), _item("vase", (0.2, 0.4, 0.2))
+    # where a view from the door would hit the floor, far in front of the table
+    obj = add_to_scene(scene, vase, 1.5, 0.23, on_object_id="table#1")
+    assert obj.center[0] == pytest.approx(1.5) and obj.center[2] == pytest.approx(1.1)
+    assert obj.bbox_min[1] == pytest.approx(0.7)
+    # a long item turned 90 deg: its width runs along z
+    long = _item("runner", (0.6, 0.1, 0.2))
+    obj = add_to_scene(scene, long, 0.0, 1.0, 90.0, "table#1")
+    assert obj.center[0] == pytest.approx(1.1) and obj.center[2] == pytest.approx(1.3)
+    # wider than the table: centred
+    obj = add_to_scene(scene, _item(), 9.0, 9.0, on_object_id="table#1")
+    assert obj.center[0] == pytest.approx(1.5) and obj.center[2] == pytest.approx(1.5)
+
+
+def test_add_on_a_removed_object_is_refused():
+    scene = _scene()
+    scene.apply_edit("remove", "table#1", {})
+    with pytest.raises(ValueError):
+        add_to_scene(scene, _item("vase", (0.2, 0.4, 0.2)), on_object_id="table#1")
+
+
+def test_a_scanned_object_moved_back_onto_an_added_one_collides():
+    scene = _scene()
+    scene.apply_edit("move", "table#1", {"dx": -3.0, "dz": -3.0})
+    sofa = add_to_scene(scene, _item(), 1.5, 1.5)
+    scene.apply_edit("move", "table#1", {"dx": 3.0, "dz": 3.0})
+    check = fits(scene, "table#1", None, None, BOUNDS)
+    assert [c["id"] for c in check["collides_with"]] == [sofa.id]
+
+
+def test_every_curated_item_has_a_licence_record():
+    """blender_assets.py records the licence; build_library.py refuses an item without one."""
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+    from blender_assets import MODELS
+
+    assert not [c.asset for c in library.CURATED if c.asset not in MODELS]

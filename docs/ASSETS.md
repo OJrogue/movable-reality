@@ -135,3 +135,13 @@ URL and licence. `scripts/build_library.py` packs them into `data/library/` (one
 colour textures at most 1024 px, other maps 512 px, 27 MB in all). Nothing is committed;
 `scripts/publish_demo.py` uploads the folder to the hosted demo's volume. They are
 meshes, not models with learned weights, so the Meta-only runtime rule does not apply.
+
+Five of the 29 are used only by the library:
+
+| Asset | Kind | Author | Licence |
+|---|---|---|---|
+| [Sofa 03](https://polyhaven.com/a/sofa_03) | model (2k) | Fran Calvente | CC0 |
+| [Ottoman 01](https://polyhaven.com/a/Ottoman_01) | model (2k) | Caspian Fortune | CC0 |
+| [Throw Pillows 01](https://polyhaven.com/a/throw_pillows_01) | model (2k) | Serhii Khromov | CC0 |
+| [Brass Vase 01](https://polyhaven.com/a/brass_vase_01) | model (1k) | Rico Cilliers | CC0 |
+| [Mantel Clock 01](https://polyhaven.com/a/mantel_clock_01) | model (1k) | Rico Cilliers, Yann Kervran | CC0 |

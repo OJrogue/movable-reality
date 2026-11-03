@@ -330,8 +330,8 @@ async def add_library_object(scene_id: str, body: LibraryBody, request: Request)
     h = hub(scene_id, _session(request.cookies))
     _writable(h)
     numbers = [v for v in (body.x, body.z, body.yaw_deg) if v is not None]
-    if not all(math.isfinite(v) for v in numbers):
-        raise HTTPException(400, "values must be finite numbers")
+    if not all(math.isfinite(v) and abs(v) <= MAX_EDIT_VALUE for v in numbers):
+        raise HTTPException(400, f"values must be numbers up to {MAX_EDIT_VALUE:.0f}")
     async with h.lock:
         scene = h.load()
         if HOSTED and len(scene.history) >= MAX_HISTORY:

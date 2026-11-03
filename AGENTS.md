@@ -188,7 +188,7 @@ uv run python scripts/coverage_repair.py --scene room01 --gpu --call   # coverag
 uv run modal run modal_jobs/coverage.py --scene room01 --job distil    # coverage: accepted repairs -> coverage/generated.ply (generated = 1)
 uv run python scripts/coverage_topup.py --scene room01 --video topup.mp4   # coverage: C2 top-up frames, full reconstruct rerun, re-align, rescore (--no-recon)
 # coverage viewer: ?gaps=1 shows the gap overlay, key G or XR squeeze toggles it, ?gapViews=<n> (0 = best view only)
-# coverage viewer: generated splats key T, ?generated=0, window.mrCoverage.toggleGenerated()
+# coverage viewer: generated splats key T (nothing selected; with a selection T switches the gizmo between move and rotate), ?generated=0, window.mrCoverage.toggleGenerated()
 uv run python scripts/blender_assets.py        # blender: CC0 Poly Haven assets -> data/assets/ (docs/ASSETS.md)
 blender -b -P scripts/blender_room.py -- --out data/raw/blender01 --samples 16   # blender: synthetic room, both walks, GT, mp4 (~70 min on the RTX 3060)
 # blender: quick look with --walk test --frames 0:600:100 --stage build,render; Blender 4.5 LTS (winget BlenderFoundation.Blender.LTS.4.5)

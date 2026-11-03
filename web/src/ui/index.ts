@@ -200,9 +200,9 @@ export function installUi(ctx: UiContext): UiHandle {
     const m = ctx.manifest;
     if (!m || !ctx.view) return;
     const pose = bar_pose();
-    const { x, z } = dropPoint(pose.eye, pose.forward);
     const on = item.on_surface ? editor.pickAtCentre() : null;
-    const at: LibraryPlacement = { x, z, yaw_deg: yawFacing(x, z, pose.eye), on_object_id: on };
+    const { x, z } = on ? on.point : dropPoint(pose.eye, pose.forward);
+    const at: LibraryPlacement = { x, z, yaw_deg: yawFacing(x, z, pose.eye), on_object_id: on?.id ?? null };
     try {
       if (server && online) {
         try {

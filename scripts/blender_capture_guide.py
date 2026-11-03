@@ -196,7 +196,7 @@ PHASES_07 = {
     "topup": [
         (0.0, 10.0, "Top-up into the north-west corner (coverage_topup.py)",
          ["10 s from mid-room towards the west window and the console end,",
-          "lowering the phone from 1.2 m to knee height: the curtain, the",
+          "phone at 1.3 to 1.6 m, tilted down and back up: the curtain, the",
           "radiator and the console's end, the corner the tour saw close up."]),
     ],
 }  # fmt: skip

@@ -136,11 +136,11 @@ export class Editor {
     return best ? { id: best.id, point: ray.at(best.distance, new THREE.Vector3()) } : null;
   }
 
-  /** The object at the centre of the view, if any. */
-  pickAtCentre(): string | null {
+  /** The object at the centre of the view and where the view hits it, if any. */
+  pickAtCentre(): { id: string; point: THREE.Vector3 } | null {
     this.ctx.rig.updateMatrixWorld(true);
     this.raycaster.setFromCamera(this.ndc.set(0, 0), this.ctx.camera);
-    return this.pick(this.raycaster.ray)?.id ?? null;
+    return this.pick(this.raycaster.ray);
   }
 
   /** Hide the selected object. Undo or the room list brings it back. */

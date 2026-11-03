@@ -15,6 +15,7 @@ from typing import Any
 import numpy as np
 
 from ..library import add_to_scene, catalog, get_item
+from ..library import inside as _inside
 from ..scene import Scene, SceneObject
 
 EDIT_TOOLS = {
@@ -153,10 +154,11 @@ def fits(
             continue
         other_scan = other.model_copy(deep=True)
         other_scan.transform.translation, other_scan.transform.yaw_deg = (0.0, 0.0, 0.0), 0.0
-        # An added object never stood in the real room: its first pose earns no exemption.
+        # An added object never stood in the real room: neither side's first pose is exempt.
         scan_gap = _centre_gap(scan_box, other_scan.world_aabb())
         if (
             obj.source == "scan"
+            and other.source == "scan"
             and hits(scan_box, other_scan)
             and _centre_gap(box, other.world_aabb()) >= scan_gap - 0.05
         ):
@@ -175,12 +177,6 @@ def fits(
         "outside_room": walls,
         "footprint": {"x": [_r(mn[0]), _r(mx[0])], "z": [_r(mn[2]), _r(mx[2])]},
     }
-
-
-def _inside(v: float, span: tuple[float, float], half: float) -> float:
-    """v moved so that v +- half stays inside the span (centred when it cannot)."""
-    lo, hi = span[0] + half, span[1] - half
-    return (span[0] + span[1]) / 2 if lo > hi else min(max(v, lo), hi)
 
 
 def free_spot(

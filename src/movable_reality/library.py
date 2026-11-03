@@ -99,6 +99,12 @@ def get_item(library_id: str, folder: Path | None = None) -> LibraryItem:
     return items[library_id]
 
 
+def inside(v: float, span: tuple[float, float], half: float) -> float:
+    """v moved so that v +- half stays inside the span (centred when it cannot)."""
+    lo, hi = span[0] + half, span[1] - half
+    return (span[0] + span[1]) / 2 if lo > hi else min(max(v, lo), hi)
+
+
 def add_to_scene(
     scene: Scene,
     item: LibraryItem,
@@ -109,13 +115,21 @@ def add_to_scene(
     instruction: str | None = None,
 ) -> SceneObject:
     """Stand `item` on the floor at (x, z), or on top of another object (at its centre unless
-    x and z are given). The caller saves the scene."""
+    x and z are given, and always over its top). The caller saves the scene."""
     base_y = 0.0
     if on_object_id:
-        mn, mx = scene.get(on_object_id).world_aabb()
+        parent = scene.get(on_object_id)
+        if not parent.visible:
+            raise ValueError(f"'{on_object_id}' has been removed")
+        mn, mx = parent.world_aabb()
         base_y = mx[1]
+        yaw = math.radians(yaw_deg)
+        c, s = abs(math.cos(yaw)), abs(math.sin(yaw))
+        w, d = item.size[0], item.size[2]
         x = (mn[0] + mx[0]) / 2 if x is None else x
         z = (mn[2] + mx[2]) / 2 if z is None else z
+        x = inside(x, (mn[0], mx[0]), (c * w + s * d) / 2)
+        z = inside(z, (mn[2], mx[2]), (s * w + c * d) / 2)
     if x is None or z is None:
         raise ValueError("give x and z, or on_object_id")
     return scene.add_library_object(

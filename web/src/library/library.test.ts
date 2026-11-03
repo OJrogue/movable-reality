@@ -91,6 +91,20 @@ describe("addLibraryObject", () => {
     expect(out.objects[1].bbox_min[1]).toBeCloseTo(0.8);
   });
 
+  it("stays over the object it stands on, as library.add_to_scene does", () => {
+    const m = manifest([object("table#1")]);
+    const vase = { id: "vase", label: "vase", size: [0.2, 0.4, 0.2] as [number, number, number] };
+    const near = addLibraryObject(m, vase, { x: 1.5, z: 0.23, yaw_deg: 0, on_object_id: "table#1" }).objects[1];
+    expect(near.bbox_min[0]).toBeCloseTo(1.4);
+    expect(near.bbox_min[2]).toBeCloseTo(1);
+    const long = { id: "runner", label: "runner", size: [0.6, 0.1, 0.2] as [number, number, number] };
+    const turned = addLibraryObject(m, long, { x: 0, z: 1, yaw_deg: 90, on_object_id: "table#1" }).objects[1];
+    expect((turned.bbox_min[0] + turned.bbox_max[0]) / 2).toBeCloseTo(1.1);
+    expect((turned.bbox_min[2] + turned.bbox_max[2]) / 2).toBeCloseTo(1.3);
+    const wide = addLibraryObject(m, sofa, { x: 9, z: 9, yaw_deg: 0, on_object_id: "table#1" }).objects[1];
+    expect((wide.bbox_min[0] + wide.bbox_max[0]) / 2).toBeCloseTo(1.5);
+  });
+
   it("undo hides it", () => {
     const out = addLibraryObject(manifest([]), sofa, { x: 0, z: 0, yaw_deg: 0 });
     expect(applyEdit(out, { op: "undo", object_id: null }).objects[0].visible).toBe(false);
