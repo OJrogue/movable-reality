@@ -117,6 +117,17 @@ def test_support_keeps_a_chair_tucked_under_a_table():
     assert merged == {}
 
 
+def test_support_keeps_a_wall_tv_above_a_soundbar():
+    # blender07: the TV hangs on the wall 0.25 m above the soundbar and is wider than it.
+    rng = np.random.default_rng(7)
+    soundbar = _box(rng, [-0.45, 0.55, -0.05], [0.45, 0.62, 0.05], 800)
+    tv = _box(rng, [-0.62, 0.87, -0.03], [0.62, 1.57, 0.0], 2000)
+    world = np.vstack([soundbar, tv])
+    ids = np.r_[np.zeros(800), np.ones(2000)].astype(int)
+    _, merged = support(world, ids, [0, 1], LiftParams())
+    assert merged == {}
+
+
 def test_full_res_camera_inverts_mapanything_crop():
     from movable_reality.recon import full_res_camera
 
