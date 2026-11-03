@@ -101,7 +101,7 @@ export function installObjects(ctx: ViewerContext): ObjectsHandle {
   label.type = "button";
   label.className = "mr-debug mr-debug-objects"; // developer info only; the ui menu offers the styles
   label.title =
-    "How objects are drawn (key V): auto (scan, SAM 3D splats once moved), scan, SAM 3D splats, " +
+    "How objects are drawn (key V): auto (scanned splats), scan, SAM 3D splats, " +
     "SAM 3D meshes, meshes only (room mesh too, no splats)";
   Object.assign(label.style, {
     position: "fixed",
@@ -219,7 +219,7 @@ export function installObjects(ctx: ViewerContext): ObjectsHandle {
     const total = manifest.objects.filter((o) => o.mesh).length;
     const done = manifest.objects.filter((o) => o.completed_ply).length;
     const detail = {
-      auto: "scan, SAM 3D once moved",
+      auto: "scanned splats",
       scan: "scanned splats",
       completed: `${done} SAM 3D splats`,
       mesh: `${withMesh}/${total} SAM 3D meshes`,

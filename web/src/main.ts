@@ -141,9 +141,12 @@ async function fetchManifest(url: string): Promise<{ text: string; manifest: Sce
   const text = await r.text();
   const manifest = JSON.parse(text) as SceneManifest;
   if (pristine) {
+    // Only a user's removal is an edit: the pipeline hides merged copies (objtrain.install).
+    const history = manifest.history as { op: string; object_id: string | null }[];
+    const removed = new Set(history.filter((e) => e.op === "remove").map((e) => e.object_id));
     for (const o of manifest.objects) {
       o.transform = { translation: [0, 0, 0], yaw_deg: 0, scale: 1 };
-      o.visible = o.source !== "generated";
+      o.visible = o.source !== "generated" && (o.visible || removed.has(o.id));
     }
   }
   return { text, manifest };

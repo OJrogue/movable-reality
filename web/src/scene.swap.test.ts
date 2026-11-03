@@ -81,23 +81,25 @@ describe("SceneView completed swap", () => {
     view.apply(manifest(0));
     mesh(SCAN).resolve();
     await flush();
-    view.apply(manifest(0.5));
+    view.apply(manifest(0.5)); // a move alone keeps the scan
+    expect(created.length).toBe(2);
+    view.setObjectStyle("completed");
     expect(view.objectNode("chair#1")!.mesh).toBe(mesh(DONE));
     expect([shown(SCAN), shown(DONE)]).toEqual([true, true]);
     mesh(DONE).resolve();
     await flush();
     expect([shown(SCAN), shown(DONE)]).toEqual([false, true]);
-    view.apply(manifest(0)); // undo: instant, no new mesh
+    view.setObjectStyle("auto"); // back: instant, no new mesh
     expect([shown(SCAN), shown(DONE)]).toEqual([true, false]);
     expect(created.length).toBe(3); // background, scan, completed
   });
 
-  it("stays on the scan when the edit is undone while the completed mesh loads", async () => {
+  it("stays on the scan when the style switches back while the completed mesh loads", async () => {
     const view = new SceneView("/s");
     view.apply(manifest(0));
     mesh(SCAN).resolve();
-    view.apply(manifest(0.5));
-    view.apply(manifest(0));
+    view.setObjectStyle("completed");
+    view.setObjectStyle("auto");
     mesh(DONE).resolve();
     await flush();
     expect(view.objectNode("chair#1")!.mesh).toBe(mesh(SCAN));
@@ -109,19 +111,20 @@ describe("SceneView completed swap", () => {
     view.apply(manifest(0));
     mesh(SCAN).resolve();
     await flush();
-    view.apply(manifest(0.5));
+    view.setObjectStyle("completed");
     mesh(DONE).reject();
     await flush();
     expect(view.objectNode("chair#1")!.mesh).toBe(mesh(SCAN));
     expect(shown(SCAN)).toBe(true);
-    view.apply(manifest(0));
-    view.apply(manifest(1));
+    view.setObjectStyle("auto");
+    view.setObjectStyle("completed");
     expect(shown(SCAN)).toBe(true);
     expect(created.length).toBe(3); // the broken PLY is not fetched again
   });
 
-  it("loads the scan when an edited object's completed PLY is broken at start", async () => {
+  it("loads the scan when the completed PLY is broken at start", async () => {
     const view = new SceneView("/s");
+    view.setObjectStyle("completed");
     view.apply(manifest(0.5));
     expect(view.objectNode("chair#1")!.mesh).toBe(mesh(DONE));
     mesh(DONE).reject();
