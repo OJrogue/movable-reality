@@ -254,26 +254,46 @@ def box_overlap(a: np.ndarray, b: np.ndarray) -> float:
     return float(inter / small) if small > 0 else 0.0
 
 
-def merge_duplicates(verts: dict[str, np.ndarray], share: float = 0.6) -> dict[str, str]:
-    """Scene objects that are one thing under two nouns (blender01: the armchair is both
-    sofa#1 and armchair#0). Boxes are the 5th to 95th percentile of the splat centres;
-    a pair whose intersection covers `share` of the smaller box is one object, and the one
-    with fewer splats is absorbed. Objects that rest on others overlap little: books on a
-    cabinet share its top face only. Returns {absorbed: kept}."""
-    boxes = {}
-    for o, v in verts.items():
-        if len(v) >= 50:
-            xyz = np.stack([v["x"], v["y"], v["z"]], 1)
-            boxes[o] = np.percentile(xyz, [5, 95], axis=0)
-    order = sorted(boxes, key=lambda o: -len(verts[o]))
+def near_share(a: np.ndarray, b: np.ndarray, r: float) -> np.ndarray:
+    """Per point of a [n, 3]: True when a point of b lies in its voxel of size r or one of
+    the 26 around it (about r to 2r away at most)."""
+    if not len(a) or not len(b):
+        return np.zeros(len(a), bool)
+
+    def key(k: np.ndarray) -> np.ndarray:
+        return (k[:, 0] * 73856093) ^ (k[:, 1] * 19349663) ^ (k[:, 2] * 83492791)
+
+    kb = np.unique(key(np.floor(b / r).astype(np.int64)))
+    ka = np.floor(a / r).astype(np.int64)
+    hit = np.zeros(len(a), bool)
+    for d in np.stack(np.meshgrid(*[[-1, 0, 1]] * 3, indexing="ij"), -1).reshape(-1, 3):
+        hit |= np.isin(key(ka + d), kb)
+    return hit
+
+
+def merge_duplicates(
+    xyz: dict[str, np.ndarray], r: float = 0.01, share: float = 0.3, box: float = 0.15
+) -> dict[str, str]:
+    """Scene objects that are one thing trained twice: two nouns for it (blender01: the
+    armchair is both sofa#1 and armchair#0), a SAM track that lost the object and picked it
+    up again under a new instance (blender07: the tall plant came out as four), or a part's
+    mask that also covers the whole (the armchair's seat cushion). Their splats lie on the
+    same surface, so at least `share` of the smaller one's centres have a centre of the
+    larger within `r` (metres in world, xyz [n, 3]). Items that merely sit in or on another
+    object do not: blender07's books on the bookshelf share 5-8% at 1 cm, the cushion of
+    the armchair 68%, the plant pieces 31-52%. Boxes (5th to 95th percentile) must overlap
+    by `box` of the smaller first. Chains resolve to the largest: {absorbed: kept}."""
+    boxes = {o: np.percentile(p, [5, 95], axis=0) for o, p in xyz.items() if len(p) >= 50}
+    order = sorted(boxes, key=lambda o: -len(xyz[o]))
     out: dict[str, str] = {}
     for i, big in enumerate(order):
-        if big in out:
-            continue
         for small in order[i + 1 :]:
-            if small not in out and box_overlap(boxes[big], boxes[small]) > share:
+            if small in out or box_overlap(boxes[big], boxes[small]) <= box:
+                continue
+            if near_share(xyz[small], xyz[big], r).mean() >= share:
                 out[small] = big
-    return out
+    root = lambda o: root(out[o]) if o in out else o  # noqa: E731
+    return {s: root(k) for s, k in out.items()}
 
 
 def in_front(means, objects, cams, margin: float = 0.02, alpha_min: float = 0.5):
@@ -759,11 +779,8 @@ def main() -> None:
     report["high_needles_removed"] = int(needles.sum())
     print(f"background: {int(needles.sum())} needle GSs above the cameras removed", flush=True)
     report["background"] = {**r, "fill_seconds": rf["seconds"]}
-    # Two nouns for one thing (blender01: the armchair is sofa#1 and armchair#0) train into
-    # two copies, because both label sets cover it. install() hides the smaller copy.
-    report["merged"] = merge_duplicates(
-        {o: read_vertices(out / Path(ply_of[o]).name) for o in oids}
-    )
+    # One thing trained twice (two nouns, a re-acquired SAM track): install() finds the
+    # copies in world metres (merge_duplicates) and joins them.
     (out / "report.json").write_text(json.dumps(report, indent=2))
     print(json.dumps({k: v for k, v in report.items() if k != "objects"}), flush=True)
 
@@ -787,17 +804,37 @@ def install(root: Path) -> dict:
         if (trained / "report.json").exists()
         else {}
     )
+
+    def world(v: np.ndarray) -> np.ndarray:
+        return np.stack([v["x"], v["y"], v["z"]], 1).astype(np.float64) @ m[:3, :3].T + m[:3, 3]
+
+    verts = {
+        o.id: read_vertices(trained / Path(o.ply).name)
+        for o in scene.objects
+        if o.source == "scan" and (trained / Path(o.ply).name).exists()
+    }
+    merged = merge_duplicates({o: world(v) for o, v in verts.items()})
+    report["merged"] = merged
+    if trained.exists():
+        (trained / "report.json").write_text(json.dumps(report, indent=2))
+    # The kept object takes the absorbed copy's splats that are not on its own surface
+    # already (the parts of a plant only the second SAM track saw).
+    for small, big in merged.items():
+        own = ~near_share(world(verts[small]), world(verts[big]), 0.01)
+        verts[big] = np.concatenate([verts[big], verts[small][own]])
+    removed = {e.object_id for e in scene.history if e.op == "remove"}
     counts = {}
     for obj in scene.objects:
-        if obj.id in report.get("merged", {}):  # a second copy of the kept object
+        if obj.id in merged:  # a second copy, joined into the kept object
             obj.visible = False
             continue
-        src = trained / Path(obj.ply).name
-        if obj.source != "scan" or not src.exists():
+        if obj.id not in verts:
             continue
-        shutil.copyfile(src, root / obj.ply)
-        v = read_vertices(src)
-        xyz = np.stack([v["x"], v["y"], v["z"]], 1).astype(np.float64) @ m[:3, :3].T + m[:3, 3]
+        if obj.id not in removed:  # an earlier install may have hidden it as a copy
+            obj.visible = True
+        v = verts[obj.id]
+        write_vertices(root / obj.ply, v)
+        xyz = world(v)
         # Centre percentiles: a few faint splats far out would inflate a min/max box.
         lo, hi = np.percentile(xyz, 0.5, axis=0), np.percentile(xyz, 99.5, axis=0)
         obj.bbox_min, obj.bbox_max = tuple(map(float, lo)), tuple(map(float, hi))
