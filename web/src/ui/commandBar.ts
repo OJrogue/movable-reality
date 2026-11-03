@@ -2,7 +2,7 @@
 // hold-to-talk on Space while the text box is not focused (WAV upload to .../voice). It shows
 // the transcript, the agent's progress messages from the WebSocket and the reply. On touch
 // devices (lane devices sets setTouch) a microphone button does hold-to-talk instead.
-import type { AgentStage, CommandResult, SceneServer } from "./api";
+import type { AgentStage, CommandResult, SceneServer, ViewPose } from "./api";
 import { isTyping } from "./editor";
 import { Recorder } from "./recorder";
 
@@ -25,6 +25,8 @@ export interface CommandBarDeps {
   /** Applies the manifest a command returned (the WebSocket push may arrive first). */
   applyResult(r: CommandResult): void;
   xr(): boolean;
+  /** The user's current pose, sent with every command. */
+  camera(): ViewPose | null;
 }
 
 export class CommandBar {
@@ -39,6 +41,7 @@ export class CommandBar {
   private busy = false;
   private lastHeard: string | null = null; // transcript already shown from the WebSocket
   private status: HTMLElement | null = null; // the agent's progress line, updated in place
+  private lastReply: string | null = null;
 
   constructor(private readonly deps: CommandBarDeps) {
     this.root = el("div", "mr-ui-bar");
@@ -142,8 +145,9 @@ export class CommandBar {
       return;
     }
     if (stage === "done") {
-      // Our own command prints its reply from the HTTP answer; this is another viewer's.
-      if (!this.busy) this.line("reply", text);
+      // Our own command prints its reply from the HTTP answer, which can arrive first; a
+      // different text while idle is another viewer's. `done` is always the last event.
+      if (!this.busy && text !== this.lastReply) this.line("reply", text);
       this.clearStatus();
       return;
     }
@@ -175,7 +179,7 @@ export class CommandBar {
     }
     this.input.value = "";
     this.line("you", text);
-    await this.run(() => this.deps.server!.command(text));
+    await this.run(() => this.deps.server!.command(text, this.deps.camera()));
   }
 
   private async run(call: () => Promise<CommandResult>): Promise<void> {
@@ -187,6 +191,7 @@ export class CommandBar {
       if (r.transcript !== undefined && r.transcript !== this.lastHeard) this.line("you", `heard: ${r.transcript}`);
       this.lastHeard = null;
       this.clearStatus();
+      this.lastReply = r.reply;
       const check = r.verified === true ? " ✓ Checked" : r.verified === false ? " (the visual check disagreed)" : "";
       this.line("reply", `${r.reply}${check}`);
       this.deps.applyResult(r);
@@ -247,7 +252,7 @@ export class CommandBar {
       return;
     }
     this.line("info", `sending ${rec.seconds.toFixed(1)} s of audio`);
-    await this.run(() => this.deps.server!.voice(rec.wav));
+    await this.run(() => this.deps.server!.voice(rec.wav, this.deps.camera()));
   }
 }
 

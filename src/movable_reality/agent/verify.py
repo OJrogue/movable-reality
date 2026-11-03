@@ -9,7 +9,7 @@ from dataclasses import dataclass
 
 from ..clients import baseten_async_client
 from ..config import Models
-from ..scene import UNDOABLE_OPS, Scene
+from ..scene import UNDOABLE_OPS, HistoryEntry, Scene
 from .llm import cached_chat
 from .tools import RoomBounds
 
@@ -22,30 +22,44 @@ PROMPT = (
     "out; an object pushed into another object counts as damage. The room is a 3D Gaussian "
     "splat scan: blur, ghosting, smears, holes and dark patches, most of all at the bottom "
     "of an object and where it stood before, are normal and are not damage. Judge only "
-    "where the object is, how it is turned and whether it is there. Answer YES or NO on the "
-    "first line, then one short sentence why."
+    "where the object is, how it is turned and whether it is there. Offsets in the tool "
+    "report are world axes, not directions in the image, and a small move can be hard to see: "
+    "answer NO only when the edit is clearly wrong. Answer YES or NO on the first line, then "
+    "one short sentence why."
 )
 
 
 def edit_focus(scene: Scene, name: str, args: dict) -> tuple[list[float], float] | None:
     """Point and radius (metres) the verifier's screenshots must show for one edit tool call:
-    the object, plus where a move or place takes it. None when the call edits nothing."""
+    the object, plus where the edit takes it. None when the call edits nothing or its
+    arguments are bad (run_tool reports those to the model)."""
+    try:
+        return _edit_focus(scene, name, args)
+    except (KeyError, TypeError, ValueError):
+        return None
+
+
+def _edit_focus(scene: Scene, name: str, args: dict) -> tuple[list[float], float] | None:
     if name == "insert_object":
-        return [float(args.get("x", 0.0)), 0.4, float(args.get("z", 0.0))], 0.8
-    oid = undo_target(scene) if name == "undo" else args.get("object_id")
+        return [float(args["x"]), 0.4, float(args["z"])], 0.8
+    entry = _undo_entry(scene) if name == "undo" else None
+    oid = entry.object_id if entry else args.get("object_id")
     if not oid:
         return None
-    try:
-        mn, mx = scene.get(oid).world_aabb()
-    except KeyError:
-        return None
+    obj = scene.get(oid)
+    mn, mx = obj.world_aabb()
     c = [(a + b) / 2 for a, b in zip(mn, mx, strict=True)]
     r = 0.5 * math.hypot(mx[0] - mn[0], mx[2] - mn[2])
     dest = None
     if name == "move_object":
         dest = (c[0] + float(args.get("dx", 0.0)), c[2] + float(args.get("dz", 0.0)))
-    elif name == "place_object" and "x" in args and "z" in args:
+    elif name == "place_object":
         dest = (float(args["x"]), float(args["z"]))
+    elif entry and entry.op == "move":
+        dest = (c[0] - float(entry.args["dx"]), c[2] - float(entry.args["dz"]))
+    elif entry and entry.op == "place":
+        t, prev = obj.transform.translation, entry.args["prev"]
+        dest = (c[0] + prev[0] - t[0], c[2] + prev[2] - t[2])
     if dest:
         half = 0.5 * math.hypot(dest[0] - c[0], dest[1] - c[2])
         c[0], c[2] = (c[0] + dest[0]) / 2, (c[2] + dest[1]) / 2
@@ -53,13 +67,13 @@ def edit_focus(scene: Scene, name: str, args: dict) -> tuple[list[float], float]
     return [round(v, 3) for v in c], max(r, 0.3)
 
 
-def undo_target(scene: Scene) -> str | None:
-    """Object of the edit that undo would revert (same rule as Scene.undo)."""
+def _undo_entry(scene: Scene) -> HistoryEntry | None:
+    """The edit that undo would revert (same rule as Scene.undo)."""
     undone = {e.args.get("index") for e in scene.history if e.op == "undo"}
     for i in range(len(scene.history) - 1, -1, -1):
         e = scene.history[i]
         if e.op in UNDOABLE_OPS and i not in undone and e.object_id:
-            return e.object_id
+            return e
     return None
 
 

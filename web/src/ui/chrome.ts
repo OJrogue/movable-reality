@@ -348,8 +348,15 @@ export function installChrome(deps: ChromeDeps): ChromeHandle {
     placed = true;
     const eye = new THREE.Vector3(...demo.view.eye);
     const look = new THREE.Matrix4().lookAt(eye, new THREE.Vector3(...demo.view.target), new THREE.Vector3(0, 1, 0));
-    ctx.rig.position.set(eye.x, eye.y - ctx.camera.position.y, eye.z);
     ctx.rig.quaternion.setFromRotationMatrix(look);
+    // The camera sits 1.6 m up inside the rig, and the rig is pitched: undo that offset.
+    ctx.rig.position.copy(eye).sub(ctx.camera.position.clone().applyQuaternion(ctx.rig.quaternion));
+  });
+  // A headset needs a level rig on the floor, or the whole room tilts.
+  ctx.renderer.xr.addEventListener("sessionstart", () => {
+    const yaw = new THREE.Euler().setFromQuaternion(ctx.rig.quaternion, "YXZ").y;
+    ctx.rig.quaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
+    ctx.rig.position.y = 0;
   });
   ctx.onManifest((m, view) => {
     // The furniture loads after the background; an empty room under a hidden card looked

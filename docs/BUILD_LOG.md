@@ -1513,16 +1513,27 @@ verifier. Each fix below came from a command that went wrong:
   object was scanned no longer count, and the prompt caps `fits` at three calls.
 - **First command on the living room froze the server for minutes:** room bounds read the
   283 MB background PLY in full, inside the event loop, so no WebSocket message went out.
-  Now memory-mapped and strided (0.18 s) and run in a thread.
-- **Viewer screenshots in a background tab** had no furniture: a hidden tab runs no
-  animation frames, so the capture now renders 12 times over 1.5 s itself.
+  Now memory-mapped and strided (under 0.3 s) and run in a thread.
+- **Viewer screenshots in a hidden pane** had no furniture: no animation frames run there,
+  so the capture now renders for 1.5 s itself, behind a still of the user's view so the
+  picture does not jump. Checked in the app's hidden browser pane, not in a real background
+  tab.
 - **Command bar:** one progress line in words ("Measuring the bed…", "Checking the
   result…") instead of raw tool calls (those stay as developer info), no duplicate reply,
   "✓ Checked" when the verifier agrees. Replies name objects by label, not id.
 - **Start view:** each demo room opens on its furniture (`view` in `landing/scenes.ts`), and
   the loading card waits for the objects as well as the background.
-- Result on blender06: "how wide is the bed" 5 s, "remove the ukulele" 12 s, "undo that"
-  15 s, "turn the chair 45 degrees" verified. Not tested: voice (no microphone here) and
+- **Review fixes:** the viewer never sent its camera, so "left" and "right" assumed a view
+  along -Z and were wrong from the new start views; commands and voice now send the pose.
+  Undo frames where the object goes back to, null tool arguments no longer fail the command,
+  the fits exemption compares both scan poses and ends when objects get closer, a bad id
+  first no longer loses the framing, the start view is exact and levels in XR (XR not run),
+  and captures run one at a time. The verifier answers NO only when an edit is clearly wrong.
+  Commands with several objects still frame only the first.
+- Result on blender06, timed by hand with no log: "how wide is the bed" 5 s, "remove the
+  ukulele" 12 s, "undo that" 15 s, "turn the chair 45 degrees" verified. From the start view
+  "move the ukulele half a metre to the left" moved it (0.325, 0.38), the user's left,
+  verified. Not tested: voice (no microphone here) and
   insert. The living room was rebuilding in another session, so it was only checked for the
   bounds fix. The demo manifests were restored after each test.
 - Next: test voice and the living room once its pipeline run is done.

@@ -106,7 +106,6 @@ async def run_command(
     # the after shot uses the same viewpoint.
     before: str | None = None
     shot: dict | None = None
-    shot_tried = False  # one try: a viewer that does not answer costs a timeout each time
     messages: list[dict[str, Any]] = [
         {"role": "system", "content": system_prompt(scene, bounds, camera)},
         {"role": "user", "content": text},
@@ -135,11 +134,13 @@ async def run_command(
                     args = json.loads(call["function"].get("arguments") or "{}")
                 except json.JSONDecodeError:
                     args = {}
-                if verify and capture and not shot_tried and name in EDIT_TOOLS:
-                    shot_tried = True
+                # Until an edit has a focus (a bad id has none). One shot: a viewer that
+                # does not answer costs a timeout each time. Later objects stay unframed.
+                if verify and capture and shot is None and name in EDIT_TOOLS:
                     focus = edit_focus(scene, name, args)
-                    shot = verify_camera(*focus, bounds, camera) if focus else None
-                    before = await capture(shot)
+                    if focus:
+                        shot = verify_camera(*focus, bounds, camera)
+                        before = await capture(shot)
                 say = step_text(scene, name, args)
                 if name == "insert_object":  # about a minute on Modal: keep the server live
                     out = await asyncio.to_thread(

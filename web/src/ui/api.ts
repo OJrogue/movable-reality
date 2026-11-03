@@ -40,6 +40,12 @@ async function postJson<T>(url: string, body: BodyInit, headers?: HeadersInit, s
   return (await r.json()) as T;
 }
 
+/** Where the user stands and looks, world metres (docs/SERVER_API.md). */
+export interface ViewPose {
+  eye: Vec3;
+  forward: Vec3;
+}
+
 export class SceneServer {
   constructor(readonly sceneId: string) {}
 
@@ -74,14 +80,18 @@ export class SceneServer {
     return res.scene;
   }
 
-  command(text: string): Promise<CommandResult> {
-    return postJson(`${this.base}/command`, JSON.stringify({ text }), { "Content-Type": "application/json" });
+  /** `camera` is the viewer's pose: "left" and "towards me" mean the user's left and position. */
+  command(text: string, camera?: ViewPose | null): Promise<CommandResult> {
+    return postJson(`${this.base}/command`, JSON.stringify({ text, camera: camera ?? undefined }), {
+      "Content-Type": "application/json",
+    });
   }
 
-  voice(wav: ArrayBuffer): Promise<CommandResult> {
+  voice(wav: ArrayBuffer, camera?: ViewPose | null): Promise<CommandResult> {
     const form = new FormData();
     form.append("audio", new Blob([wav], { type: "audio/wav" }), "command.wav");
-    return postJson(`${this.base}/voice`, form);
+    const q = camera ? `?camera=${encodeURIComponent(JSON.stringify(camera))}` : "";
+    return postJson(`${this.base}/voice${q}`, form);
   }
 
   /** Opens /ws/scenes/{id}. `onClose` fires once when the socket closes or fails. */

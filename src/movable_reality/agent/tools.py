@@ -104,6 +104,13 @@ def footprint_gap(a: tuple, b: tuple) -> float:
     return math.hypot(dx, dz)
 
 
+def _centre_gap(a: tuple, b: tuple) -> float:
+    """Floor distance between the centres of two world AABBs."""
+    return math.hypot(
+        (a[0][0] + a[1][0] - b[0][0] - b[1][0]) / 2, (a[0][2] + a[1][2] - b[0][2] - b[1][2]) / 2
+    )
+
+
 def fits(
     scene: Scene,
     object_id: str,
@@ -134,15 +141,19 @@ def fits(
         return (bmn[0] < omx[0] + clearance and omn[0] < bmx[0] + clearance
                 and bmn[2] < omx[2] + clearance and omn[2] < bmx[2] + clearance)  # fmt: skip
 
-    # Boxes that already overlapped where the object was scanned (a chair under the desk,
-    # books in the shelf) stood like that in the real room: they are not collisions. Without
-    # this the agent could not turn the blender06 chair at all and ran out of steps (3 Nov).
+    # Two objects whose boxes overlapped in the scan (a chair under the desk, books in the
+    # shelf) stood like that in the real room: not a collision, as long as they do not get
+    # closer. Without this the agent could not turn the blender06 chair and ran out of steps.
     scan_box = scanned.world_aabb()
     collisions = []
     for other in scene.objects:
         if other.id == object_id or not other.visible or not hits(box, other):
             continue
-        if hits(scan_box, other):
+        other_scan = other.model_copy(deep=True)
+        other_scan.transform.translation, other_scan.transform.yaw_deg = (0.0, 0.0, 0.0), 0.0
+        if hits(scan_box, other_scan) and _centre_gap(box, other.world_aabb()) >= (
+            _centre_gap(scan_box, other_scan.world_aabb()) - 0.05
+        ):
             continue
         collisions.append({"id": other.id, "gap_m": _r(footprint_gap(box, other.world_aabb()))})
     walls = []

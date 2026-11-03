@@ -5,17 +5,18 @@ import wave
 
 import pytest
 
-from movable_reality.agent import llm
+from movable_reality.agent import llm, loop
 from movable_reality.agent.loop import run_command, view_directions
 from movable_reality.agent.tools import (
     RoomBounds,
     fits,
     measure,
+    room_bounds,
     room_bounds_from_points,
     run_tool,
     step_text,
 )
-from movable_reality.agent.verify import edit_focus, parse_verdict, verify_camera
+from movable_reality.agent.verify import Verdict, edit_focus, parse_verdict, verify_camera
 from movable_reality.scene import Scene, SceneObject
 from movable_reality.voice import check_wav
 
@@ -58,6 +59,16 @@ def test_fits_allows_overlaps_that_were_scanned():
     assert fits(s, "chair#1", None, None, ROOM, yaw_deg=45)["fits"]
     # moved onto the sofa it collides
     assert not fits(s, "chair#1", 0.0, -1.9, ROOM)["fits"]
+    # pushed further into the table it collides with the table
+    hit = fits(s, "chair#1", 0.0, -0.5, ROOM)
+    assert "table#1" in [c["id"] for c in hit["collides_with"]]
+
+
+def test_fits_scan_overlap_needs_both_objects_at_their_scan_spots():
+    s = make_scene()
+    # the sofa moved onto the table's spot: it never overlapped there in the scan
+    run_tool(s, "place_object", {"object_id": "sofa#1", "x": 0.0, "z": -0.5}, ROOM)
+    assert any(c["id"] == "sofa#1" for c in fits(s, "table#1", None, None, ROOM)["collides_with"])
 
 
 def test_measure_reports_top_above_floor():
@@ -143,6 +154,18 @@ def test_edit_focus_covers_the_move():
     run_tool(s, "rotate_object", {"object_id": "sofa#1", "yaw_deg": 90}, ROOM)
     assert edit_focus(s, "undo", {})[0][2] == pytest.approx(-1.95)  # undo frames the sofa
     assert edit_focus(s, "measure", {}) is None
+    assert edit_focus(s, "move_object", {"object_id": "table#1", "dx": None}) is None
+    assert edit_focus(s, "move_object", {"object_id": "nope#9", "dx": 1}) is None
+
+
+def test_edit_focus_undo_covers_where_it_goes_back_to():
+    s = make_scene()
+    run_tool(s, "move_object", {"object_id": "sofa#1", "dx": 3.0, "dz": 0}, ROOM)
+    c, r = edit_focus(s, "undo", {})
+    assert c[0] == pytest.approx(1.5) and r > 1.5
+    s2 = make_scene()
+    run_tool(s2, "place_object", {"object_id": "sofa#1", "x": 3.0, "z": -1.95}, ROOM)
+    assert edit_focus(s2, "undo", {})[0][0] == pytest.approx(1.5)
 
 
 def test_verify_camera_stays_in_the_room_and_looks_down():
@@ -159,21 +182,83 @@ def test_step_text_names_the_object():
     assert step_text(s, "measure", {"id_a": "nope"}) == "Measuring an object"
 
 
-def test_agent_loop_frames_the_edited_object(tmp_path, monkeypatch):
+def _call(name, cid="c1", **args):
+    fn = {"name": name, "arguments": json.dumps(args)}
+    return {"role": "assistant", "content": "", "tool_calls": [{"id": cid, "type": "function",
+                                                                "function": fn}]}  # fmt: skip
+
+
+def test_agent_loop_frames_the_edit_before_and_after(tmp_path, monkeypatch):
     monkeypatch.setattr(llm, "CHAT_CACHE", tmp_path)
-    args = json.dumps({"object_id": "sofa#1", "dx": 0.5, "dz": 0})
-    call = {"id": "c1", "type": "function", "function": {"name": "move_object", "arguments": args}}
-    script = [{"role": "assistant", "content": "", "tool_calls": [call]},
+    script = [_call("move_object", object_id="sofa#1", dx=0.5, dz=0),
+              {"role": "assistant", "content": "Moved it."}]  # fmt: skip
+    shots = []
+    seen = []
+
+    async def capture(cam):
+        shots.append(cam)
+        seen.append(make_edit_state(s))
+        return "data:image/jpeg;base64,AA"
+
+    async def verdict(*a, **k):
+        return Verdict(True, "fine")
+
+    def make_edit_state(scene):
+        return scene.get("sofa#1").transform.translation[0]
+
+    monkeypatch.setattr(loop, "verify_edit", verdict)
+    s = make_scene()
+    res = asyncio.run(
+        run_command(s, "sofa right", ROOM, capture=capture, client=FakeClient(script))
+    )
+    assert res.verified is True
+    assert len(shots) == 2 and shots[0] == shots[1]  # same viewpoint before and after
+    assert shots[0]["target"][0] == pytest.approx(0.25)  # between both positions
+    assert seen == [0.0, 0.5]  # the first shot is taken before the edit
+
+
+def test_agent_loop_bad_id_first_still_frames_the_real_edit(tmp_path, monkeypatch):
+    monkeypatch.setattr(llm, "CHAT_CACHE", tmp_path)
+    script = [_call("move_object", object_id="nope#9", dx=1, dz=0),
+              _call("move_object", cid="c2", object_id="table#1", dx=0.2, dz=0),
               {"role": "assistant", "content": "Moved it."}]  # fmt: skip
     shots = []
 
     async def capture(cam):
-        shots.append((cam, run_tool.__name__))
-        return None  # no image: the edit stays unverified
+        shots.append(cam)
+        return None
 
-    asyncio.run(run_command(make_scene(), "sofa right", ROOM, capture=capture,
+    asyncio.run(run_command(make_scene(), "table right", ROOM, capture=capture,
                             client=FakeClient(script)))  # fmt: skip
-    assert len(shots) == 1 and shots[0][0]["target"][0] == pytest.approx(0.25)
+    assert len(shots) == 1 and shots[0]["target"][0] == pytest.approx(0.1)
+
+
+def test_agent_loop_survives_null_arguments(tmp_path, monkeypatch):
+    monkeypatch.setattr(llm, "CHAT_CACHE", tmp_path)
+    script = [_call("move_object", object_id="table#1", dx=None, dz=0),
+              {"role": "assistant", "content": "Could not."}]  # fmt: skip
+
+    async def capture(cam):
+        return None
+
+    res = asyncio.run(run_command(make_scene(), "move", ROOM, capture=capture,
+                                  client=FakeClient(script)))  # fmt: skip
+    assert res.reply == "Could not." and not res.edited
+
+
+def test_room_bounds_reads_the_background_ply(tmp_path):
+    import numpy as np
+    from plyfile import PlyData, PlyElement
+
+    rng = np.random.default_rng(0)
+    pts = rng.uniform([-2, 0, -2.5], [2, 2.6, 2.5], size=(5000, 3)).astype("f4")
+    v = np.empty(5000, dtype=[("x", "f4"), ("y", "f4"), ("z", "f4")])
+    v["x"], v["y"], v["z"] = pts[:, 0], pts[:, 1], pts[:, 2]
+    PlyData([PlyElement.describe(v, "vertex")]).write(str(tmp_path / "bg.ply"))
+    s = make_scene()
+    s.background_ply = "bg.ply"
+    b = room_bounds(s, tmp_path)
+    assert -2.1 < b.x[0] < -1.9 and 2.4 < b.z[1] < 2.6
 
 
 def _wav(rate=16000, ch=1) -> bytes:
