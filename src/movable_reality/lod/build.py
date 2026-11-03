@@ -169,6 +169,8 @@ def build_scene_lod(
     # (object id, completed?, PLY). Object id None is the background.
     jobs: list[tuple[str | None, bool, str]] = [(None, False, scene.background_ply)]
     for o in scene.objects:
+        if not o.ply:  # a library object is a mesh, there are no splats to tree
+            continue
         jobs.append((o.id, False, o.ply))
         if o.completed_ply:
             jobs.append((o.id, True, o.completed_ply))

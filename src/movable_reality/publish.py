@@ -24,6 +24,8 @@ def without_edits(scene: Scene) -> Scene:
     while clean.undo():
         pass
     clean.history = []
+    # Library objects only ever come from edits; undone they would stay as hidden leftovers.
+    clean.objects = [o for o in clean.objects if o.source != "library"]
     return clean
 
 

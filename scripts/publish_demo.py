@@ -4,7 +4,7 @@
     uv run python scripts/publish_demo.py blender07 --dry-run  # list files and sizes only
     uv run python scripts/publish_demo.py blender07 --keep-edits
 
-Uploads each scene.json and the files it names. Edits
+Uploads the mesh library (data/library), then each scene.json and the files it names. Edits
 made while testing are undone unless --keep-edits is passed. Files already on the volume with
 the same size and a newer time are skipped, unless --force.
 """
@@ -17,7 +17,7 @@ from pathlib import Path
 
 import modal
 
-from movable_reality.config import scene_dir
+from movable_reality.config import LIBRARY_DIR, scene_dir
 from movable_reality.publish import missing_lod, referenced_files, without_edits
 from movable_reality.scene import Scene
 
@@ -35,6 +35,12 @@ def main() -> int:
     args = ap.parse_args()
 
     volume = modal.Volume.from_name(VOLUME_NAME, create_if_missing=True)
+    library = [p for p in LIBRARY_DIR.rglob("*") if p.is_file()] if LIBRARY_DIR.is_dir() else []
+    print(f"library: {len(library)} files, {sum(p.stat().st_size for p in library) / 1e6:.0f} MB")
+    if library and not args.dry_run:
+        with volume.batch_upload(force=True) as batch:
+            for p in library:
+                batch.put_file(p, f"library/{p.relative_to(LIBRARY_DIR).as_posix()}")
     for sid in args.scenes:
         folder: Path = scene_dir(sid)
         scene = Scene.load(folder / "scene.json")

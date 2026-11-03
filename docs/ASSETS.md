@@ -125,3 +125,13 @@ smoke detector and the TV cable raceway, the 55" TV (its picture is drawn by the
 soundbar, the sofa and its cushions, the pouf, the bookshelf, the planters, the canvas and
 its floater frame, the bordered rug, table lamp, tripod floor lamp, tray, candles, remote,
 mug and books, and the sofa throw (Blender's cloth solver).
+
+## The mesh library (3 Nov)
+
+29 of the CC0 Poly Haven models above and in `data/assets/assets.json` also ship to users: the
+viewer's furniture panel and the agent's `add_from_library` place them in any scene. The list is
+`CURATED` in `src/movable_reality/library.py`, and each catalogue entry keeps its author, source
+URL and licence. `scripts/build_library.py` packs them into `data/library/` (one .glb each, base
+colour textures at most 1024 px, other maps 512 px, 27 MB in all). Nothing is committed;
+`scripts/publish_demo.py` uploads the folder to the hosted demo's volume. They are
+meshes, not models with learned weights, so the Meta-only runtime rule does not apply.

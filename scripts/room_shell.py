@@ -187,7 +187,7 @@ def main() -> int:
         print("no frame has floor pixels (the lift needs a 'floor' noun), no shell")
         return 1
     boxes = [(np.asarray(o.bbox_min)[[0, 2]], np.asarray(o.bbox_max)[[0, 2]])
-             for o in scene.objects]  # fmt: skip
+             for o in scene.objects if o.source == "scan"]  # fmt: skip
     poly = room_outline(hits, boxes)
     if args.height:
         height, how = args.height, "given"

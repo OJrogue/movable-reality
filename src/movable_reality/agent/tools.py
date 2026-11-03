@@ -14,6 +14,7 @@ from typing import Any
 
 import numpy as np
 
+from ..library import add_to_scene, catalog, get_item
 from ..scene import Scene, SceneObject
 
 EDIT_TOOLS = {
@@ -24,6 +25,7 @@ EDIT_TOOLS = {
     "restore_object",
     "undo",
     "insert_object",
+    "add_from_library",
 }
 
 
@@ -151,8 +153,12 @@ def fits(
             continue
         other_scan = other.model_copy(deep=True)
         other_scan.transform.translation, other_scan.transform.yaw_deg = (0.0, 0.0, 0.0), 0.0
-        if hits(scan_box, other_scan) and _centre_gap(box, other.world_aabb()) >= (
-            _centre_gap(scan_box, other_scan.world_aabb()) - 0.05
+        # An added object never stood in the real room: its first pose earns no exemption.
+        scan_gap = _centre_gap(scan_box, other_scan.world_aabb())
+        if (
+            obj.source == "scan"
+            and hits(scan_box, other_scan)
+            and _centre_gap(box, other.world_aabb()) >= scan_gap - 0.05
         ):
             continue
         collisions.append({"id": other.id, "gap_m": _r(footprint_gap(box, other.world_aabb()))})
@@ -169,6 +175,50 @@ def fits(
         "outside_room": walls,
         "footprint": {"x": [_r(mn[0]), _r(mx[0])], "z": [_r(mn[2]), _r(mx[2])]},
     }
+
+
+def _inside(v: float, span: tuple[float, float], half: float) -> float:
+    """v moved so that v +- half stays inside the span (centred when it cannot)."""
+    lo, hi = span[0] + half, span[1] - half
+    return (span[0] + span[1]) / 2 if lo > hi else min(max(v, lo), hi)
+
+
+def free_spot(
+    scene: Scene,
+    size: tuple[float, float, float],
+    yaw_deg: float,
+    x: float,
+    z: float,
+    bounds: RoomBounds | None,
+    step: float = 0.25,
+    reach: float = 2.5,
+    clearance: float = 0.05,
+) -> tuple[float, float]:
+    """The floor point nearest (x, z) where a new object of this size stands inside the room
+    and clear of the visible objects, or (x, z) kept inside the room when none is in reach."""
+    yaw = math.radians(yaw_deg)
+    c, s = abs(math.cos(yaw)), abs(math.sin(yaw))
+    ex, ez = (c * size[0] + s * size[2]) / 2, (s * size[0] + c * size[2]) / 2
+    if bounds:
+        x, z = _inside(x, bounds.x, ex), _inside(z, bounds.z, ez)
+    boxes = [o.world_aabb() for o in scene.objects if o.visible]
+
+    def free(px: float, pz: float) -> bool:
+        if bounds and (_inside(px, bounds.x, ex) != px or _inside(pz, bounds.z, ez) != pz):
+            return False
+        return not any(
+            mn[1] < size[1] - clearance and mx[1] > clearance
+            and px - ex < mx[0] + clearance and mn[0] < px + ex + clearance
+            and pz - ez < mx[2] + clearance and mn[2] < pz + ez + clearance
+            for mn, mx in boxes
+        )  # fmt: skip
+
+    n = int(reach / step)
+    grid = [(x + i * step, z + j * step) for i in range(-n, n + 1) for j in range(-n, n + 1)]
+    for px, pz in sorted(grid, key=lambda p: math.hypot(p[0] - x, p[1] - z)):
+        if free(px, pz):
+            return _r(px), _r(pz)
+    return _r(x), _r(z)
 
 
 def measure(scene: Scene, id_a: str, id_b: str | None = None) -> dict[str, Any]:
@@ -221,8 +271,13 @@ TOOL_SCHEMAS = [
         {"object_id": _ID, "yaw_deg": _NUM},
         ["object_id", "yaw_deg"],
     ),
-    _fn("remove_object", "Hide an object (undoable).", {"object_id": _ID}, ["object_id"]),
-    _fn("restore_object", "Show a hidden object again.", {"object_id": _ID}, ["object_id"]),
+    _fn(
+        "remove_object",
+        "Delete an object from the room, scanned or added (restore_object or undo bring it back).",
+        {"object_id": _ID},
+        ["object_id"],
+    ),
+    _fn("restore_object", "Bring a removed object back.", {"object_id": _ID}, ["object_id"]),
     _fn("undo", "Revert the most recent edit.", {}, []),
     _fn(
         "measure",
@@ -239,9 +294,24 @@ TOOL_SCHEMAS = [
         ["object_id"],
     ),
     _fn(
+        "add_from_library",
+        "Add a premade item from the furniture library, standing on the floor at centre (x, z), "
+        "or on top of another object with on_object_id (x and z then default to its centre). "
+        "Instant and free. yaw_deg turns it; its front faces +z at 0. You can add several.",
+        {
+            "library_id": {"type": "string", "description": "id from the library list"},
+            "x": _NUM,
+            "z": _NUM,
+            "yaw_deg": _NUM,
+            "on_object_id": _ID,
+        },
+        ["library_id"],
+    ),
+    _fn(
         "insert_object",
         "Generate a new piece of furniture from a short description and place it at (x, z). "
-        "Slow (about a minute) and costs money; use only when the user asks to add something.",
+        "Slow (about a minute) and costs money; use only when the user asks to add something "
+        "the library does not have.",
         {"prompt": {"type": "string"}, "x": _NUM, "z": _NUM},
         ["prompt", "x", "z"],
     ),
@@ -259,6 +329,9 @@ def step_text(scene: Scene, name: str, args: dict[str, Any]) -> str:
 
     if name == "insert_object":
         return f"Adding {args.get('prompt') or 'an object'} (about a minute)"
+    if name == "add_from_library":
+        item = catalog().get(args.get("library_id", ""))
+        return f"Adding the {item.label}" if item else "Adding an item"
     if name == "measure":
         return f"Measuring {label('id_a')}" + (f" and {label('id_b')}" if args.get("id_b") else "")
     words = {
@@ -266,7 +339,7 @@ def step_text(scene: Scene, name: str, args: dict[str, Any]) -> str:
         "move_object": "Moving {}",
         "place_object": "Moving {}",
         "rotate_object": "Turning {}",
-        "remove_object": "Hiding {}",
+        "remove_object": "Removing {}",
         "restore_object": "Bringing back {}",
         "undo": "Undoing the last edit",
         "fits": "Checking where {} fits",
@@ -296,6 +369,16 @@ def run_tool(
                 scene, args["object_id"], args.get("x"), args.get("z"), bounds,
                 yaw_deg=args.get("yaw_deg"),
             )  # fmt: skip
+        if name == "add_from_library":
+            obj = add_to_scene(
+                scene, get_item(args["library_id"]), args.get("x"), args.get("z"),
+                args.get("yaw_deg") or 0.0, args.get("on_object_id"), instruction,
+            )  # fmt: skip
+            result = {"ok": True, "object": describe(obj)}
+            check = fits(scene, obj.id, None, None, bounds)
+            if not check["fits"]:
+                result["warning"] = check
+            return result
         if name == "insert_object":
             if inserter is None:
                 return {"error": "insert is not available on this server"}

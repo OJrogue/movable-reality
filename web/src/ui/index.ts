@@ -5,12 +5,14 @@
 import * as THREE from "three";
 import type { ViewerContext } from "../context";
 import type { SceneManifest, SceneView, Vec3 } from "../scene";
-import { SceneServer, ServerRefused, type CommandResult, type ServerMessage } from "./api";
+import { SceneServer, ServerRefused, type CommandResult, type ServerMessage, type ViewPose } from "./api";
 import { CommandBar } from "./commandBar";
-import { applyEdit, EditError, type EditRequest } from "./edits";
+import { dropPoint, type LibraryItem, yawFacing } from "../library";
+import { addLibraryObject, applyEdit, EditError, type EditRequest, type LibraryPlacement } from "./edits";
 import { Editor } from "./editor";
 import { installMeasure } from "./measure";
 import { installChrome } from "./chrome";
+import { installLibraryPanel } from "./libraryPanel";
 import { installOnboarding, sampleCommands } from "./onboarding";
 import { UI_CSS } from "./style";
 
@@ -66,6 +68,11 @@ export function installUi(ctx: UiContext): UiHandle {
     queueMicrotask(() => publish(keep));
   });
 
+  const bar_pose = (): ViewPose => {
+    const eye = ctx.camera.getWorldPosition(new THREE.Vector3());
+    const fwd = ctx.camera.getWorldDirection(new THREE.Vector3());
+    return { eye: [eye.x, eye.y, eye.z], forward: [fwd.x, fwd.y, fwd.z] };
+  };
   const bar = new CommandBar({
     server,
     online: () => online,
@@ -73,11 +80,7 @@ export function installUi(ctx: UiContext): UiHandle {
       if (r.scene) publish(r.scene);
     },
     xr: () => ctx.renderer.xr.isPresenting,
-    camera: () => {
-      const eye = ctx.camera.getWorldPosition(new THREE.Vector3());
-      const fwd = ctx.camera.getWorldDirection(new THREE.Vector3());
-      return { eye: [eye.x, eye.y, eye.z], forward: [fwd.x, fwd.y, fwd.z] };
-    },
+    camera: bar_pose,
   });
 
   // Lane devices: the mobile profile lays the bar out for a narrow portrait screen with a
@@ -190,7 +193,53 @@ export function installUi(ctx: UiContext): UiHandle {
   });
 
   ctx.onManifest((m) => onboarding.setSamples(sampleCommands(m.objects.filter((o) => o.visible).map((o) => o.label))));
-  installChrome({ ctx, onboarding, notify: (t) => bar.line("info", t) });
+
+  // Stands the item where the user looks (a small one on the object they look at, if any) and
+  // selects it, so the next drag or gizmo move places it. The server nudges it to a free spot.
+  const addItem = async (item: LibraryItem): Promise<void> => {
+    const m = ctx.manifest;
+    if (!m || !ctx.view) return;
+    const pose = bar_pose();
+    const { x, z } = dropPoint(pose.eye, pose.forward);
+    const on = item.on_surface ? editor.pickAtCentre() : null;
+    const at: LibraryPlacement = { x, z, yaw_deg: yawFacing(x, z, pose.eye), on_object_id: on };
+    try {
+      if (server && online) {
+        try {
+          publish(await server.addFromLibrary(item.id, at));
+        } catch (err) {
+          if (err instanceof ServerRefused) throw err;
+          console.warn("[ui] server add failed, going offline", err);
+          goOffline();
+          publish(addLibraryObject(m, item, at));
+          localEdits++;
+        }
+      } else {
+        publish(addLibraryObject(m, item, at));
+        localEdits++;
+      }
+    } catch (err) {
+      bar.line("error", `could not add the ${item.label}: ${err instanceof Error ? err.message : String(err)}`);
+      return;
+    }
+    const added = ctx.manifest?.objects.at(-1);
+    if (added?.library_id === item.id) editor.select(added.id);
+    bar.line("info", `Added the ${item.label}. Drag it into place, or ask the agent to.`);
+  };
+
+  const panel = installLibraryPanel({
+    add: (item) => void (queue = queue.then(() => addItem(item))),
+    remove: (id) => {
+      if (editor.selected === id) editor.select(null);
+      void edit({ op: "remove", object_id: id });
+    },
+    restore: (id) => void edit({ op: "restore", object_id: id }),
+    select: (id) => editor.select(id),
+    touch: touchUi,
+    closeOthers: () => onboarding.show(false),
+  });
+  ctx.onManifest((m) => panel.setManifest(m));
+  installChrome({ ctx, onboarding, actions: [panel.button], notify: (t) => bar.line("info", t) });
 
   const handle: UiHandle = { editor, bar, online: () => online, edit, manifest: () => ctx.manifest };
   (window as unknown as { mrUi?: UiHandle }).mrUi = handle; // for console checks and tests

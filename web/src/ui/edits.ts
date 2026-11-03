@@ -109,6 +109,55 @@ export function applyEdit(m: SceneManifest, req: EditRequest, now = new Date()):
   return out;
 }
 
+/** World height of an object's top after its edit, as Scene.world_aabb gives it. */
+function topOf(o: SceneObject): number {
+  const c = bboxCenter(o);
+  return c[1] + o.transform.translation[1] + ((o.bbox_max[1] - o.bbox_min[1]) / 2) * o.transform.scale;
+}
+
+export interface LibraryPlacement {
+  x: number;
+  z: number;
+  yaw_deg: number;
+  on_object_id?: string | null;
+}
+
+/** Mirror of library.add_to_scene and Scene.add_library_object. Returns a copy of the manifest. */
+export function addLibraryObject(
+  m: SceneManifest,
+  item: { id: string; label: string; size: Vec3 },
+  at: LibraryPlacement,
+  now = new Date(),
+): SceneManifest {
+  const out = structuredClone(m);
+  const used = out.objects.filter((o) => o.id.startsWith("lib#")).map((o) => Number(o.id.slice(4)));
+  const id = `lib#${Math.max(0, ...used) + 1}`;
+  const y = at.on_object_id ? topOf(find(out, at.on_object_id)) : 0;
+  const [w, h, d] = item.size;
+  out.objects.push({
+    id,
+    label: item.label,
+    ply: "",
+    completed_ply: null,
+    bbox_min: [at.x - w / 2, y, at.z - d / 2],
+    bbox_max: [at.x + w / 2, y + h, at.z + d / 2],
+    transform: { translation: [0, 0, 0], yaw_deg: mod360(at.yaw_deg), scale: 1 },
+    visible: true,
+    source: "library",
+    prompt: null,
+    library_id: item.id,
+  });
+  (out.history as HistoryEntry[]).push({
+    ts: isoSeconds(now),
+    op: "insert",
+    object_id: id,
+    args: { library_id: item.id, x: at.x, z: at.z, y },
+    instruction: null,
+    verified: null,
+  });
+  return out;
+}
+
 function undo(m: SceneManifest, log: (op: string, id: string | null, args: Record<string, unknown>) => void): void {
   const history = m.history as HistoryEntry[];
   const undone = new Set(history.filter((e) => e.op === "undo").map((e) => e.args.index));

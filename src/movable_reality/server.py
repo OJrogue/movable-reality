@@ -17,6 +17,7 @@ import hashlib
 import itertools
 import json
 import math
+import mimetypes
 import os
 import secrets
 import time
@@ -31,8 +32,10 @@ from pydantic import BaseModel, Field, ValidationError
 from starlette.requests import HTTPConnection
 
 from .agent import RoomBounds, room_bounds, run_command
-from .config import DATA_DIR, REPO_ROOT, SCENES_DIR, Models
+from .agent.tools import free_spot
+from .config import DATA_DIR, LIBRARY_DIR, REPO_ROOT, SCENES_DIR, Models
 from .fsutil import replace_file
+from .library import add_to_scene, get_item
 from .scene import Scene
 from .voice import check_wav, transcribe
 
@@ -204,6 +207,15 @@ class EditBody(BaseModel):
     instruction: str | None = Field(default=None, max_length=500)
 
 
+class LibraryBody(BaseModel):
+    library_id: str
+    x: float | None = None  # floor position; the server nudges it to a free spot in the room
+    z: float | None = None
+    yaw_deg: float = 0.0
+    on_object_id: str | None = None  # stand on this object instead of the floor
+    instruction: str | None = Field(default=None, max_length=500)
+
+
 _Coordinate = Annotated[float, Field(allow_inf_nan=False)]
 
 
@@ -310,6 +322,34 @@ async def edit(scene_id: str, body: EditBody, request: Request) -> dict[str, Any
         data = scene.model_dump(mode="json")
     await h.broadcast({"type": "scene", "scene": data})
     return {"ok": True, "scene": data}
+
+
+@app.post("/api/scenes/{scene_id}/library")
+async def add_library_object(scene_id: str, body: LibraryBody, request: Request) -> dict[str, Any]:
+    """Add a premade mesh. Nothing is written to the scene folder, so hosted visitors can too."""
+    h = hub(scene_id, _session(request.cookies))
+    _writable(h)
+    numbers = [v for v in (body.x, body.z, body.yaw_deg) if v is not None]
+    if not all(math.isfinite(v) for v in numbers):
+        raise HTTPException(400, "values must be finite numbers")
+    async with h.lock:
+        scene = h.load()
+        if HOSTED and len(scene.history) >= MAX_HISTORY:
+            raise HTTPException(429, "this visitor's scene has too many edits")
+        try:
+            item = get_item(body.library_id)
+            x, z = body.x, body.z
+            if not body.on_object_id:
+                if x is None or z is None:
+                    raise ValueError("give x and z, or on_object_id")
+                x, z = free_spot(scene, item.size, body.yaw_deg, x, z, await h.room(scene))
+            obj = add_to_scene(scene, item, x, z, body.yaw_deg, body.on_object_id, body.instruction)
+        except (KeyError, ValueError) as exc:
+            raise HTTPException(400, str(exc).strip("'\"")) from exc
+        h.save(scene)
+        data = scene.model_dump(mode="json")
+    await h.broadcast({"type": "scene", "scene": data})
+    return {"ok": True, "id": obj.id, "scene": data}
 
 
 async def _command(h: SceneHub, text: str, camera: dict | None, verify: bool) -> dict[str, Any]:
@@ -443,9 +483,14 @@ async def scene_socket(ws: WebSocket, scene_id: str) -> None:
 
 
 def _mount_static() -> None:
+    # The Windows registry can map .js to text/plain, and browsers refuse such a module script.
+    mimetypes.add_type("text/javascript", ".js")
+    mimetypes.add_type("model/gltf-binary", ".glb")
     dist = REPO_ROOT / "web" / "dist"
     if SCENES_DIR.is_dir():
         app.mount("/scenes", StaticFiles(directory=SCENES_DIR), name="scenes")
+    if LIBRARY_DIR.is_dir():
+        app.mount("/library", StaticFiles(directory=LIBRARY_DIR), name="library")
     if dist.is_dir():
         app.mount("/", StaticFiles(directory=dist, html=True), name="viewer")
 

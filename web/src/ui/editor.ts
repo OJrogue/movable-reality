@@ -1,8 +1,10 @@
 // Lane ui, U1: desktop editing with mouse and keyboard. Click an object to select it (ray
 // against the manifest boxes with lane lod's rayBoxDistance), drag it across a horizontal plane through
-// the grab point (height unchanged), Q/E rotate by 15 degrees, Delete or Backspace hides,
+// the grab point (height unchanged), Q/E rotate by 15 degrees, Delete or Backspace removes,
 // R restores the newest hidden object, Ctrl/Cmd+Z undoes, Escape clears the selection.
 // Drags on empty space reach SparkControls as before. Nothing here runs during an XR session.
+// The selected object also gets a move and rotate gizmo (gizmo.ts, T switches the mode); a
+// press on one of its handles goes to the gizmo before anything else.
 // Touch (lane devices): a tap selects the object under the finger (or clears the selection
 // on empty space), and only the selected object can be dragged, so a one-finger look that
 // starts over an object turns the view instead of moving the object (devices/touch.ts).
@@ -12,6 +14,7 @@ import type { SceneObject } from "../scene";
 import { halfSize, rayBoxDistance, type Pickable } from "../lod/pick";
 import { isTap, TAP_SLOP_PX } from "../devices/gestures";
 import { lastHidden, type EditRequest } from "./edits";
+import { Gizmo } from "./gizmo";
 
 export const ROTATE_STEP_DEG = 15;
 const CLICK_SLOP_PX = 4;
@@ -53,6 +56,8 @@ export class Editor {
   private readonly outline: THREE.LineSegments;
   private readonly label: HTMLDivElement;
   private readonly canvas: HTMLCanvasElement;
+  readonly gizmo: Gizmo;
+  private gizmoPointer: number | null = null;
 
   constructor(
     private readonly ctx: ViewerContext,
@@ -68,6 +73,7 @@ export class Editor {
     this.label.className = "mr-ui-label";
     this.label.hidden = true;
     document.body.appendChild(this.label);
+    this.gizmo = new Gizmo(ctx.scene, ctx.camera, (req) => void this.deps.edit(req), () => this.removeSelected());
 
     // Capture phase on window runs before SparkControls' listeners on the canvas and the
     // document, so a press on an object can be kept from orbiting the camera.
@@ -82,7 +88,10 @@ export class Editor {
       if (this.selected && (!o || !o.visible)) this.select(null);
       else if (o) this.attachOutline(o);
     });
-    ctx.onFrame(() => this.updateLabel());
+    ctx.onFrame(() => {
+      this.updateLabel();
+      this.gizmo.controls.getHelper().visible = !this.xr && this.selected !== null;
+    });
   }
 
   private get xr(): boolean {
@@ -127,6 +136,23 @@ export class Editor {
     return best ? { id: best.id, point: ray.at(best.distance, new THREE.Vector3()) } : null;
   }
 
+  /** The object at the centre of the view, if any. */
+  pickAtCentre(): string | null {
+    this.ctx.rig.updateMatrixWorld(true);
+    this.raycaster.setFromCamera(this.ndc.set(0, 0), this.ctx.camera);
+    return this.pick(this.raycaster.ray)?.id ?? null;
+  }
+
+  /** Hide the selected object. Undo or the room list brings it back. */
+  removeSelected(): void {
+    const id = this.selected;
+    if (!id || this.drag || this.gizmo.dragging) return;
+    const label = this.objects().find((o) => o.id === id)?.label ?? "object";
+    this.select(null);
+    void this.deps.edit({ op: "remove", object_id: id });
+    this.deps.notify(`Removed the ${label}. Undo or the + panel brings it back.`);
+  }
+
   select(id: string | null): void {
     this.selected = id;
     const o = id ? this.objects().find((x) => x.id === id) : undefined;
@@ -134,6 +160,7 @@ export class Editor {
     else {
       this.outline.removeFromParent();
       this.label.hidden = true;
+      this.gizmo.attach(null, null);
     }
   }
 
@@ -143,8 +170,9 @@ export class Editor {
     const h = halfSize(o);
     this.outline.scale.set(Math.max(2 * h[0], 1e-3), Math.max(2 * h[1], 1e-3), Math.max(2 * h[2], 1e-3));
     if (this.outline.parent !== node.pivot) node.pivot.add(this.outline);
+    this.gizmo.attach(o.id, node.pivot);
     this.label.textContent = `${o.label}  ${o.id}`;
-    this.label.title = "drag to move · Q/E rotate · Delete hide · Ctrl+Z undo";
+    this.label.title = "drag or use the gizmo to move · T move/rotate · Q/E rotate · Delete remove · Ctrl+Z undo";
   }
 
   private updateLabel(): void {
@@ -182,6 +210,14 @@ export class Editor {
     // Space would then type instead of editing.
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
     const ray = this.rayAt(e.clientX, e.clientY);
+    if (this.gizmo.down(this.ndc, e.shiftKey)) {
+      e.stopPropagation(); // the handle wins over the object behind it and over SparkControls
+      e.preventDefault();
+      this.emptyDown = null;
+      this.gizmoPointer = e.pointerId;
+      this.canvas.setPointerCapture(e.pointerId);
+      return;
+    }
     const hit = this.pick(ray);
     if (!hit || (touch && hit.id !== this.selected)) {
       const slop = touch ? TAP_SLOP_PX : CLICK_SLOP_PX;
@@ -210,10 +246,18 @@ export class Editor {
   }
 
   private onPointerMove(e: PointerEvent): void {
+    if (this.gizmoPointer !== null) {
+      if (e.pointerId !== this.gizmoPointer) return;
+      this.rayAt(e.clientX, e.clientY);
+      this.gizmo.move(this.ndc, e.shiftKey);
+      return;
+    }
     const d = this.drag;
     if (!d) {
       if (!this.xr && e.target === this.canvas && e.buttons === 0) {
-        this.canvas.style.cursor = this.pick(this.rayAt(e.clientX, e.clientY)) ? "grab" : "";
+        const ray = this.rayAt(e.clientX, e.clientY);
+        if (this.gizmo.hover(this.ndc)) this.canvas.style.cursor = "pointer";
+        else this.canvas.style.cursor = this.pick(ray) ? "grab" : "";
       }
       return;
     }
@@ -227,6 +271,13 @@ export class Editor {
   }
 
   private onPointerUp(e: PointerEvent, cancelled = false): void {
+    if (this.gizmoPointer !== null) {
+      if (e.pointerId !== this.gizmoPointer) return;
+      this.gizmoPointer = null;
+      if (this.canvas.hasPointerCapture(e.pointerId)) this.canvas.releasePointerCapture(e.pointerId);
+      this.gizmo.up(cancelled);
+      return;
+    }
     const empty = this.emptyDown?.pointerId === e.pointerId ? this.emptyDown : null;
     if (empty) this.emptyDown = null;
     const d = this.drag;
@@ -278,18 +329,27 @@ export class Editor {
     if (!id) return;
     let req: EditRequest | null = null;
     // Q/E also move SparkControls down/up; with a selection they rotate the object instead.
+    if (e.code === "KeyT") {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!e.repeat) this.gizmo.toggleMode();
+      return;
+    }
     if (e.code === "KeyQ") req = { op: "rotate", object_id: id, args: { yaw_deg: ROTATE_STEP_DEG } };
     else if (e.code === "KeyE") req = { op: "rotate", object_id: id, args: { yaw_deg: -ROTATE_STEP_DEG } };
-    else if (e.code === "Delete" || e.code === "Backspace") req = { op: "remove", object_id: id };
-    else if (e.code === "Escape") {
+    else if (e.code === "Delete" || e.code === "Backspace") {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!e.repeat) this.removeSelected();
+      return;
+    } else if (e.code === "Escape") {
       this.select(null);
       return;
     }
     if (!req) return;
     e.preventDefault();
     e.stopPropagation();
-    if (e.repeat || this.drag) return;
-    if (req.op === "remove") this.select(null);
+    if (e.repeat || this.drag || this.gizmo.dragging) return;
     void this.deps.edit(req);
   }
 }

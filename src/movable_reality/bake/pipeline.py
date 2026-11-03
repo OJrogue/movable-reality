@@ -222,6 +222,7 @@ def bake_scene(
             (np.asarray(o.bbox_min), np.asarray(o.bbox_max))
             for o in scene.objects
             if on_floor
+            and o.source == "scan"
             and o.label.split("#")[0].strip().lower() not in STRUCTURE_LABELS
             and abs(float(plane.signed_distance(np.asarray([o.bbox_min]))[0])) <= opts.support_gap
         ]

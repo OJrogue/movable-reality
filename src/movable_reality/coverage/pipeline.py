@@ -110,7 +110,7 @@ def scene_ply_paths(folder: Path, scene: Scene) -> list[Path]:
     full = folder / "splat" / "scene.ply"
     if full.exists():
         return [full]
-    paths = [folder / scene.background_ply] + [folder / o.ply for o in scene.objects]
+    paths = [folder / scene.background_ply] + [folder / o.ply for o in scene.objects if o.ply]
     return [p for p in paths if p.exists()]
 
 

@@ -39,9 +39,10 @@ class Transform(BaseModel):
 
 
 class SceneObject(BaseModel):
-    id: str  # "<noun>#<sam id>", e.g. "armchair#2", or "gen#<n>" for inserted objects
+    # "<noun>#<sam id>", e.g. "armchair#2"; "gen#<n>" for inserted objects; "lib#<n>" for library
+    id: str
     label: str
-    ply: str  # relative to the scene folder
+    ply: str  # relative to the scene folder; empty for a library object, which has no splats
     completed_ply: str | None = None
     lod: str | None = None  # lane lod: Spark .RAD tree for this object, relative path
     completed_lod: str | None = None  # lane lod: .RAD tree for completed_ply, relative path
@@ -53,8 +54,11 @@ class SceneObject(BaseModel):
     bbox_max: Vec3
     transform: Transform = Field(default_factory=Transform)
     visible: bool = True
-    source: Literal["scan", "generated"] = "scan"
+    source: Literal["scan", "generated", "library"] = "scan"
     prompt: str | None = None  # text prompt for generated objects
+    # Premade mesh (library.py), <library folder>/<library_id>.glb, standing on y = 0 and centred
+    # on x = z = 0 in its own file, so the viewer hangs it under the pivot without world_from_recon.
+    library_id: str | None = None
 
     @property
     def center(self) -> Vec3:
@@ -254,6 +258,37 @@ class Scene(BaseModel):
         cx, _, cz = obj.center
         obj.transform.translation = (x - cx, prev[1], z - cz)
         self._log("place", object_id, {"x": x, "z": z, "prev": list(prev)}, instruction)
+
+    def add_library_object(
+        self,
+        library_id: str,
+        label: str,
+        size: Vec3,
+        x: float,
+        z: float,
+        yaw_deg: float = 0.0,
+        base_y: float = 0.0,
+        instruction: str | None = None,
+    ) -> SceneObject:
+        """A new object from the mesh library with its bottom at base_y. Logged as "insert",
+        so undo hides it."""
+        used = [int(o.id[4:]) for o in self.objects if o.id.startswith("lib#")]
+        w, h, d = size
+        obj = SceneObject(
+            id=f"lib#{max(used, default=0) + 1}",
+            label=label,
+            ply="",
+            bbox_min=(x - w / 2, base_y, z - d / 2),
+            bbox_max=(x + w / 2, base_y + h, z + d / 2),
+            transform=Transform(yaw_deg=yaw_deg % 360.0),
+            source="library",
+            library_id=library_id,
+        )
+        self.objects.append(obj)
+        self._log(
+            "insert", obj.id, {"library_id": library_id, "x": x, "z": z, "y": base_y}, instruction
+        )
+        return obj
 
     def undo(self, instruction: str | None = None) -> HistoryEntry | None:
         """Revert the newest edit that is not undone yet. Appends an "undo" entry that points at

@@ -32,6 +32,7 @@ class Models:
 DATA_DIR = Path(os.environ.get("MR_DATA_DIR", REPO_ROOT / "data"))
 SCENES_DIR = DATA_DIR / "scenes"
 CACHE_DIR = DATA_DIR / "cache"
+LIBRARY_DIR = DATA_DIR / "library"  # premade meshes, scripts/build_library.py
 
 
 def scene_dir(scene_id: str) -> Path:

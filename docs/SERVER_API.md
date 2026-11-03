@@ -14,6 +14,8 @@ scenes from `/scenes` and applies edits locally (they are lost on reload).
 | `POST /api/scenes/{id}/edit` | `{"op", "object_id", "args", "instruction"?}` | `{"ok": true, "scene": manifest}` or HTTP 400 `{"detail"}` |
 | `POST /api/scenes/{id}/command` | `{"text", "camera"?, "verify"?}` | `{"reply", "steps": [...], "verified", "verdicts", "scene"}` |
 | `POST /api/scenes/{id}/voice` | multipart `audio` = WAV, mono, 16-bit, 16 kHz, optional query `?camera=<json>` | `{"transcript", "reply", "steps", "verified", "scene"}` |
+| `POST /api/scenes/{id}/library` | `{"library_id", "x"?, "z"?, "yaw_deg"?, "on_object_id"?, "instruction"?}` | `{"ok": true, "id": "lib#<n>", "scene": manifest}` or HTTP 400. Adds a premade mesh. On the floor the server moves (x, z) to the nearest free spot in the room; with `on_object_id` it stands on that object. |
+| `GET /library/catalog.json`, `GET /library/<id>.glb` | none | the mesh library, when `scripts/build_library.py` has run |
 | `GET /scenes/{id}/scene.json` | none | the manifest (the visitor's copy in hosted mode) |
 
 `camera` in a command is the viewer's pose, `{"eye": [x, y, z], "forward": [x, y, z]}` in world
