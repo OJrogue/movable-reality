@@ -104,7 +104,7 @@ def main(scene: str = "blender02", walk: str = "main,test", chunk: int = 30, sam
     print(f"downloaded -> {raw / scene}, {raw / (scene + '_gt')}")
     if encode:
         for w in walk.split(","):
-            mp4 = raw / (scene + ("" if w == "main" else "_test") + ".mp4")
+            mp4 = raw / (scene + ("" if w == "main" else f"_{w}") + ".mp4")
             noise = "noise=c0s=6:c0f=t+u:c1s=3:c1f=t+u:c2s=3:c2f=t+u"
             subprocess.run(
                 ["ffmpeg", "-v", "error", "-y", "-framerate", str(FPS),
