@@ -188,7 +188,19 @@ body[data-chrome="0"] .mr-chrome-top, body[data-chrome="0"] .mr-chrome-menu { di
   color: var(--mr-on-surface); font: 13.5px/1.5 var(--mr-font); box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
 }
 body[data-debug] .mr-ui-onboarding { top: calc(236px + env(safe-area-inset-top, 0px)); max-height: calc(100vh - 380px); }
-.mr-ui-onboarding[hidden], .mr-ui-help[hidden], .mr-ui-label[hidden] { display: none; }
+.mr-ui-onboarding[hidden], .mr-ui-help[hidden], .mr-ui-label[hidden], .mr-ui-gizmo[hidden] { display: none; }
+
+/* ---- move / rotate gizmo modes (gizmo.ts), top centre while an object is selected */
+.mr-ui-gizmo {
+  position: fixed; top: calc(20px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%);
+  display: flex; gap: 4px; padding: 4px; border-radius: 12px; z-index: 1000;
+  background: var(--mr-surface-3); border: 1px solid var(--mr-glass-border); box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+}
+.mr-ui-gizmo button {
+  font: 600 13px/1.4 var(--mr-font); color: var(--mr-on-surface); background: transparent; cursor: pointer;
+  border: 0; border-radius: 8px; padding: 6px 14px;
+}
+.mr-ui-gizmo button.on { background: var(--mr-primary-container); color: var(--mr-on-primary-container); }
 .mr-ui-ob-head { display: flex; justify-content: space-between; align-items: center; font-size: 17px; font-weight: 650; letter-spacing: -0.01em; }
 .mr-ui-ob-intro { margin: 4px 0 12px; color: var(--mr-on-surface-variant); }
 .mr-ui-ob-keys { border-collapse: collapse; width: 100%; }
