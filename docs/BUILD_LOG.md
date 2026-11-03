@@ -1618,6 +1618,18 @@ verifier. Each fix below came from a command that went wrong:
 - Not tested: blender07 and real captures, a real phone, voice, the deployed demo (library not
   uploaded yet). `?server=0` does not nudge an item off other furniture. Cached agent replies
   miss once, since the prompt and tool list changed.
+- Review before merging (reviewer: fix first): the panel sent the floor drop point with
+  `on_object_id`, so a small item could stand in mid-air beside the table; it now sends where the
+  view hits the object, and `add_to_scene` and its viewer mirror keep it over the object's top. Five
+  library assets had no licence record: now in `blender_assets.py` and `docs/ASSETS.md` (authors
+  from Poly Haven's API), and `build_library.py` refuses an item without one. Also fixed: `fits`
+  exempted a scanned object moved back onto an added one, `/library` lacked `/edit`'s value cap and
+  accepted a removed parent, the perf count fetched the empty `ply`, the blender07 top-up guide text.
+- Result in the hosted layout on blender06: elephant added looking at the bed lands inside the bed's
+  top, x and z sent 2 m off the dresser still give a vase on its top at 1.07 m, x = 1e308 and a
+  removed parent give 400, and after a reload the items return with no request for the bare scene
+  folder. Limit, not fixed: an item stands on the top of the object's box, so on the bed it floats
+  at the headboard's 1.32 m. No flat surface was aimed at by hand in the viewer.
 
 ## 3 Nov: hosted demo on Modal and security pass (lane core, renderer)
 

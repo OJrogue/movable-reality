@@ -120,7 +120,7 @@ def add_to_scene(
     if on_object_id:
         parent = scene.get(on_object_id)
         if not parent.visible:
-            raise ValueError(f"'{on_object_id}' has been removed")
+            raise ValueError(f"{on_object_id} has been removed")
         mn, mx = parent.world_aabb()
         base_y = mx[1]
         yaw = math.radians(yaw_deg)
