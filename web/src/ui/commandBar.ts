@@ -38,6 +38,7 @@ export class CommandBar {
   private talking = false;
   private busy = false;
   private lastHeard: string | null = null; // transcript already shown from the WebSocket
+  private status: HTMLElement | null = null; // the agent's progress line, updated in place
 
   constructor(private readonly deps: CommandBarDeps) {
     this.root = el("div", "mr-ui-bar");
@@ -118,11 +119,12 @@ export class CommandBar {
     this.input.focus();
   }
 
-  line(kind: LineKind, text: string): void {
+  line(kind: LineKind, text: string): HTMLElement {
     const p = el("div", `mr-ui-line mr-ui-${kind}`);
     p.textContent = text;
     this.log.appendChild(p);
     while (this.log.childElementCount > MAX_LINES) this.log.firstElementChild?.remove();
+    return p;
   }
 
   private needServer(): void {
@@ -131,14 +133,33 @@ export class CommandBar {
     if (document.body.hasAttribute("data-debug")) this.line("info", START_SERVER);
   }
 
-  /** Agent progress from the WebSocket. */
-  agent(stage: AgentStage, text: string): void {
+  /** Agent progress from the WebSocket. One status line ("Moving the bed…") is updated in
+   * place; the raw tool calls are developer info. */
+  agent(stage: AgentStage, text: string, say?: string): void {
     if (stage === "transcript") {
       this.lastHeard = text;
       this.line("you", `heard: ${text}`);
+      return;
     }
-    else if (stage === "done") this.line("reply", text);
-    else this.line("agent", `${stage}: ${text}`);
+    if (stage === "done") {
+      // Our own command prints its reply from the HTTP answer; this is another viewer's.
+      if (!this.busy) this.line("reply", text);
+      this.clearStatus();
+      return;
+    }
+    if (document.body.hasAttribute("data-debug")) this.line("agent", `${stage}: ${text}`).classList.add("mr-debug");
+    if (!this.status || !this.status.isConnected) {
+      this.status = this.line("agent", "");
+      this.status.classList.add("mr-ui-status");
+    }
+    const words = say ?? text;
+    this.status.textContent = words.endsWith(".") ? words : `${words}…`; // "Looks right." is done
+    this.log.appendChild(this.status); // stays the newest line
+  }
+
+  private clearStatus(): void {
+    this.status?.remove();
+    this.status = null;
   }
 
   private async send(raw: string): Promise<void> {
@@ -165,10 +186,12 @@ export class CommandBar {
       const r = await call();
       if (r.transcript !== undefined && r.transcript !== this.lastHeard) this.line("you", `heard: ${r.transcript}`);
       this.lastHeard = null;
-      const check = r.verified === true ? " (verified)" : r.verified === false ? " (verifier disagreed)" : "";
+      this.clearStatus();
+      const check = r.verified === true ? " ✓ Checked" : r.verified === false ? " (the visual check disagreed)" : "";
       this.line("reply", `${r.reply}${check}`);
       this.deps.applyResult(r);
     } catch (err) {
+      this.clearStatus();
       this.line("error", `command failed: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       this.busy = false;

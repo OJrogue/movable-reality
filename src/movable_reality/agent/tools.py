@@ -58,8 +58,11 @@ def room_bounds(scene: Scene, folder: Path) -> RoomBounds | None:
     if ply.exists():
         from plyfile import PlyData  # noqa: PLC0415 - only needed when a PLY exists
 
-        v = PlyData.read(str(ply), mmap=False)["vertex"]
-        xyz = np.stack([v["x"], v["y"], v["z"]], axis=1).astype(np.float64)
+        # Memory-mapped and strided: the full read of blender07's 283 MB background took
+        # minutes and, inside the server, held every WebSocket message back (3 Nov).
+        v = PlyData.read(str(ply))["vertex"].data
+        step = max(1, len(v) // 200_000)
+        xyz = np.stack([v["x"][::step], v["y"][::step], v["z"][::step]], axis=1).astype(np.float64)
         if len(xyz) >= 100:
             M = np.asarray(scene.world_from_recon, dtype=np.float64)
             world = xyz @ M[:3, :3].T + M[:3, 3]
@@ -114,6 +117,8 @@ def fits(
     other visible objects? Items standing on the object move with it, so a collision with an
     object stacked on top is not counted (its footprint is inside)."""
     obj = scene.get(object_id).model_copy(deep=True)
+    scanned = obj.model_copy(deep=True)
+    scanned.transform.translation, scanned.transform.yaw_deg = (0.0, 0.0, 0.0), 0.0
     if x is not None and z is not None:
         cx, _, cz = obj.center
         obj.transform.translation = (x - cx, obj.transform.translation[1], z - cz)
@@ -121,19 +126,25 @@ def fits(
         obj.transform.yaw_deg = yaw_deg
     box = obj.world_aabb()
     (mn, mx) = box
+
+    def hits(b: tuple, other: SceneObject) -> bool:
+        (bmn, bmx), (omn, omx) = b, other.world_aabb()
+        if not (omn[1] < bmx[1] - clearance and bmn[1] < omx[1] - clearance):
+            return False  # stacked on top or below, e.g. a vase on the table
+        return (bmn[0] < omx[0] + clearance and omn[0] < bmx[0] + clearance
+                and bmn[2] < omx[2] + clearance and omn[2] < bmx[2] + clearance)  # fmt: skip
+
+    # Boxes that already overlapped where the object was scanned (a chair under the desk,
+    # books in the shelf) stood like that in the real room: they are not collisions. Without
+    # this the agent could not turn the blender06 chair at all and ran out of steps (3 Nov).
+    scan_box = scanned.world_aabb()
     collisions = []
     for other in scene.objects:
-        if other.id == object_id or not other.visible:
+        if other.id == object_id or not other.visible or not hits(box, other):
             continue
-        omn, omx = other.world_aabb()
-        overlap_y = omn[1] < mx[1] - clearance and mn[1] < omx[1] - clearance
-        if not overlap_y:
-            continue  # stacked on top or below, e.g. a vase on the table
-        gap = footprint_gap(box, (omn, omx))
-        inside_x = mn[0] < omx[0] + clearance and omn[0] < mx[0] + clearance
-        inside_z = mn[2] < omx[2] + clearance and omn[2] < mx[2] + clearance
-        if inside_x and inside_z:
-            collisions.append({"id": other.id, "gap_m": _r(gap)})
+        if hits(scan_box, other):
+            continue
+        collisions.append({"id": other.id, "gap_m": _r(footprint_gap(box, other.world_aabb()))})
     walls = []
     if bounds:
         for axis, i, (lo, hi) in (("x", 0, bounds.x), ("z", 2, bounds.z)):
@@ -224,6 +235,32 @@ TOOL_SCHEMAS = [
         ["prompt", "x", "z"],
     ),
 ]
+
+
+def step_text(scene: Scene, name: str, args: dict[str, Any]) -> str:
+    """What a tool call does, in words for the command bar ("Moving the bed")."""
+
+    def label(key: str = "object_id") -> str:
+        try:
+            return "the " + scene.get(args[key]).label
+        except (KeyError, TypeError):
+            return "an object"
+
+    if name == "insert_object":
+        return f"Adding {args.get('prompt') or 'an object'} (about a minute)"
+    if name == "measure":
+        return f"Measuring {label('id_a')}" + (f" and {label('id_b')}" if args.get("id_b") else "")
+    words = {
+        "list_objects": "Looking around the room",
+        "move_object": "Moving {}",
+        "place_object": "Moving {}",
+        "rotate_object": "Turning {}",
+        "remove_object": "Hiding {}",
+        "restore_object": "Bringing back {}",
+        "undo": "Undoing the last edit",
+        "fits": "Checking where {} fits",
+    }
+    return words.get(name, "Working").format(label())
 
 
 def run_tool(

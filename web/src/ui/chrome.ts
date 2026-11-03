@@ -5,6 +5,7 @@
 // switch or the ` key; ?debug=1 or ?bench=1 start with it on, and the choice is remembered.
 // ?chrome=0 hides the top bar (clean recordings). Lanes mark their debug widgets with the
 // class mr-debug (CSS in style.ts hides them while body has no data-debug).
+import * as THREE from "three";
 import type { ViewerContext } from "../context";
 import { DEMO_SCENES, findDemoScene, viewerUrl } from "../landing/scenes";
 import type { ObjectStyle } from "../scene";
@@ -339,8 +340,28 @@ export function installChrome(deps: ChromeDeps): ChromeHandle {
     back.textContent = "Back to all rooms";
     card.append(back);
   };
-  ctx.onManifest((_m, view) => {
-    view.backgroundMesh()?.initialized.then(finish, () => fail("This room could not be loaded."));
+  // ---- start view: a demo room opens looking at its furniture, not at the origin's wall.
+  // Bench walks, eval views (mrCamera) and ?view=0 keep the default.
+  let placed = !demo?.view || ctx.params.has("bench") || ctx.params.get("view") === "0";
+  ctx.onManifest(() => {
+    if (placed || !demo?.view) return;
+    placed = true;
+    const eye = new THREE.Vector3(...demo.view.eye);
+    const look = new THREE.Matrix4().lookAt(eye, new THREE.Vector3(...demo.view.target), new THREE.Vector3(0, 1, 0));
+    ctx.rig.position.set(eye.x, eye.y - ctx.camera.position.y, eye.z);
+    ctx.rig.quaternion.setFromRotationMatrix(look);
+  });
+  ctx.onManifest((m, view) => {
+    // The furniture loads after the background; an empty room under a hidden card looked
+    // broken (blender06, 3 Nov). Object failures do not hold the card (allSettled).
+    const objects = m.objects
+      .filter((o) => o.visible)
+      .map((o) => view.objectNode(o.id)?.mesh.initialized)
+      .filter((p) => p !== undefined);
+    view.backgroundMesh()?.initialized.then(
+      () => void Promise.allSettled(objects).then(finish),
+      () => fail("This room could not be loaded."),
+    );
   });
   // A missing scene.json falls back to a plain PLY (main.ts). Only the background failing
   // fails the room (above): a missing object PLY leaves the rest of the room usable.

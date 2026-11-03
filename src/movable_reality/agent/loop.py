@@ -14,10 +14,12 @@ from ..clients import meta_async_client
 from ..config import Models
 from ..scene import Scene
 from .llm import cached_chat
-from .tools import EDIT_TOOLS, TOOL_SCHEMAS, RoomBounds, describe, run_tool
-from .verify import Verdict, verify_edit
+from .tools import EDIT_TOOLS, TOOL_SCHEMAS, RoomBounds, describe, run_tool, step_text
+from .verify import Verdict, edit_focus, verify_camera, verify_edit
 
-Capture = Callable[[], Awaitable[str | None]]  # returns a JPEG data URL, or None
+# Screenshot from a viewpoint ({"eye", "target"}, or None for the user's view): a JPEG data
+# URL, or None when no viewer answers.
+Capture = Callable[[dict | None], Awaitable[str | None]]
 Emit = Callable[[dict[str, Any]], Awaitable[None]]
 
 SYSTEM = """You edit a 3D scan of a real room for the user. Units are metres. World axes: +Y up,
@@ -31,9 +33,11 @@ a negative yaw_deg. If the user gives no distance, use 0.5 m. Prefer fits before
 object in a tight spot. Never push an object into another one: if the asked distance would
 collide, move only as far as it fits and say so in the reply. The free distance towards
 another object is floor_gap_m from measure minus 0.06 m (fits keeps 5 cm clear): check that
-once with fits instead of searching in small steps. If the user asks a question
+once with fits instead of searching in small steps; call fits at most three times per
+command, then make the best edit that fits or say why it cannot be done. If the user asks a question
 (sizes, "does it fit"), answer in metres from measure or fits; "how tall" is
-top_above_floor_m. Keep the final reply to one or two short sentences.
+top_above_floor_m. Keep the final reply to one or two short sentences, and name objects
+the way the user would ("the armchair"), never by id or coordinates.
 
 Room floor: {room}.
 Objects:
@@ -98,14 +102,19 @@ async def run_command(
     """Run one user command against `scene` (mutated in place). The caller saves it."""
     client = client or meta_async_client()
     result = CommandResult(reply="")
-    before = await capture() if (capture and verify) else None
+    # The before shot waits for the first edit, so it can frame the object being edited;
+    # the after shot uses the same viewpoint.
+    before: str | None = None
+    shot: dict | None = None
+    shot_tried = False  # one try: a viewer that does not answer costs a timeout each time
     messages: list[dict[str, Any]] = [
         {"role": "system", "content": system_prompt(scene, bounds, camera)},
         {"role": "user", "content": text},
     ]
     first_entry = len(scene.history)
     for attempt in range(retries + 1):
-        await emit({"stage": "thinking", "text": "planning" if attempt == 0 else "retrying"})
+        await emit({"stage": "thinking", "text": "planning" if attempt == 0 else "retrying",
+                    "say": "Thinking" if attempt == 0 else "Trying again"})  # fmt: skip
         for _ in range(max_rounds):
             resp = await cached_chat(
                 client, "meta", model=Models.AGENT, messages=messages, tools=TOOL_SCHEMAS
@@ -126,6 +135,12 @@ async def run_command(
                     args = json.loads(call["function"].get("arguments") or "{}")
                 except json.JSONDecodeError:
                     args = {}
+                if verify and capture and not shot_tried and name in EDIT_TOOLS:
+                    shot_tried = True
+                    focus = edit_focus(scene, name, args)
+                    shot = verify_camera(*focus, bounds, camera) if focus else None
+                    before = await capture(shot)
+                say = step_text(scene, name, args)
                 if name == "insert_object":  # about a minute on Modal: keep the server live
                     out = await asyncio.to_thread(
                         run_tool, scene, name, args, bounds, text, inserter
@@ -136,17 +151,22 @@ async def run_command(
                 result.steps.append(step)
                 if name in EDIT_TOOLS and "error" not in out:
                     result.edited = True
-                await emit({"stage": "tool", "text": f"{name} {json.dumps(args)}", "step": step})
+                await emit({"stage": "tool", "text": f"{name} {json.dumps(args)}", "say": say,
+                            "step": step})  # fmt: skip
                 messages.append(
                     {"role": "tool", "tool_call_id": call["id"], "content": json.dumps(out)}
                 )
         else:
-            result.reply = result.reply or "I ran out of steps for that command."
+            result.reply = result.reply or (
+                "I could not finish that in time"
+                + (", but I made some changes." if result.edited else ". Nothing was changed.")
+                + " Try saying it more simply."
+            )
 
         if not (verify and result.edited and capture and before):
             break
-        await emit({"stage": "verify", "text": "checking the edit"})
-        after = await capture()
+        await emit({"stage": "verify", "text": "checking the edit", "say": "Checking the result"})
+        after = await capture(shot)
         if not after:
             break
         try:
@@ -163,14 +183,18 @@ async def run_command(
         result.verdicts.append(verdict.reason)
         result.verified = verdict.ok
         word = {True: "ok: ", False: "no: ", None: "unverified: "}[verdict.ok]
-        await emit({"stage": "verify", "text": word + verdict.reason})
+        say = {True: "Looks right.", False: "That does not look right yet.",
+               None: "Could not check the result."}[verdict.ok]  # fmt: skip
+        await emit({"stage": "verify", "text": word + verdict.reason, "say": say})
         if verdict.ok is not False or attempt == retries:
             break
         messages.append(
             {
                 "role": "user",
                 "content": f"A visual check of the viewer says the edit is not right: "
-                f"{verdict.reason} Fix it with the tools (undo if needed), then reply.",
+                f"{verdict.reason} If the tool results show the edit was done as asked, change "
+                "nothing and reply. Fix it with the tools (undo if needed) only when the edit "
+                "itself was wrong. Never move an object just so the check can see it.",
             }
         )
     for e in scene.history[first_entry:]:

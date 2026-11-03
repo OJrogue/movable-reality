@@ -3,12 +3,15 @@ answers whether the edit did what the user asked (ARCHITECTURE stage 7)."""
 
 from __future__ import annotations
 
+import math
 import re
 from dataclasses import dataclass
 
 from ..clients import baseten_async_client
 from ..config import Models
+from ..scene import UNDOABLE_OPS, Scene
 from .llm import cached_chat
+from .tools import RoomBounds
 
 PROMPT = (
     "You check edits to a 3D room viewer. The first image is the view before the edit, the "
@@ -16,9 +19,82 @@ PROMPT = (
     "Does the second image show that request carried out (objects moved, turned, removed or "
     "added as asked) with no obvious damage such as a missing or floating object? A move "
     "that stops short because the object reached another object or a wall counts as carried "
-    "out; an object pushed into another object counts as damage. Answer YES or NO on the "
+    "out; an object pushed into another object counts as damage. The room is a 3D Gaussian "
+    "splat scan: blur, ghosting, smears, holes and dark patches, most of all at the bottom "
+    "of an object and where it stood before, are normal and are not damage. Judge only "
+    "where the object is, how it is turned and whether it is there. Answer YES or NO on the "
     "first line, then one short sentence why."
 )
+
+
+def edit_focus(scene: Scene, name: str, args: dict) -> tuple[list[float], float] | None:
+    """Point and radius (metres) the verifier's screenshots must show for one edit tool call:
+    the object, plus where a move or place takes it. None when the call edits nothing."""
+    if name == "insert_object":
+        return [float(args.get("x", 0.0)), 0.4, float(args.get("z", 0.0))], 0.8
+    oid = undo_target(scene) if name == "undo" else args.get("object_id")
+    if not oid:
+        return None
+    try:
+        mn, mx = scene.get(oid).world_aabb()
+    except KeyError:
+        return None
+    c = [(a + b) / 2 for a, b in zip(mn, mx, strict=True)]
+    r = 0.5 * math.hypot(mx[0] - mn[0], mx[2] - mn[2])
+    dest = None
+    if name == "move_object":
+        dest = (c[0] + float(args.get("dx", 0.0)), c[2] + float(args.get("dz", 0.0)))
+    elif name == "place_object" and "x" in args and "z" in args:
+        dest = (float(args["x"]), float(args["z"]))
+    if dest:
+        half = 0.5 * math.hypot(dest[0] - c[0], dest[1] - c[2])
+        c[0], c[2] = (c[0] + dest[0]) / 2, (c[2] + dest[1]) / 2
+        r += half
+    return [round(v, 3) for v in c], max(r, 0.3)
+
+
+def undo_target(scene: Scene) -> str | None:
+    """Object of the edit that undo would revert (same rule as Scene.undo)."""
+    undone = {e.args.get("index") for e in scene.history if e.op == "undo"}
+    for i in range(len(scene.history) - 1, -1, -1):
+        e = scene.history[i]
+        if e.op in UNDOABLE_OPS and i not in undone and e.object_id:
+            return e.object_id
+    return None
+
+
+def verify_camera(
+    focus: list[float], radius: float, bounds: RoomBounds | None, user: dict | None
+) -> dict[str, list[float]]:
+    """A viewpoint that looks down at `focus` from the user's side. Screenshots of the user's
+    own view often missed the edited object, and the verifier then rejected correct edits
+    (blender06, 3 Nov). The eye sits on the line from the object towards the user, never
+    further than the user stands: the user is inside the room, while the room box from the
+    splats also holds the view through the windows, so a box-clamped eye could end up outside.
+    """
+    dist = min(max(1.4 + 2.0 * radius, 1.8), 5.0)
+    reach = dist * 0.82
+    eye_u = (user or {}).get("eye")
+    if eye_u:
+        dx, dz = float(eye_u[0]) - focus[0], float(eye_u[2]) - focus[2]
+        n = math.hypot(dx, dz)
+        if n < 0.3:  # standing on it: look from where the user faces it
+            fwd = (user or {}).get("forward") or [0.0, 0.0, -1.0]
+            dx, dz, n = -float(fwd[0]), -float(fwd[2]), math.hypot(fwd[0], fwd[2]) or 1.0
+            reach = 1.2
+        else:
+            reach = min(reach, max(n, 1.0))
+        ux, uz = dx / n, dz / n
+    else:
+        ux, uz = 0.0, 1.0
+    ex, ez = focus[0] + ux * reach, focus[2] + uz * reach
+    ey = max(focus[1], 0.3) + 0.4 + 0.6 * reach
+    if bounds:
+        ex = min(max(ex, bounds.x[0] + 0.3), bounds.x[1] - 0.3)
+        ez = min(max(ez, bounds.z[0] + 0.3), bounds.z[1] - 0.3)
+        ey = min(ey, bounds.height - 0.3)
+    ey = min(ey, 2.4)  # below most ceilings, even when the room box overshoots
+    return {"eye": [round(v, 3) for v in (ex, ey, ez)], "target": [round(v, 3) for v in focus]}
 
 
 @dataclass

@@ -15,7 +15,7 @@ export type AgentStage = "transcript" | "thinking" | "tool" | "verify" | "done";
 
 export type ServerMessage =
   | { type: "scene"; scene: SceneManifest }
-  | { type: "agent"; stage: AgentStage; text: string }
+  | { type: "agent"; stage: AgentStage; text: string; say?: string }
   | { type: "capture_request"; id: number; camera?: { eye: Vec3; target: Vec3 } };
 
 const EDIT_TIMEOUT_MS = 5000;

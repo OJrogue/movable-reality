@@ -7,8 +7,15 @@ import pytest
 
 from movable_reality.agent import llm
 from movable_reality.agent.loop import run_command, view_directions
-from movable_reality.agent.tools import RoomBounds, fits, measure, room_bounds_from_points, run_tool
-from movable_reality.agent.verify import parse_verdict
+from movable_reality.agent.tools import (
+    RoomBounds,
+    fits,
+    measure,
+    room_bounds_from_points,
+    run_tool,
+    step_text,
+)
+from movable_reality.agent.verify import edit_focus, parse_verdict, verify_camera
 from movable_reality.scene import Scene, SceneObject
 from movable_reality.voice import check_wav
 
@@ -41,6 +48,16 @@ def test_fits_reports_collision_and_walls():
 def test_fits_ignores_items_stacked_on_top():
     # the vase stands on the table: its footprint is inside, but it is above the table top
     assert fits(make_scene(), "table#1", None, None, ROOM)["fits"]
+
+
+def test_fits_allows_overlaps_that_were_scanned():
+    s = make_scene()
+    s.objects.append(SceneObject(id="chair#1", label="chair", ply="d.ply",
+                                 bbox_min=(0.3, 0.0, -1.0), bbox_max=(0.8, 0.9, -0.5)))  # fmt: skip
+    # tucked against the table in the scan: turning it in place is fine
+    assert fits(s, "chair#1", None, None, ROOM, yaw_deg=45)["fits"]
+    # moved onto the sofa it collides
+    assert not fits(s, "chair#1", 0.0, -1.9, ROOM)["fits"]
 
 
 def test_measure_reports_top_above_floor():
@@ -117,6 +134,46 @@ def test_agent_loop_runs_tools_and_caches(tmp_path, monkeypatch):
     s2 = make_scene()
     asyncio.run(run_command(s2, "move the table left", ROOM, client=FakeClient([])))
     assert s2.get("table#1").transform.translation == (-0.5, 0.0, 0.0)
+
+
+def test_edit_focus_covers_the_move():
+    s = make_scene()
+    c, r = edit_focus(s, "move_object", {"object_id": "table#1", "dx": 1.0, "dz": 0})
+    assert c[0] == pytest.approx(0.5) and r > 0.5  # midway, radius reaches both ends
+    run_tool(s, "rotate_object", {"object_id": "sofa#1", "yaw_deg": 90}, ROOM)
+    assert edit_focus(s, "undo", {})[0][2] == pytest.approx(-1.95)  # undo frames the sofa
+    assert edit_focus(s, "measure", {}) is None
+
+
+def test_verify_camera_stays_in_the_room_and_looks_down():
+    cam = verify_camera([0.0, 0.4, -1.95], 1.0, ROOM, {"eye": [0, 1.6, 0], "forward": [0, 0, -1]})
+    ex, ey, ez = cam["eye"]
+    assert ROOM.x[0] < ex < ROOM.x[1] and ROOM.z[0] < ez < ROOM.z[1]
+    assert 0.4 < ey < ROOM.height and ez > -1.95  # above it, on the user's side
+    assert cam["target"] == [0.0, 0.4, -1.95]
+
+
+def test_step_text_names_the_object():
+    s = make_scene()
+    assert step_text(s, "move_object", {"object_id": "table#1"}) == "Moving the coffee table"
+    assert step_text(s, "measure", {"id_a": "nope"}) == "Measuring an object"
+
+
+def test_agent_loop_frames_the_edited_object(tmp_path, monkeypatch):
+    monkeypatch.setattr(llm, "CHAT_CACHE", tmp_path)
+    args = json.dumps({"object_id": "sofa#1", "dx": 0.5, "dz": 0})
+    call = {"id": "c1", "type": "function", "function": {"name": "move_object", "arguments": args}}
+    script = [{"role": "assistant", "content": "", "tool_calls": [call]},
+              {"role": "assistant", "content": "Moved it."}]  # fmt: skip
+    shots = []
+
+    async def capture(cam):
+        shots.append((cam, run_tool.__name__))
+        return None  # no image: the edit stays unverified
+
+    asyncio.run(run_command(make_scene(), "sofa right", ROOM, capture=capture,
+                            client=FakeClient(script)))  # fmt: skip
+    assert len(shots) == 1 and shots[0][0]["target"][0] == pytest.approx(0.25)
 
 
 def _wav(rate=16000, ch=1) -> bytes:

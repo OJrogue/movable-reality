@@ -66,14 +66,6 @@ export function installUi(ctx: UiContext): UiHandle {
     queueMicrotask(() => publish(keep));
   });
 
-  const frameWaiters: { left: number; resolve: () => void }[] = [];
-  ctx.onFrameEnd(() => {
-    for (let i = frameWaiters.length - 1; i >= 0; i--) {
-      if (--frameWaiters[i].left <= 0) frameWaiters.splice(i, 1)[0].resolve();
-    }
-  });
-  const frames = (n: number) => new Promise<void>((resolve) => frameWaiters.push({ left: n, resolve }));
-
   const bar = new CommandBar({
     server,
     online: () => online,
@@ -138,10 +130,10 @@ export function installUi(ctx: UiContext): UiHandle {
   // ---- server connection: health check, then the WebSocket; retry while it is down.
   const onMessage = (msg: ServerMessage) => {
     if (msg.type === "scene") publish(msg.scene);
-    else if (msg.type === "agent") bar.agent(msg.stage, msg.text);
+    else if (msg.type === "agent") bar.agent(msg.stage, msg.text, msg.say);
     else if (msg.type === "capture_request") {
       const ws = socket;
-      void capture(ctx, frames, msg.camera).then((jpeg) => {
+      void capture(ctx, msg.camera).then((jpeg) => {
         // null answers at once, so the server need not wait for its timeout.
         if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "capture", id: msg.id, jpeg }));
       });
@@ -198,18 +190,17 @@ export function installUi(ctx: UiContext): UiHandle {
 }
 
 const _eye = new THREE.Vector3();
-const SETTLE_FRAMES = 3;
 const SETTLE_TIMEOUT_MS = 1500; // a hidden tab runs no frames
+const SETTLE_RENDERS = 12;
 
 /**
  * Screenshot for the verifier. With a camera request, the rig and camera move to `eye`
- * looking at `target` for a few frames, so Spark's sort and the LOD cut catch up with the
+ * looking at `target` for about 1.5 s of renders, so Spark's sort and the LOD cut catch up with the
  * new viewpoint, and then go back. In XR the headset renders into its own framebuffer and
  * the canvas holds no image, so the answer is null.
  */
 async function capture(
   ctx: ViewerContext,
-  frames: (n: number) => Promise<void>,
   camera?: { eye: Vec3; target: Vec3 },
 ): Promise<string | null> {
   const fn = (window as unknown as { mrCapture?: () => string }).mrCapture;
@@ -232,7 +223,13 @@ async function capture(
     cam.position.copy(_eye.fromArray(camera.eye));
     cam.lookAt(camera.target[0], camera.target[1], camera.target[2]);
     rig.updateMatrixWorld(true);
-    await Promise.race([frames(SETTLE_FRAMES), new Promise((r) => setTimeout(r, SETTLE_TIMEOUT_MS))]);
+    // Render here instead of waiting for frames: a background tab or a hidden pane runs no
+    // animation frames (document.hidden can still be false), and Spark's sort and LOD cut
+    // only catch up on render. Without this the verifier saw no furniture (blender06, 3 Nov).
+    for (let i = 0; i < SETTLE_RENDERS; i++) {
+      ctx.renderer.render(ctx.scene, cam);
+      await new Promise((r) => setTimeout(r, SETTLE_TIMEOUT_MS / SETTLE_RENDERS));
+    }
     return ctx.renderer.xr.isPresenting ? null : fn();
   } finally {
     rig.position.copy(saved.rigPos);

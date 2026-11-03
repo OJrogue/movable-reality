@@ -14,6 +14,8 @@ export interface DemoScene {
   capture: string;
   /** What the capture is, shown under it. */
   captureNote: string;
+  /** Where the viewer starts, world metres (the world origin often faces a wall). */
+  view?: { eye: [number, number, number]; target: [number, number, number] };
 }
 
 export const DEMO_SCENES: readonly DemoScene[] = [
@@ -25,6 +27,7 @@ export const DEMO_SCENES: readonly DemoScene[] = [
     thumb: "/media/thumb_blender07.jpg",
     capture: "/media/capture_blender07.mp4",
     captureNote: "A 122 s walk through the whole room; the sharpest 4 frames per second are kept.",
+    view: { eye: [3.6, 1.65, -3.7], target: [1.2, 0.6, -0.3] }, // from the TV corner: sofa, table, armchair
   },
   {
     id: "blender06",
@@ -34,6 +37,7 @@ export const DEMO_SCENES: readonly DemoScene[] = [
     thumb: "/media/thumb_blender06.jpg",
     capture: "/media/capture_blender06.mp4",
     captureNote: "A 54 s walk around the bed and the desk; the sharpest 4 frames per second are kept.",
+    view: { eye: [0.5, 1.65, -1.3], target: [-1.7, 0.5, 0.6] }, // from the desk corner: bed, window, desk
   },
   {
     id: "room01",

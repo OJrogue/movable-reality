@@ -1492,3 +1492,37 @@ test-walk metrics, `sfm.json`, GT pose ATE). Every row predates the lighting cha
   with developer info off, settings popover without menu roles, landing numbers match
   the data (no object or frame counts).
 - Next: a real screen recording for the hero, then room01.
+
+## 3 Nov (night), core + ui: the agent in the demo works end to end
+
+Tested in the viewer on blender06 with the scene server, Muse Wonder and the Muse Spark Open
+verifier. Each fix below came from a command that went wrong:
+- **Verifier saw the wrong thing.** It got screenshots of the user's view, which often did
+  not show the edited object (the bedroom opened facing a wall), and rejected correct edits.
+  The before shot now waits for the first edit and frames that object and where it goes
+  (`edit_focus`, `verify_camera` in `agent/verify.py`), from a point between the object and
+  the user: the room box from the splats includes the view through the windows, and a
+  box-clamped camera ended up outside. After the edit the same viewpoint is used.
+- **Verifier called scan artifacts damage** ("toppled", "smeared"). Its prompt now says
+  blur, ghosting and dark patches are normal in a splat scan.
+- **Agent gamed the verifier:** after a rejection it moved the chair to mid-room "so it is
+  visible". The retry message now says to change nothing when the tool results show the edit
+  was done, and never to move an object just for the check.
+- **"Turn the chair" did nothing:** the chair overlaps the desk in the scan, every `fits`
+  said "collides" and the agent ran out of steps. Overlaps that already existed where the
+  object was scanned no longer count, and the prompt caps `fits` at three calls.
+- **First command on the living room froze the server for minutes:** room bounds read the
+  283 MB background PLY in full, inside the event loop, so no WebSocket message went out.
+  Now memory-mapped and strided (0.18 s) and run in a thread.
+- **Viewer screenshots in a background tab** had no furniture: a hidden tab runs no
+  animation frames, so the capture now renders 12 times over 1.5 s itself.
+- **Command bar:** one progress line in words ("Measuring the bed…", "Checking the
+  result…") instead of raw tool calls (those stay as developer info), no duplicate reply,
+  "✓ Checked" when the verifier agrees. Replies name objects by label, not id.
+- **Start view:** each demo room opens on its furniture (`view` in `landing/scenes.ts`), and
+  the loading card waits for the objects as well as the background.
+- Result on blender06: "how wide is the bed" 5 s, "remove the ukulele" 12 s, "undo that"
+  15 s, "turn the chair 45 degrees" verified. Not tested: voice (no microphone here) and
+  insert. The living room was rebuilding in another session, so it was only checked for the
+  bounds fix. The demo manifests were restored after each test.
+- Next: test voice and the living room once its pipeline run is done.
