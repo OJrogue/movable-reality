@@ -98,8 +98,14 @@ def main(scene: str = "blender02", walk: str = "main,test", chunk: int = 30, sam
     print(f"{done} chunks rendered ({len(jobs) - done} already in the volume), "
           f"{time.time() - t0:.0f} s")  # fmt: skip
     env = {**os.environ, "PYTHONIOENCODING": "utf-8"}
-    for sub in (scene, f"{scene}_gt"):
-        subprocess.run(["modal", "volume", "get", "--force", VOLUME, f"raw/{sub}", str(raw)],
+    # only the walks rendered now (the whole scene folder is ~10 GB); the GT's shared
+    # files (objects.json, meshes/) only when they are not here yet
+    gets = [(f"{sub}/{w}", raw / sub) for sub in (scene, f"{scene}_gt") for w in walk.split(",")]
+    gets += [(f"{scene}_gt/{f}", raw / f"{scene}_gt") for f in ("objects.json", "meshes")
+             if not (raw / f"{scene}_gt" / f).exists()]  # fmt: skip
+    for src, dst in gets:
+        dst.mkdir(parents=True, exist_ok=True)
+        subprocess.run(["modal", "volume", "get", "--force", VOLUME, f"raw/{src}", f"{dst}/"],
                        check=True, env=env)  # fmt: skip
     print(f"downloaded -> {raw / scene}, {raw / (scene + '_gt')}")
     if encode:

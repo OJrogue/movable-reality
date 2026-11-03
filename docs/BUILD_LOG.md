@@ -1472,3 +1472,33 @@ test-walk metrics, `sfm.json`, GT pose ATE). Every row predates the lighting cha
 - Next: cover the north-west corner (a top-up video from mid-room through
   `coverage_topup.py`, or new keys in the main walk), and find out why the lift dropped the
   floor lamp and the TV.
+
+## 3 Nov (evening), blender + core + coverage: blender07 top-up video, TV split from the soundbar
+
+- Top-up walk `KEYS7_TOPUP` (10 s) runs from mid-room into the north-west corner and down
+  to 0.2-0.35 m, looking at the curtain, the radiator and the media console's north end.
+  It renders on Modal as walk `topup` (`data/raw/blender07_topup.mp4`).
+- `coverage_topup.py --scene blender07 --video data/raw/blender07_topup.mp4 --max-steps 30000`
+  added 40 sharp frames (488-527), reconstructed all 528, re-aligned the world frame,
+  reran SAM and the lift and rescored the gap map. Then `run_pipeline.py --from objects`:
+  118 min (per-object training 39, shell 35, completions 22).
+- Results on the same 90 test-walk views (before -> after):
+  - PSNR 26.1 -> 28.4 dB mean, 26.7 -> 27.3 median; SSIM 0.914 -> 0.938; LPIPS 0.168 -> 0.137.
+  - Worst view 17.5 -> 23.8 dB. The north-west corner views (frames 490-530) went from
+    17.5-19.3 to 29.7-30.9 dB. The weakest are now the test walk's start (frames 30-40)
+    and frames 290-310, both about 24 dB.
+  - Pose ATE RMSE 6.6 -> 6.4 mm (486 of 488 main-walk frames registered; top-up frames
+    are left out of the GT match).
+- Coverage: splats seen by no view 137k -> 114k, median views per splat 35 -> 43, median
+  angle spread 33 -> 38 deg. The gap share rose 0.51 -> 0.58: the gap map takes its
+  walkable eye positions from the cameras, and the low top-up camera raised them from 30 to
+  44, so more surfaces count as exposed. Not a real loss.
+- Support rule (`lift.py`): an item now merges into the top it rests on only when at least
+  80% of its footprint lies over that top. The wall TV had merged into the soundbar below
+  it; it is `television#0` now. 38 objects.
+- `modal_jobs/blender.py` downloads only the walks it rendered (plus the GT's
+  `objects.json` and `meshes/` when missing), not the whole ~10 GB scene folder.
+  Stopping a full `modal volume get --force` midway had left main and test frames
+  missing or empty; they were fetched again.
+- Next: the floor lamp is still labelled `table lamp#0`; look at views 30-40 and 290-310;
+  make the gap map's walkable area independent of the camera heights.
