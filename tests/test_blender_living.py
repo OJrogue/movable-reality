@@ -25,11 +25,11 @@ def _eyes(walk: str, step: int = 3) -> np.ndarray:
 def test_scene_entry():
     assert CFG["builder"] == "blender_living"
     assert CFG["room"] == (5.6, 4.8, 2.7)
-    assert CFG["walks"] == {"main": 122.0, "test": 30.0}
+    assert CFG["walks"] == {"main": 122.0, "test": 30.0, "topup": 10.0}
     assert br.scene_paths("blender07")[0].name == "blender07"
 
 
-@pytest.mark.parametrize("walk", ["main", "test"])
+@pytest.mark.parametrize("walk", ["main", "test", "topup"])
 def test_walk_stays_inside_the_room(walk):
     e = _eyes(walk)
     h = CFG["room"][2]
@@ -39,7 +39,7 @@ def test_walk_stays_inside_the_room(walk):
     assert e[:, 2].min() > 0.5 and e[:, 2].max() < h - 0.9
 
 
-@pytest.mark.parametrize("walk", ["main", "test"])
+@pytest.mark.parametrize("walk", ["main", "test", "topup"])
 def test_walk_keeps_clear_of_furniture(walk):
     """Below an obstacle's top (+10 cm), the eye stays 15 cm outside its footprint."""
     for x, y, z in _eyes(walk, step=1):
@@ -50,7 +50,7 @@ def test_walk_keeps_clear_of_furniture(walk):
             assert d >= 0.15, f"{walk}: eye ({x:.2f}, {y:.2f}, {z:.2f}) {d:.2f} m from {name}"
 
 
-@pytest.mark.parametrize("walk", ["main", "test"])
+@pytest.mark.parametrize("walk", ["main", "test", "topup"])
 def test_walker_is_never_over_the_furniture(walk):
     """The walker's body (the eye's x, y) stays 10 cm outside every footprint at any height,
     also at chest height over the coffee table and the pouf."""
@@ -60,7 +60,7 @@ def test_walker_is_never_over_the_furniture(walk):
             assert d >= 0.1, f"{walk}: eye ({x:.2f}, {y:.2f}) {d:.2f} m from {name}"
 
 
-@pytest.mark.parametrize("walk", ["main", "test"])
+@pytest.mark.parametrize("walk", ["main", "test", "topup"])
 def test_camera_turns_like_a_handheld_phone(walk):
     """No whip pans: under 75 deg/s between frames (blender07 peaks at about 53)."""
     n = int(CFG["walks"][walk] * br.FPS)
