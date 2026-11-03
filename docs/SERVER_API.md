@@ -53,3 +53,21 @@ capped with `MR_MAX_COMMANDS` per visitor (default 20) and `MR_DAILY_COMMANDS` f
 visitors per UTC day (default 300); past a cap the server answers HTTP 429. Voice is limited to
 `MR_MAX_VOICE_S` seconds (default 15). `MR_CACHE_ONLY=1` answers commands only from cached
 replies and turns voice off, for a deployment without keys.
+
+In hosted mode an edit, command or voice request without the session cookie gets HTTP 403, so it
+cannot change the scene every visitor shares. The counters live in `usage.json` in the sessions
+folder and survive a restart. One address gets `MR_IP_COMMANDS` commands per UTC day (default 60).
+A body over 2 MiB is refused (HTTP 413, or the connection ends when it has no Content-Length), a
+visitor's copy holds at most 1000 edits (HTTP 429), one edit value is at most 10000 and `camera` must
+be `{"eye", "forward"}` with three finite numbers each (HTTP 422, or 400 on voice). A WebSocket
+without the cookie, or past 8 per address or 150 in all, is closed with code 1008. Visitors' copies
+never expire, so one made before a republish keeps the old manifest. Not limited: new copies from
+fresh cookies, at about 170 KB each on the volume.
+
+The public deployment is `modal_jobs/demo.py`: one CPU container that scales to zero, with the
+scenes from `scripts/publish_demo.py` and the visitors' copies on a Modal volume. It has no second
+container because WebSockets and scene locks live in process memory. A running container does not
+see new volume files, so deploy again after publishing. With `max_containers=1` the new container
+waits for the old one's open viewers, up to 10 min (seen on 3 Nov), so do not redeploy while someone
+is presenting. Keep it warm for an event with
+`modal.Function.from_name("movable-reality-demo", "web").update_autoscaler(min_containers=1)`.

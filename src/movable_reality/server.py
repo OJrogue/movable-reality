@@ -13,23 +13,26 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import hashlib
 import itertools
 import json
+import math
 import os
 import secrets
-import shutil
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import FastAPI, HTTPException, Request, UploadFile, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, ValidationError
+from starlette.requests import HTTPConnection
 
 from .agent import RoomBounds, room_bounds, run_command
 from .config import DATA_DIR, REPO_ROOT, SCENES_DIR, Models
+from .fsutil import replace_file
 from .scene import Scene
 from .voice import check_wav, transcribe
 
@@ -42,9 +45,30 @@ HOSTED = os.environ.get("MR_SESSIONS", "") == "1"
 SESSIONS_DIR = Path(os.environ.get("MR_SESSIONS_DIR", DATA_DIR / "sessions"))
 MAX_COMMANDS = int(os.environ.get("MR_MAX_COMMANDS", "20"))  # per visitor
 DAILY_COMMANDS = int(os.environ.get("MR_DAILY_COMMANDS", "300"))  # all visitors, per UTC day
+IP_COMMANDS = int(os.environ.get("MR_IP_COMMANDS", "60"))  # one address per UTC day: new cookies
+MAX_BODY_BYTES = 2 * 1024 * 1024  # 15 s of 24 kHz voice is 720 KB
+MAX_HISTORY = 1000  # edits in one visitor's copy
+MAX_EDIT_VALUE = 1e4  # metres or degrees in one edit; repeated huge moves would overflow to inf
+MAX_SOCKETS = 150  # of modal_jobs/demo.py's 200 inputs, so requests always have room
+MAX_ADDRESS_SOCKETS = 8
 MAX_VOICE_S = float(os.environ.get("MR_MAX_VOICE_S", "15"))
 COOKIE = "mr_session"
-_usage: dict[str, int] = {}
+
+
+def _load_usage() -> dict[str, int]:
+    """The caps must survive a restart: the hosted container scales to zero when idle."""
+    path = SESSIONS_DIR / "usage.json"
+    if not HOSTED or not path.exists():
+        return {}
+    try:
+        usage = json.loads(path.read_text())
+        return {str(k): int(v) for k, v in usage.items()}
+    except (OSError, ValueError, TypeError, AttributeError) as exc:
+        print(f"usage.json unreadable, counting from zero: {type(exc).__name__}", flush=True)
+        return {}
+
+
+_usage: dict[str, int] = _load_usage()
 
 
 @dataclass
@@ -71,13 +95,13 @@ class SceneHub:
         return SESSIONS_DIR / self.session / self.scene_id / "scene.json"
 
     def load(self) -> Scene:
+        """The visitor's copy once they edited, the original until then (save writes the copy),
+        so requests that only read leave nothing on disk."""
         path = self.manifest_path
         if not path.exists():
-            src = self.folder / "scene.json"
-            if self.session is None or not src.exists():
+            path = self.folder / "scene.json"
+            if self.session is None or not path.exists():
                 raise HTTPException(404, f"no scene '{self.scene_id}'")
-            path.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(src, path)
         return Scene.load(path)
 
     def save(self, scene: Scene) -> None:
@@ -118,12 +142,15 @@ class SceneHub:
 
 _ids = itertools.count(1)
 _hubs: dict[str, SceneHub] = {}
+_address_sockets: dict[str, int] = {}
 
 
 def hub(scene_id: str, session: str | None = None) -> SceneHub:
     if "/" in scene_id or "\\" in scene_id or scene_id.startswith("."):
         raise HTTPException(400, "bad scene id")
     session = session if HOSTED else None
+    if HOSTED and not (SCENES_DIR / scene_id / "scene.json").exists():
+        raise HTTPException(404, f"no scene '{scene_id}'")  # no hub per made-up id
     key = f"{scene_id}@{session}"
     if key not in _hubs:
         _hubs[key] = SceneHub(scene_id, session)
@@ -135,8 +162,17 @@ def _session(cookies) -> str | None:
     return sid if sid and sid.isalnum() and len(sid) <= 64 else None
 
 
-def _charge(session: str | None) -> None:
-    """Count one paid command; HTTP 429 past the per-visitor or daily cap (hosted only)."""
+def _address(request: HTTPConnection) -> str:
+    """Hash of the client address. The platform's proxy appends the address it saw to
+    X-Forwarded-For, so only the last entry cannot be set by the client."""
+    forwarded = request.headers.get("x-forwarded-for", "").split(",")[-1].strip()
+    ip = forwarded or (request.client.host if request.client else "")
+    return hashlib.sha256(ip.encode()).hexdigest()[:16]
+
+
+def _charge(session: str | None, address: str = "") -> None:
+    """Count one paid command; HTTP 429 past the per-visitor, per-address or daily cap (hosted
+    only). The address cap keeps one client with fresh cookies from using up the daily budget."""
     if not HOSTED:
         return
     day = time.strftime("%Y-%m-%d", time.gmtime())
@@ -144,33 +180,90 @@ def _charge(session: str | None) -> None:
         raise HTTPException(429, "the demo's daily command budget is used up; try tomorrow")
     if _usage.get(f"s:{session}", 0) >= MAX_COMMANDS:
         raise HTTPException(429, f"limit of {MAX_COMMANDS} commands per visitor reached")
+    if _usage.get(f"ip:{day}:{address}", 0) >= IP_COMMANDS:
+        raise HTTPException(429, "too many commands from this network today; try tomorrow")
+    _usage[f"ip:{day}:{address}"] = _usage.get(f"ip:{day}:{address}", 0) + 1
     _usage[f"day:{day}"] = _usage.get(f"day:{day}", 0) + 1
     _usage[f"s:{session}"] = _usage.get(f"s:{session}", 0) + 1
+    SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
+    tmp = SESSIONS_DIR / "usage.json.tmp"
+    tmp.write_text(json.dumps(_usage))
+    replace_file(tmp, SESSIONS_DIR / "usage.json")
+
+
+def _writable(h: SceneHub) -> None:
+    """Hosted mode: without a session an edit would land in the scene every visitor shares."""
+    if HOSTED and h.session is None:
+        raise HTTPException(403, "this demo needs cookies to keep your edits apart from others'")
 
 
 class EditBody(BaseModel):
     op: str
     object_id: str | None = None
     args: dict[str, float] = {}
-    instruction: str | None = None
+    instruction: str | None = Field(default=None, max_length=500)
+
+
+_Coordinate = Annotated[float, Field(allow_inf_nan=False)]
+
+
+class Camera(BaseModel):
+    """The viewer's pose. Typed, since it goes into every paid prompt."""
+
+    eye: tuple[_Coordinate, _Coordinate, _Coordinate]
+    forward: tuple[_Coordinate, _Coordinate, _Coordinate]
 
 
 class CommandBody(BaseModel):
     text: str
-    camera: dict[str, Any] | None = None  # {"eye": [x, y, z], "forward": [x, y, z]}
+    camera: Camera | None = None
     verify: bool = True
 
 
-app = FastAPI(title="Movable Reality scene server")
+# No API browser on the public deployment.
+_docs = {"docs_url": None, "redoc_url": None, "openapi_url": None} if HOSTED else {}
+app = FastAPI(title="Movable Reality scene server", **_docs)
+
+
+class BodyLimit:
+    """Hosted mode: end a request whose body passes the limit, also without a Content-Length."""
+
+    def __init__(self, inner) -> None:
+        self.inner = inner
+
+    async def __call__(self, scope, receive, send) -> None:
+        if not HOSTED or scope["type"] != "http":
+            return await self.inner(scope, receive, send)
+        seen = 0
+
+        async def limited():
+            nonlocal seen
+            message = await receive()
+            seen += len(message.get("body", b""))
+            return {"type": "http.disconnect"} if seen > MAX_BODY_BYTES else message
+
+        await self.inner(scope, limited, send)
+
+
+app.add_middleware(BodyLimit)
 
 
 @app.middleware("http")
 async def session_cookie(request: Request, call_next):
-    """Hosted mode: give every visitor a session cookie on their first request."""
+    """Hosted mode: a session cookie on the first request, a body limit, security headers."""
+    if HOSTED and int(request.headers.get("content-length") or 0) > MAX_BODY_BYTES:
+        return JSONResponse({"detail": "request too large"}, status_code=413)
     response = await call_next(request)
-    if HOSTED and not _session(request.cookies):
-        response.set_cookie(COOKIE, secrets.token_hex(16), httponly=True, samesite="lax",
-                            max_age=7 * 24 * 3600)  # fmt: skip
+    if HOSTED:
+        https = "https" in (request.url.scheme, request.headers.get("x-forwarded-proto"))
+        if not _session(request.cookies):
+            response.set_cookie(COOKIE, secrets.token_hex(16), httponly=True, samesite="lax",
+                                secure=https, max_age=7 * 24 * 3600)  # fmt: skip
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "SAMEORIGIN"
+        response.headers["Referrer-Policy"] = "same-origin"
+        if https:
+            response.headers["Strict-Transport-Security"] = "max-age=31536000"
     return response
 
 
@@ -202,8 +295,13 @@ async def scene_json(scene_id: str, request: Request):
 @app.post("/api/scenes/{scene_id}/edit")
 async def edit(scene_id: str, body: EditBody, request: Request) -> dict[str, Any]:
     h = hub(scene_id, _session(request.cookies))
+    _writable(h)
+    if not all(math.isfinite(v) and abs(v) <= MAX_EDIT_VALUE for v in body.args.values()):
+        raise HTTPException(400, f"edit values must be numbers up to {MAX_EDIT_VALUE:.0f}")
     async with h.lock:
         scene = h.load()
+        if HOSTED and len(scene.history) >= MAX_HISTORY:
+            raise HTTPException(429, "this visitor's scene has too many edits")
         try:
             scene.apply_edit(body.op, body.object_id, body.args, body.instruction)
         except (KeyError, ValueError) as exc:
@@ -233,8 +331,11 @@ async def _command(h: SceneHub, text: str, camera: dict | None, verify: bool) ->
         except Exception as exc:  # noqa: BLE001 - report API failures to the command bar
             # tool steps were pushed live but never saved: show the saved state again
             await h.broadcast({"type": "scene", "scene": h.load().model_dump(mode="json")})
-            await h.broadcast({"type": "agent", "stage": "done", "text": f"error: {exc}"})
-            raise HTTPException(502, f"agent failed: {exc}") from exc
+            # Provider errors can quote request details: the public demo never shows them.
+            detail = "the assistant is unavailable, please try again" if HOSTED else str(exc)
+            print(f"agent failed: {type(exc).__name__}", flush=True)
+            await h.broadcast({"type": "agent", "stage": "done", "text": f"error: {detail}"})
+            raise HTTPException(502, f"agent failed: {detail}") from exc
         h.save(live)
         if any(st["tool"] == "insert_object" for st in res.steps):
             h.bounds_loaded = False  # new splats may change the room box
@@ -264,9 +365,11 @@ def _inserter(h: SceneHub):
 async def command(scene_id: str, body: CommandBody, request: Request) -> dict[str, Any]:
     session = _session(request.cookies)
     h = hub(scene_id, session)
+    _writable(h)
     h.load()  # 404 before charging for an unknown scene
-    _charge(session)
-    return await _command(h, body.text[:500], body.camera, body.verify)
+    _charge(session, _address(request))
+    camera = body.camera.model_dump() if body.camera else None
+    return await _command(h, body.text[:500], camera, body.verify)
 
 
 @app.post("/api/scenes/{scene_id}/voice")
@@ -275,6 +378,12 @@ async def voice(
 ) -> dict[str, Any]:
     session = _session(request.cookies)
     h = hub(scene_id, session)
+    _writable(h)
+    h.load()  # 404 before charging for an unknown scene
+    try:
+        cam = Camera.model_validate_json(camera).model_dump() if camera else None
+    except ValidationError as exc:
+        raise HTTPException(400, "bad camera") from exc
     data = await audio.read()
     if HOSTED:
         try:
@@ -282,7 +391,7 @@ async def voice(
                 raise HTTPException(400, f"voice commands are limited to {MAX_VOICE_S:.0f} s")
         except ValueError as exc:
             raise HTTPException(400, str(exc)) from exc
-    _charge(session)
+    _charge(session, _address(request))
     await h.broadcast({"type": "agent", "stage": "transcript", "text": "transcribing"})
     try:
         text = (await transcribe(data)).strip()
@@ -291,16 +400,26 @@ async def voice(
     await h.broadcast({"type": "agent", "stage": "transcript", "text": text})
     if not text:
         return {"transcript": "", "reply": "I did not catch that.", "steps": [], "verified": None}
-    cam = json.loads(camera) if camera else None
     out = await _command(h, text, cam, True)
     return {"transcript": text, **out}
 
 
 @app.websocket("/ws/scenes/{scene_id}")
 async def scene_socket(ws: WebSocket, scene_id: str) -> None:
-    h = hub(scene_id, _session(ws.cookies))
+    address = _address(ws)
+    session = _session(ws.cookies)
+    full = (
+        (session is None and HOSTED)
+        or sum(_address_sockets.values()) >= MAX_SOCKETS
+        or _address_sockets.get(address, 0) >= MAX_ADDRESS_SOCKETS
+    )
+    if HOSTED and full:
+        await ws.close(code=1008)
+        return
+    h = hub(scene_id, session)
     await ws.accept()
     h.sockets.add(ws)
+    _address_sockets[address] = _address_sockets.get(address, 0) + 1
     try:
         try:
             await ws.send_json({"type": "scene", "scene": h.load().model_dump(mode="json")})
@@ -311,11 +430,16 @@ async def scene_socket(ws: WebSocket, scene_id: str) -> None:
             if msg.get("type") == "capture":
                 fut = h.captures.get(int(msg.get("id", -1)))
                 if fut and not fut.done():
-                    fut.set_result(msg.get("jpeg"))
+                    jpeg = msg.get("jpeg")  # goes to the verifier: never a URL to fetch
+                    ok = isinstance(jpeg, str) and jpeg.startswith("data:image/jpeg;base64,")
+                    fut.set_result(jpeg if ok else None)
     except WebSocketDisconnect:
         pass
     finally:
         h.sockets.discard(ws)
+        _address_sockets[address] -= 1
+        if not _address_sockets[address]:
+            del _address_sockets[address]
 
 
 def _mount_static() -> None:
