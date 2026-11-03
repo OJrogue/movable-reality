@@ -1585,3 +1585,38 @@ verifier. Each fix below came from a command that went wrong:
   insert. The living room was rebuilding in another session, so it was only checked for the
   bounds fix. The demo manifests were restored after each test.
 - Next: test voice and the living room once its pipeline run is done.
+
+## 3 Nov (night), core + ui: blender07 object merge, ceiling height, move and rotate gizmo
+
+- OJ on the top-up result: too much smearing, the chair's cushion stays behind on a move,
+  the plants are badly split, the object changes look on a move, and no real rotate or
+  move tool.
+- Merge (`objtrain.merge_duplicates`): the box test hid anything standing inside a larger
+  box (14 objects: books, statue, soundbar, two sofa cushions) and missed real copies. It
+  now counts the smaller object's splats within 1 cm of the larger's: 30% or more is a
+  copy. blender07: armchair cushion 68%, plant pieces 31-52%, books at most 8%. `install`
+  decides, in world metres, joins an absorbed copy's own splats into the kept object, and
+  shows objects an earlier merge hid. 5 copies merged (the armchair cushion, 3 pieces of
+  the tall plant, the statue into the photo frame: one SAM track covered both), 33 objects
+  left. Not retrained; the LOD trees and the bake were rebuilt.
+- `?pristine=1` brought pipeline-hidden copies back; it now restores only a user's removals.
+  Viewer evals that use it were counting the copies.
+- Ceiling: `run_pipeline.py --ceiling-height` never reached `room_shell.py`, whose estimate
+  said 3.01 m (99th percentile) for a 2.7 m room. The scan's ceiling splats (densest at
+  2.65-2.70 m) hung 30 cm below the quad, too far for `room_surfaces.py` to remove. With
+  `--height 2.7` background splats above 2.6 m went from 21,890 to 714.
+- Viewer: moving an object no longer swaps it to its SAM 3D splats (`shownPly`); the
+  completed style still shows them.
+- Gizmo (`web/src/ui/gizmo.ts`, three.js TransformControls): arrows and plane squares move,
+  a ring turns about +Y, T or the buttons switch, Shift snaps 10 cm or 15 deg. Edits go
+  through the existing `move` and `rotate` ops, so undo works. Simulated drags in the
+  viewer sent `move dx 0.631` and `rotate -91.2`, and the handles draw on screen. Mouse by
+  hand, touch and XR not checked.
+- The filming guide had no phases for the top-up walk, which broke
+  `test_capture_guide_phases_match_the_walks`; added.
+- Still wrong in blender07, seen in the viewer: the pendant is not in the inventory and stays
+  a smeared mass in the background; haze around the pouf and the plant in the near corner;
+  dark smears round the coffee table base; the rug is no object and shows as patches on the
+  floor shell. PSNR not rerun: these steps change what the viewer draws, not the trained scene
+  the 28.4 dB came from.
+- Next: pendant and rug as inventory objects, then the haze. The help panel does not list T yet.
