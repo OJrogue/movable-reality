@@ -1420,3 +1420,55 @@ test-walk metrics, `sfm.json`, GT pose ATE). Every row predates the lighting cha
 - The old run is kept as `data/scenes/blender07_v1` (200 frames, ATE median 2.0 mm), with
   its videos as `data/raw/blender07_v1*.mp4`.
 - Next: pipeline results on the new video, compared with v1.
+
+## 3 Nov (day), ui: landing page, three-scene demo, viewer chrome
+
+- No Apple HIG or Material 3 skill exists in the skill catalog, so both guidelines were
+  applied by hand: M3 dark colour roles, tonal buttons, menus, switches and state layers;
+  HIG translucent materials, system type, 44 px targets, a pause control for the moving
+  background and reduced-motion support.
+- `/` is now a landing page (`web/src/landing/`, loaded by `web/src/entry.ts`; three.js
+  and Spark are only loaded for the viewer). A showcase video plays behind the hero,
+  "Open the demo" offers the three rooms, and the page explains what the project does,
+  the six pipeline stages with the Meta model each calls, and the model list. Every
+  viewer URL (`?scene=`, `?ply=`, `?bench=`) still opens the viewer.
+- Demo rooms in `web/src/landing/scenes.ts`: living room (`blender07`), bedroom
+  (`blender06`), real room (`room01`, shown as "Coming soon" until it has a scene.json).
+  Cards read `/__scenes` on the dev server ("Updating" while a stage is running) and
+  fall back to HEAD on `scene.json` on a static host.
+- Viewer chrome (`web/src/ui/chrome.ts`): a top bar with back to the start page, a room
+  switcher, Enter VR (Spark's button, restyled, no longer the large default box), help and
+  a settings menu (coverage gaps, generated splats, object style, developer info).
+  A loading card stays up until the background splats have loaded, and tells you when a
+  room is still being processed.
+- Developer info is hidden by default: the HUD (also in XR), the save-log button, the
+  detail slider and the object style label carry the class `mr-debug`. The settings
+  menu's last switch or the ` key shows them, and the choice is remembered. `?debug=1|0`,
+  and `?bench=1` or `?hud=1` start with it on, so benchmark runs are unchanged.
+- Command bar: friendlier offline text ("Agent offline"; the server command goes to the
+  console), SVG microphone, a status dot only on phones. The onboarding sample commands
+  now name objects of the open room.
+- Placeholder media: `showcase.mp4` is 23 s cut from the blender07 and blender06 walk
+  renders (gitignored like every mp4); swap in a screen recording of the viewer for the
+  final page. Card images are capture frames.
+- Checked in the browser pane at desktop size and 375 x 812: landing, dialog, viewer load,
+  menus and the developer-info switch; no horizontal scroll on the phone. `npm test`
+  (189) and `npm run build` pass. Not checked on a headset or a real phone.
+- Next: a real showcase recording, `room01` once filmed, and its card image.
+- Pipeline on the 122 s walk: 171 min end to end after two SAM reruns.
+  - 488 frames, all registered. MapAnything held on the L40S.
+  - Pose ATE median 3.3 mm, max 36 mm (v1: 2.0 and 62 mm).
+  - Test-walk novel views: PSNR 26.1 dB mean, 26.7 median, SSIM 0.914, LPIPS 0.168 (90 views).
+  - The weakest views (17-19 dB) all look into the north-west corner from mid-room: the west
+    window's curtain and radiator, and the north end of the media console. The main walk only
+    sees that corner from close by.
+  - 32 objects. The bookshelf is one object now (v1 split it); the floor lamp and the TV are
+    missing.
+- SAM: the Meta API dropped the bookshelf stream four times on the 490-frame clip, and the
+  floor stream twice. `lift_ids.py` now asks for one frame in three after two drops and
+  records the noun in `ids/sam_sparse.json`, so reruns and the vote use the same frames. The
+  wall stream failed even on the sparse clip; the run went on without wall masks, as the code
+  allows.
+- Next: cover the north-west corner (a top-up video from mid-room through
+  `coverage_topup.py`, or new keys in the main walk), and find out why the lift dropped the
+  floor lamp and the TV.

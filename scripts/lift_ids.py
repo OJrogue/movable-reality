@@ -116,7 +116,7 @@ async def segment_all(video, nouns: list[str]):
                     # Two drops on the full clip: a large object (blender07's bookshelf on 490
                     # frames, 3 Nov) streams too long. Ask on every SPARSE_STEP-th frame instead.
                     sparse = True
-                    print(f"  SAM '{noun}': falling back to every {SPARSE_STEP}th frame")
+                    print(f"  SAM '{noun}': falling back to one frame in {SPARSE_STEP}")
                     done = json.loads(fallback.read_text()) if fallback.exists() else []
                     fallback.parent.mkdir(parents=True, exist_ok=True)
                     fallback.write_text(json.dumps(sorted({*done, noun.lower()})))
