@@ -51,6 +51,7 @@ from movable_reality.roomshell import (
     surfaces,
 )
 from movable_reality.scene import Scene
+from movable_reality.splat_ops import read_vertices, tame_splats, write_vertices
 
 OUT = SURFACES_PLY
 SH_C0 = 0.28209479177387814
@@ -179,6 +180,9 @@ def main() -> int:
                  surfaces_removed=int((~keep).sum()), surfaces_kept=int(n))  # fmt: skip
     shell_path.write_text(json.dumps(shell, indent=2))
     gaussians.write_subset(root / OUT, ply, keep)  # after shell.json: run_pipeline.py mtimes
+    # What stays, a pendant lamp or a door frame, gets the objects' limits on smears and hairs.
+    world_per_unit = float(np.linalg.norm(np.asarray(scene.world_from_recon)[:3, 0]))
+    write_vertices(root / OUT, tame_splats(read_vertices(root / OUT), world_per_unit))
     scene.background_ply = OUT
     scene.background_lod = None  # its .RAD tree holds the removed splats; build_lod.py rebuilds
     scene.save(root / "scene.json")

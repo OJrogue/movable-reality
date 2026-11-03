@@ -1009,7 +1009,17 @@ KEYS7_TEST = [
 ]
 
 
-WALKS7 = {"main": 122.0, "test": 30.0}
+# Top-up (C2 recapture): the main walk sees the north-west corner (west window's curtain and
+# radiator, north end of the media console) only from close by, and the test walk's views into
+# it from mid-room scored 17-19 dB (3 Nov). 10 s from the sofa end across the room towards it.
+KEYS7_TOPUP = [
+    (0.0, (1.45, 1.0, 1.55), (-2.5, 2.1, 1.3)),
+    (2.5, (0.8, 1.25, 1.5), (-2.6, 1.6, 1.0)),
+    (5.0, (0.05, 1.05, 1.4), (-2.6, 0.9, 0.6)),
+    (7.5, (-0.2, 0.35, 1.3), (-2.3, 2.3, 1.4)),
+    (10.0, (-0.9, 0.2, 1.6), (-2.2, 2.3, 1.0)),
+]
+WALKS7 = {"main": 122.0, "test": 30.0, "topup": 10.0}
 # Blender (x0, y0, x1, y1, top z) of everything the walks must keep clear of, each the GT
 # bbox of the last build (with what stands on it) plus 2 cm, for tests/test_blender_living.py.
 LIVING_OBSTACLES = {
@@ -1122,8 +1132,9 @@ SCENES = {
         "eye_target": {
             "main": _make_key_walk(KEYS7_MAIN),
             "test": _make_key_walk(KEYS7_TEST),
+            "topup": _make_key_walk(KEYS7_TOPUP),
         },  # fmt: skip
-        "seeds": {"main": 59, "test": 61},
+        "seeds": {"main": 59, "test": 61, "topup": 67},
         "panels": [],
     },
 }
@@ -1934,7 +1945,7 @@ def convert_gt(out: Path, gt: Path, walk: str, keep_exr: bool) -> int:
 
 
 def encode(out: Path, walk: str) -> Path:
-    mp4 = out.parent / (out.name + ("" if walk == "main" else "_test") + ".mp4")
+    mp4 = out.parent / (out.name + ("" if walk == "main" else f"_{walk}") + ".mp4")
     noise = "noise=c0s=6:c0f=t+u:c1s=3:c1f=t+u:c2s=3:c2f=t+u"
     subprocess.run(
         ["ffmpeg", "-v", "error", "-y", "-framerate", str(FPS),

@@ -193,6 +193,12 @@ PHASES_07 = {
          ["30 s the other way round at 1.2 to 1.7 m, looking between the",
           "views of the main tour. Film it right after, same light."]),
     ],
+    "topup": [
+        (0.0, 10.0, "Top-up into the north-west corner (coverage_topup.py)",
+         ["10 s from mid-room towards the west window and the console end,",
+          "phone at 1.3 to 1.6 m, tilted down and back up: the curtain, the",
+          "radiator and the console's end, the corner the tour saw close up."]),
+    ],
 }  # fmt: skip
 PHASES = {"blender01": PHASES_01, "blender02": PHASES_02, "blender03": PHASES_03,
           "blender04": PHASES_04, "blender05": PHASES_01, "blender06": PHASES_06,

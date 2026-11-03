@@ -52,6 +52,7 @@ from movable_reality.lift import (
     ceiling_from_histogram,
     ceiling_scale,
     floor_alignment,
+    group_with_nearest,
     label_image,
     largest_cluster,
     scaled,
@@ -157,6 +158,12 @@ def main() -> int:
         "--no-auto-scale", action="store_true", help="no scale from typical object heights"
     )
     ap.add_argument("--reuse-votes", action="store_true", help="skip SAM and the vote")
+    ap.add_argument(
+        "--group",
+        default="",
+        help="parent=child,child: each child noun joins its nearest parent object, "
+        "e.g. 'table=banquet chair,wooden chair'",
+    )
     ap.add_argument("--sam-only", action="store_true", help="only fill the SAM cache, then exit")
     ap.add_argument(
         "--skip",
@@ -324,6 +331,20 @@ def finish(args, root, p, names, ids, cams, xyz) -> None:
         ids, merged = support(world, ids, [k for k in objects if (ids == k).sum()], p)
     for child, parent in merged.items():
         print(f"  {names[child]} rests on {names[parent]}: merged")
+    if args.group:
+        parent_noun, _, child_nouns = args.group.partition("=")
+        wanted = {n.strip().lower() for n in child_nouns.split(",")}
+        alive = [k for k in objects if (ids == k).sum()]
+        ids, grouped = group_with_nearest(
+            world,
+            ids,
+            [k for k in alive if noun_of[k].lower() in wanted],
+            [k for k in alive if noun_of[k].lower() == parent_noun.strip().lower()],
+        )
+        for child, parent in grouped.items():
+            print(f"  {names[child]} goes with {names[parent]}: merged")
+        # Items that rested on a child now belong to the child's parent.
+        merged = {c: grouped.get(par, par) for c, par in merged.items()} | grouped
     np.save(root / "ids" / "gaussian_ids.npy", ids)
     (root / "ids" / "labels.json").write_text(
         json.dumps({str(k): v for k, v in names.items()}, indent=2)

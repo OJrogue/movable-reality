@@ -43,29 +43,18 @@ describe("shownPly", () => {
   const t = (translation: Vec3, yaw_deg = 0, scale = 1) => ({ translation, yaw_deg, scale });
   const done = "objects/chair_1_completed.ply";
 
-  it("shows the scan until the object is edited", () => {
+  it("keeps the scan after a move, rotation or scale", () => {
     expect(shownPly(obj)).toBe("objects/chair_1.ply");
-    expect(shownPly({ ...obj, transform: t([0, 0, 0], 360) })).toBe("objects/chair_1.ply");
+    expect(shownPly({ ...obj, transform: t([0.5, 0, 0]) })).toBe("objects/chair_1.ply");
+    expect(shownPly({ ...obj, transform: t([0, 0, 0], 90) })).toBe("objects/chair_1.ply");
+    expect(shownPly({ ...obj, transform: t([0, 0, 0], 0, 1.2) })).toBe("objects/chair_1.ply");
+    expect(shownPly({ ...obj, transform: t([0.5, 0, 0]) }, "mesh")).toBe("objects/chair_1.ply");
   });
 
-  it("swaps to the completed PLY after a move, rotation or scale", () => {
-    expect(shownPly({ ...obj, transform: t([0.5, 0, 0]) })).toBe(done);
-    expect(shownPly({ ...obj, transform: t([0, 0, 0], 90) })).toBe(done);
-    expect(shownPly({ ...obj, transform: t([0, 0, 0], 0, 1.2) })).toBe(done);
-  });
-
-  it("shows the completed PLY unedited in the completed style", () => {
+  it("shows the completed PLY in the completed style only", () => {
     expect(shownPly(obj, "completed")).toBe(done);
     expect(shownPly({ ...obj, completed_ply: null }, "completed")).toBe("objects/chair_1.ply");
-    expect(shownPly(obj, "mesh")).toBe("objects/chair_1.ply"); // splat fallback of the mesh style
-    const moved = { ...obj, transform: t([0.5, 0, 0]) };
-    expect(shownPly(moved, "scan")).toBe("objects/chair_1.ply"); // scan pins the scan
-    expect(shownPly(moved, "mesh")).toBe(done);
-  });
-
-  it("keeps the scan when there is no completed version", () => {
-    const o = { ...obj, completed_ply: null, transform: t([1, 0, 0]) };
-    expect(shownPly(o)).toBe("objects/chair_1.ply");
+    expect(shownPly({ ...obj, transform: t([0.5, 0, 0]) }, "scan")).toBe("objects/chair_1.ply");
   });
 
   it("treats float noise as no edit", () => {

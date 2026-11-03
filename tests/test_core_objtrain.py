@@ -13,8 +13,10 @@ from movable_reality.splat_ops import read_vertices
 
 
 def _ply(path, xyz):
-    v = np.zeros(len(xyz), dtype=[(f, "f4") for f in ("x", "y", "z", "opacity")])
+    names = ("x", "y", "z", "opacity", "scale_0", "scale_1", "scale_2")
+    v = np.zeros(len(xyz), dtype=[(f, "f4") for f in names])
     v["x"], v["y"], v["z"] = np.asarray(xyz, float).T
+    v["scale_0"] = v["scale_1"] = v["scale_2"] = np.log(0.01)
     write_vertices(path, v)
 
 
@@ -56,20 +58,70 @@ def test_fold_labels_adds_a_lost_sam_id_to_the_only_object_of_its_noun():
     assert folded == {"coffee table#0": [7]}
 
 
-def test_merge_duplicates_joins_one_thing_under_two_nouns():
+def _surface(rng, centre, size, n, noise=0.002):
+    """Points on the faces of a box: what a trained object's splat centres look like."""
+    p = rng.uniform(-0.5, 0.5, (n, 3))
+    axis = rng.integers(0, 3, n)
+    p[np.arange(n), axis] = np.sign(p[np.arange(n), axis]) * 0.5
+    return p * size + centre + rng.normal(0, noise, (n, 3))
+
+
+def test_merge_duplicates_joins_copies_and_chains_to_the_largest():
     from movable_reality.objtrain import merge_duplicates
 
     rng = np.random.default_rng(0)
+    sofa = _surface(rng, (0, 0.4, 0), (2.0, 0.8, 0.9), 20000)
+    plant = _surface(rng, (3, 0.7, 0), (0.6, 1.4, 0.6), 12000)
+    xyz = {
+        "sofa#1": sofa,
+        "armchair#0": sofa[rng.choice(len(sofa), 4000)] + rng.normal(0, 0.002, (4000, 3)),
+        "plant#1": plant,
+        # a re-acquired track: the upper half of the plant again, plus its own leaves
+        "plant#7": np.concatenate([plant[plant[:, 1] > 0.7][:4000], plant[:1000] + (0, 0, 0.3)]),
+        "table#0": _surface(rng, (6, 0.3, 0), (1.0, 0.6, 1.0), 5000),
+    }
+    xyz["plant#5"] = xyz["plant#7"][:3000] + rng.normal(0, 0.002, (3000, 3))
+    assert merge_duplicates(xyz) == {"armchair#0": "sofa#1", "plant#7": "plant#1",
+                                     "plant#5": "plant#1"}  # fmt: skip
 
-    def cloud(centre, n):
-        v = np.zeros(n, dtype=[(f, "f4") for f in ("x", "y", "z")])
-        xyz = rng.uniform(-0.4, 0.4, (n, 3)) + centre
-        v["x"], v["y"], v["z"] = xyz.T
-        return v
 
-    verts = {"sofa#1": cloud((0, 0, 0), 900), "armchair#0": cloud((0.05, 0, 0), 300),
-             "table#0": cloud((2, 0, 0), 500)}  # fmt: skip
-    assert merge_duplicates(verts) == {"armchair#0": "sofa#1"}
+def test_merge_duplicates_keeps_items_that_sit_inside_another_object():
+    from movable_reality.objtrain import merge_duplicates
+
+    rng = np.random.default_rng(1)
+    shelf = _surface(rng, (0, 1.0, 0), (0.4, 2.0, 1.2), 30000)
+    books = _surface(rng, (0, 1.2, 0.1), (0.25, 0.25, 0.4), 3000)  # on a shelf board
+    assert merge_duplicates({"bookshelf#1": shelf, "book#9": books}) == {}
+
+
+def test_install_joins_a_copy_and_shows_objects_an_old_merge_hid(tmp_path):
+    rng = np.random.default_rng(2)
+    plant = _surface(rng, (0, 0.7, 0), (0.6, 1.4, 0.6), 4000)
+    extra = plant[:500] + (0, 0, 0.3)  # leaves only the second track saw
+    copy = np.concatenate([plant[:2000], extra])
+    shelf = _surface(rng, (3, 1.0, 0), (0.4, 2.0, 1.2), 8000)
+    book = _surface(rng, (3, 1.2, 0.1), (0.25, 0.25, 0.4), 800)
+    objs = []
+    for oid, pts in (("plant#1", plant), ("plant#7", copy), ("bookshelf#1", shelf),
+                     ("book#9", book)):  # fmt: skip
+        name = f"obj_{oid.replace('#', '_')}.ply"
+        _ply(tmp_path / "objects" / name, pts[:10])
+        _ply(tmp_path / "objects_trained" / name, pts)
+        objs.append(SceneObject(id=oid, label=oid.split("#")[0], ply=f"objects/{name}",
+                                bbox_min=(0, 0, 0), bbox_max=(1, 1, 1),
+                                visible=oid != "book#9"))  # fmt: skip
+    Scene(scene_id="t", world_from_recon=np.eye(4).tolist(), objects=objs).save(
+        tmp_path / "scene.json"
+    )
+
+    counts = install(tmp_path)
+
+    shown = {
+        o["id"]: o["visible"] for o in json.loads((tmp_path / "scene.json").read_text())["objects"]
+    }
+    assert shown == {"plant#1": True, "plant#7": False, "bookshelf#1": True, "book#9": True}
+    # its own leaves joined (some land on the plant's surface), the copied half not
+    assert 4000 + 300 <= counts["plant#1"] <= 4000 + 500
 
 
 def test_high_needles_drops_only_long_thin_splats_above_the_cameras():
@@ -83,3 +135,22 @@ def test_high_needles_drops_only_long_thin_splats_above_the_cameras():
         v[n] = s[:, i]
     # needle up high, round splat up high, needle at camera height, wide flat splat up high
     assert high_needles(v, np.eye(4), cam_top=1.5).tolist() == [True, False, False, False]
+
+
+def test_tame_splats_drops_haze_and_shortens_needles():
+    from movable_reality.splat_ops import tame_splats
+
+    names = ["x", "y", "z", "scale_0", "scale_1", "scale_2"]
+    v = np.zeros(4, dtype=[(n, "f4") for n in names])
+    v["x"] = [0, 1, 2, 3]
+    s = np.array([[0.02, 0.02, 0.005], [0.40, 0.30, 0.20], [0.20, 0.01, 0.01], [0.10, 0.10, 0.01]])
+    for i, n in enumerate(["scale_0", "scale_1", "scale_2"]):
+        v[n] = np.log(s[:, i] / 2.0)  # two metres per recon unit
+
+    out = tame_splats(v, world_per_unit=2.0, drop_sigma=0.3)
+
+    assert out["x"].tolist() == [0, 2, 3]  # the 40 cm haze splat is gone
+    got = np.exp(np.stack([out[f"scale_{i}"] for i in range(3)], 1)) * 2.0
+    np.testing.assert_allclose(got[0], [0.02, 0.02, 0.005], rtol=1e-5)  # a normal splat stays
+    np.testing.assert_allclose(got[1], [0.03, 0.01, 0.01], rtol=1e-5)  # needle: 3 x middle
+    np.testing.assert_allclose(got[2], [0.08, 0.08, 0.01], rtol=1e-5)  # flat, capped at 8 cm

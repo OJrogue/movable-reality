@@ -22,8 +22,9 @@ export interface SceneObject {
   bbox_max: Vec3;
   transform: Transform;
   visible: boolean;
-  source: "scan" | "generated";
+  source: "scan" | "generated" | "library";
   prompt: string | null;
+  library_id?: string | null; // premade mesh (library/index.ts); such an object has no PLY
 }
 
 // ---- lane: bake (owned by the bake lane, see AGENTS.md)
@@ -128,8 +129,8 @@ export function isEdited(t: Transform): boolean {
 
 /**
  * How objects are drawn, for comparing the variants (?objects=, key V):
- * - auto (default): the scanned splats, swapped for the completed ones once the object is
- *   edited;
+ * - auto (default): the scanned splats; moving an object never changes how it is drawn
+ *   (OJ, 3 Nov: the swap to SAM 3D splats on a move looked like the object changing);
  * - scan: the scanned splats always, edited or not;
  * - completed: SAM 3D Objects' completed splats wherever they exist, edited or not;
  * - mesh: SAM 3D Objects' vertex-coloured mesh (objects/index.ts), auto's splats where an
@@ -141,21 +142,17 @@ export type ObjectStyle = "auto" | "scan" | "completed" | "mesh" | "meshonly";
 export const OBJECT_STYLES: readonly ObjectStyle[] = ["auto", "scan", "completed", "mesh", "meshonly"];
 
 /**
- * The PLY an object shows. By default (auto) that is its completed version (SAM 3D Objects
- * fills the unseen back) once it has been edited, since only then can the viewer see the
- * missing side, and the scan otherwise. An undo back to the identity transform returns to
- * the scan. The scan and completed styles pin one variant for comparison.
+ * The PLY an object shows: its completed version (SAM 3D Objects fills the unseen back) in
+ * the completed style, the scan otherwise. An edit does not change it.
  */
 export function shownPly(o: SceneObject, style: ObjectStyle = "auto"): string {
-  if (style === "scan") return o.ply;
-  if (style === "completed" && o.completed_ply) return o.completed_ply;
-  return o.completed_ply && isEdited(o.transform) ? o.completed_ply : o.ply;
+  return style === "completed" && o.completed_ply ? o.completed_ply : o.ply;
 }
 
 export interface ObjectNode {
   pivot: THREE.Group; // world position of the bbox centre, carries the edit
-  mesh: SplatMesh;
-  ply: string; // the PLY `mesh` shows: obj.ply, or obj.completed_ply after an edit
+  mesh?: SplatMesh; // none for a library object, which library/index.ts draws as a mesh
+  ply: string; // the PLY `mesh` shows: obj.ply, or obj.completed_ply in the completed style
 }
 
 /** Show or hide a splat mesh through its recon group (Spark skips hidden subtrees). */
@@ -255,14 +252,14 @@ export class SceneView {
   }
 
   /**
-   * Show the variant `shownPly(obj)` asks for (scan to completed after an edit, back on
-   * undo). Each variant is created once and then kept hidden when unused, so swapping back
+   * Show the variant `shownPly(obj)` asks for (scan or completed, by the object style). Each variant is created once and then kept hidden when unused, so swapping back
    * is instant and Spark keeps at most two LOD trees per object (D7 keeps hidden trees in
    * memory, so a disposed mesh would leave its tree behind in the worker). The previous
    * variant stays drawn until the new one has loaded, so the object never blinks out. A
    * variant that fails to load is remembered and the scan is shown in its place.
    */
   private swap(node: ObjectNode, obj: SceneObject, worldFromRecon: THREE.Matrix4, m: SceneManifest): void {
+    if (!obj.ply) return; // a library object: no splats
     const variants = this.variants.get(obj.id)!;
     node.ply = shownPly(obj, this.style);
     // A completed PLY that failed to load falls back to the scan.

@@ -109,6 +109,77 @@ export function applyEdit(m: SceneManifest, req: EditRequest, now = new Date()):
   return out;
 }
 
+/** An object's world box after its edit, as Scene.world_aabb gives it. */
+function worldBox(o: SceneObject): [Vec3, Vec3] {
+  const c = bboxCenter(o);
+  const { translation: t, scale, yaw_deg } = o.transform;
+  const half = (i: number) => ((o.bbox_max[i] - o.bbox_min[i]) / 2) * scale;
+  const yaw = (yaw_deg * Math.PI) / 180;
+  const [cos, sin] = [Math.abs(Math.cos(yaw)), Math.abs(Math.sin(yaw))];
+  const e: Vec3 = [cos * half(0) + sin * half(2), half(1), sin * half(0) + cos * half(2)];
+  return [
+    [c[0] + t[0] - e[0], c[1] + t[1] - e[1], c[2] + t[2] - e[2]],
+    [c[0] + t[0] + e[0], c[1] + t[1] + e[1], c[2] + t[2] + e[2]],
+  ];
+}
+
+/** library.inside: v moved so that v +- half stays inside lo..hi (centred when it cannot). */
+function inside(v: number, lo: number, hi: number, half: number): number {
+  return lo + half > hi - half ? (lo + hi) / 2 : Math.min(Math.max(v, lo + half), hi - half);
+}
+
+export interface LibraryPlacement {
+  x: number;
+  z: number;
+  yaw_deg: number;
+  on_object_id?: string | null;
+}
+
+/** Mirror of library.add_to_scene and Scene.add_library_object. Returns a copy of the manifest. */
+export function addLibraryObject(
+  m: SceneManifest,
+  item: { id: string; label: string; size: Vec3 },
+  at: LibraryPlacement,
+  now = new Date(),
+): SceneManifest {
+  const out = structuredClone(m);
+  const used = out.objects.filter((o) => o.id.startsWith("lib#")).map((o) => Number(o.id.slice(4)));
+  const id = `lib#${Math.max(0, ...used) + 1}`;
+  const [w, h, d] = item.size;
+  let { x, z } = at;
+  let y = 0;
+  if (at.on_object_id) {
+    const [mn, mx] = worldBox(find(out, at.on_object_id));
+    const yaw = (at.yaw_deg * Math.PI) / 180;
+    const [cos, sin] = [Math.abs(Math.cos(yaw)), Math.abs(Math.sin(yaw))];
+    x = inside(x, mn[0], mx[0], (cos * w + sin * d) / 2);
+    z = inside(z, mn[2], mx[2], (sin * w + cos * d) / 2);
+    y = mx[1];
+  }
+  out.objects.push({
+    id,
+    label: item.label,
+    ply: "",
+    completed_ply: null,
+    bbox_min: [x - w / 2, y, z - d / 2],
+    bbox_max: [x + w / 2, y + h, z + d / 2],
+    transform: { translation: [0, 0, 0], yaw_deg: mod360(at.yaw_deg), scale: 1 },
+    visible: true,
+    source: "library",
+    prompt: null,
+    library_id: item.id,
+  });
+  (out.history as HistoryEntry[]).push({
+    ts: isoSeconds(now),
+    op: "insert",
+    object_id: id,
+    args: { library_id: item.id, x, z, y },
+    instruction: null,
+    verified: null,
+  });
+  return out;
+}
+
 function undo(m: SceneManifest, log: (op: string, id: string | null, args: Record<string, unknown>) => void): void {
   const history = m.history as HistoryEntry[];
   const undone = new Set(history.filter((e) => e.op === "undo").map((e) => e.args.index));

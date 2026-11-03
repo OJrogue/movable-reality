@@ -14,6 +14,7 @@ import { installEvalViews } from "./bench/evalViews";
 import { createViewerContext } from "./context";
 import { installCoverage } from "./coverage";
 import { installDevices, installTouch } from "./devices";
+import { installLibrary } from "./library";
 import { installLod } from "./lod";
 import { installObjects } from "./objects";
 import { installPlanes } from "./planes";
@@ -82,6 +83,7 @@ installCoverage(ctx); // lane coverage: gap overlay (?gaps=1, key G, XR squeeze)
 installUi(ctx); // lane ui: desktop editing, command bar, onboarding (?onboarding=0)
 installTouch(ctx); // lane devices: touch look, pan and pinch (after ui, see devices/touch.ts)
 installObjects(ctx); // lane core: scan, completed or mesh objects (?objects=, key V)
+installLibrary(ctx); // lane library: premade meshes added to the scene
 installPerf(ctx); // lane renderer: HUD, frame log, budget controller, bench mode
 // ----------------------------------------------------------
 
@@ -141,9 +143,12 @@ async function fetchManifest(url: string): Promise<{ text: string; manifest: Sce
   const text = await r.text();
   const manifest = JSON.parse(text) as SceneManifest;
   if (pristine) {
+    // Only a user's removal is an edit: the pipeline hides merged copies (objtrain.install).
+    const history = manifest.history as { op: string; object_id: string | null }[];
+    const removed = new Set(history.filter((e) => e.op === "remove").map((e) => e.object_id));
     for (const o of manifest.objects) {
       o.transform = { translation: [0, 0, 0], yaw_deg: 0, scale: 1 };
-      o.visible = o.source !== "generated";
+      o.visible = o.source === "scan" && (o.visible || removed.has(o.id));
     }
   }
   return { text, manifest };

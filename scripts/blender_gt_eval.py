@@ -160,10 +160,13 @@ def closest_frame(target: np.ndarray, candidates: dict[int, np.ndarray]) -> int:
 
 
 def map_frames(scene: Path, n_gt: int, rgb_dir: Path | None, window: int = 2) -> dict[int, int]:
-    """Pipeline frame index -> GT frame index."""
+    """Pipeline frame index -> GT frame index of the capture walk. Frames a top-up video added
+    (coverage_topup.py marks them with `source`) come from another walk and are left out."""
     meta = json.loads((scene / "frames.json").read_text())["frames"]
     out = {}
     for f in meta:
+        if f.get("source"):
+            continue
         guess = gt_index(f["source_time_s"], n_gt)
         if rgb_dir is not None and rgb_dir.is_dir():
             cands = {

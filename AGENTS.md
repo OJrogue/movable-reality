@@ -127,6 +127,7 @@ web/                    Vite + three.js + Spark viewer (desktop and WebXR)
   src/ui/               lane: ui        desktop picking and dragging, command bar, hold-to-talk, onboarding
   src/devices/          lane: devices   device profiles (desktop, mobile, xr), touch controls
   src/objects/          lane: core      object styles (scan, SAM 3D splats, SAM 3D meshes), mesh loading
+  src/library/          lane: core      premade meshes: catalogue, placement, drawing (panel: src/ui/libraryPanel.ts)
   src/scene.ts          core (shared)
 data/                   gitignored: raw videos, scenes, API cache
 benchmarks/             committed: raw frame-time logs (JSON) and result tables
@@ -187,7 +188,7 @@ uv run python scripts/coverage_repair.py --scene room01 --gpu --call   # coverag
 uv run modal run modal_jobs/coverage.py --scene room01 --job distil    # coverage: accepted repairs -> coverage/generated.ply (generated = 1)
 uv run python scripts/coverage_topup.py --scene room01 --video topup.mp4   # coverage: C2 top-up frames, full reconstruct rerun, re-align, rescore (--no-recon)
 # coverage viewer: ?gaps=1 shows the gap overlay, key G or XR squeeze toggles it, ?gapViews=<n> (0 = best view only)
-# coverage viewer: generated splats key T, ?generated=0, window.mrCoverage.toggleGenerated()
+# coverage viewer: generated splats key T (nothing selected; with a selection T switches the gizmo between move and rotate), ?generated=0, window.mrCoverage.toggleGenerated()
 uv run python scripts/blender_assets.py        # blender: CC0 Poly Haven assets -> data/assets/ (docs/ASSETS.md)
 blender -b -P scripts/blender_room.py -- --out data/raw/blender01 --samples 16   # blender: synthetic room, both walks, GT, mp4 (~70 min on the RTX 3060)
 # blender: quick look with --walk test --frames 0:600:100 --stage build,render; Blender 4.5 LTS (winget BlenderFoundation.Blender.LTS.4.5)
@@ -225,6 +226,8 @@ uv run python scripts/insert_object.py --scene m4test "small wooden stool" --x 0
 uv run python scripts/complete_objects.py --scene room01   # core M4: obj_<id>_completed.ply per object (--only <id>, --force)
 uv run python scripts/complete_objects.py --scene room01 --mesh   # core: + obj_<id>_mesh.glb (SAM 3D mesh, vertex colours, 100k faces, --mesh-faces)
 # core viewer: ?objects=auto|scan|completed|mesh|meshonly compares scanned splats, SAM 3D splats and SAM 3D meshes; meshonly also draws the room as a mesh and hides every splat; key V or the label cycles
+uv run python scripts/build_library.py          # core: premade mesh library, data/assets -> data/library/<id>.glb, catalog.json, thumbs/ (--force, --no-thumbs; Blender for thumbnails)
+# core viewer: the top bar's + opens Add (click an item: it stands where you look, selected) and In this room (remove or restore anything); the agent's add_from_library does the same; POST /api/scenes/<id>/library
 uv run python scripts/room_shell.py --scene blender01   # core: room as textured wall, floor and ceiling quads from the frames -> room/shell_*.glb, scene.room_planes (--texel, --height)
 uv run modal run modal_jobs/reconstruct.py --scene blender01 --room-mesh   # core: TSDF room mesh from the background splats -> room/room_mesh.glb (meshonly fallback)
 uv run python scripts/room_surfaces.py --scene blender01   # core: the shell replaces wall, floor and ceiling splats -> objects/background_room.ply (--gap, --revert); then build_lod.py
@@ -254,6 +257,9 @@ change updates both files and their tests in the same commit.
 - Optional sections, each owned by one lane: `SceneObject.lod` and `background_lod`
   (lod), `coverage` (coverage), `planes` (bake). A viewer or stage that finds a section
   missing must fall back to the plain PLY path.
+- Library objects (`source: "library"`, `library_id`, empty `ply`, id `lib#<n>`) are premade
+  meshes without splats, from `src/movable_reality/library.py`; `bbox_*` is their world box and
+  every edit works as for other objects. Code that reads `ply` skips them.
 - Generated splats are flagged per splat (PLY property `generated`, 0 or 1) and counted
   in the manifest, so the viewer can show or hide them and measurements can ignore them.
 

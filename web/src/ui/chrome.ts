@@ -65,6 +65,8 @@ export interface ChromeDeps {
   ctx: ViewerContext;
   onboarding: OnboardingHandle;
   notify(text: string): void;
+  /** Extra buttons at the start of the top bar's right group. */
+  actions?: HTMLElement[];
 }
 
 export interface ChromeHandle {
@@ -248,7 +250,7 @@ export function installChrome(deps: ChromeDeps): ChromeHandle {
   more.type = "button";
   more.title = "View options";
   more.setAttribute("aria-label", "View options");
-  right.append(help, more);
+  right.append(...(deps.actions ?? []), help, more);
   bar.append(left, right);
 
   const scenesMenu = new Menu(
@@ -363,7 +365,7 @@ export function installChrome(deps: ChromeDeps): ChromeHandle {
     // broken (blender06, 3 Nov). Object failures do not hold the card (allSettled).
     const objects = m.objects
       .filter((o) => o.visible)
-      .map((o) => view.objectNode(o.id)?.mesh.initialized)
+      .map((o) => view.objectNode(o.id)?.mesh?.initialized)
       .filter((p) => p !== undefined);
     view.backgroundMesh()?.initialized.then(
       () => void Promise.allSettled(objects).then(finish),

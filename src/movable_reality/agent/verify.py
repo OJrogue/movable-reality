@@ -40,7 +40,10 @@ def edit_focus(scene: Scene, name: str, args: dict) -> tuple[list[float], float]
 
 
 def _edit_focus(scene: Scene, name: str, args: dict) -> tuple[list[float], float] | None:
-    if name == "insert_object":
+    if name == "add_from_library" and args.get("on_object_id"):
+        mn, mx = scene.get(args["on_object_id"]).world_aabb()
+        return [round((a + b) / 2, 3) for a, b in zip(mn, mx, strict=True)], 0.8
+    if name in ("insert_object", "add_from_library"):
         return [float(args["x"]), 0.4, float(args["z"])], 0.8
     entry = _undo_entry(scene) if name == "undo" else None
     oid = entry.object_id if entry else args.get("object_id")

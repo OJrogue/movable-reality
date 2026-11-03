@@ -33,10 +33,12 @@ function send(src: ReadStream, res: ServerResponse): void {
 // For hosting, copy precomputed scenes into web/public/scenes or pass ?base=<url>.
 const SCENES_DIR = fileURLToPath(new URL("../data/scenes", import.meta.url));
 const PUBLIC_SCENES = fileURLToPath(new URL("./public/scenes", import.meta.url));
+const LIBRARY_DIR = fileURLToPath(new URL("../data/library", import.meta.url));
 const REPO_ROOT = fileURLToPath(new URL("..", import.meta.url));
 const BENCH_DIR = fileURLToPath(new URL("../benchmarks", import.meta.url));
 const TYPES: Record<string, string> = {
   ".json": "application/json",
+  ".glb": "model/gltf-binary",
   ".ply": "application/octet-stream",
   ".spz": "application/octet-stream",
   ".rad": "application/octet-stream",
@@ -82,6 +84,18 @@ function serveLocalScenes(): Plugin {
         res.setHeader("Content-Type", "application/json");
         res.setHeader("Cache-Control", "no-store");
         res.end(JSON.stringify([...seen.values()]));
+      });
+      // The premade meshes (scripts/build_library.py).
+      server.middlewares.use("/library", (req, res) => {
+        const rel = decodeURIComponent((req.url ?? "/").split("?")[0]);
+        const file = normalize(join(LIBRARY_DIR, rel));
+        if (!file.startsWith(LIBRARY_DIR) || !existsSync(file) || !statSync(file).isFile()) {
+          res.statusCode = 404;
+          res.end("not found");
+          return;
+        }
+        res.setHeader("Content-Type", TYPES[extname(file)] ?? "application/octet-stream");
+        send(createReadStream(file), res);
       });
       server.middlewares.use("/scenes", (req, res, next) => {
         const rel = decodeURIComponent((req.url ?? "/").split("?")[0]);

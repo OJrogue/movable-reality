@@ -1,7 +1,7 @@
 // Lane ui: client for the scene server (docs/SERVER_API.md). All URLs are relative; the Vite
 // dev server proxies /api and /ws to the FastAPI server on port 8000.
 import type { SceneManifest, Vec3 } from "../scene";
-import type { EditRequest } from "./edits";
+import type { EditRequest, LibraryPlacement } from "./edits";
 
 export interface CommandResult {
   transcript?: string;
@@ -76,6 +76,16 @@ export class SceneServer {
       JSON.stringify(req),
       { "Content-Type": "application/json" },
       AbortSignal.timeout(EDIT_TIMEOUT_MS), // a hung request would block the edit queue
+    );
+    return res.scene;
+  }
+
+  async addFromLibrary(libraryId: string, at: LibraryPlacement): Promise<SceneManifest> {
+    const res = await postJson<{ ok: boolean; scene: SceneManifest }>(
+      `${this.base}/library`,
+      JSON.stringify({ library_id: libraryId, ...at }),
+      { "Content-Type": "application/json" },
+      AbortSignal.timeout(EDIT_TIMEOUT_MS * 4), // the first add reads the room's background PLY
     );
     return res.scene;
   }

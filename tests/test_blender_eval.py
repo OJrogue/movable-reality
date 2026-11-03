@@ -162,6 +162,16 @@ def test_map_frames_refines_with_renders(tmp_path):
     assert ev.map_frames(scene, 12, rgb) == {0: 7}
 
 
+def test_map_frames_leaves_out_topup_frames(tmp_path):
+    (tmp_path / "frames").mkdir()
+    frames = [
+        {"index": 0, "source_time_s": 0.2},
+        {"index": 1, "source_time_s": 0.1, "source": "topup.mp4:abc"},
+    ]
+    (tmp_path / "frames.json").write_text(json.dumps({"fps": 4, "frames": frames}))
+    assert ev.map_frames(tmp_path, 12, None) == {0: 6}
+
+
 def test_mask_matching_permuted_labels():
     gt = np.zeros((20, 20), np.int64)
     gt[:10, :10], gt[10:, 10:], gt[:5, 15:] = 1, 2, 101

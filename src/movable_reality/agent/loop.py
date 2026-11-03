@@ -12,6 +12,7 @@ from typing import Any
 
 from ..clients import meta_async_client
 from ..config import Models
+from ..library import catalog
 from ..scene import Scene
 from .llm import cached_chat
 from .tools import EDIT_TOOLS, TOOL_SCHEMAS, RoomBounds, describe, run_tool, step_text
@@ -39,9 +40,18 @@ command, then make the best edit that fits or say why it cannot be done. If the 
 top_above_floor_m. Keep the final reply to one or two short sentences, and name objects
 the way the user would ("the armchair"), never by id or coordinates.
 
+To add something, use add_from_library when an item below matches what the user asks for, even
+loosely; only when none does, use insert_object if the user clearly wants it generated, or say
+what the library has. Pick a free spot from the room and the objects, in the direction the user
+asks, with the item's size in mind. An item marked "small" belongs on a table or shelf: pass
+on_object_id unless the user says the floor. To delete or get rid of something use remove_object.
+
 Room floor: {room}.
 Objects:
 {objects}
+
+Library (id: label, width x height x depth in metres):
+{library}
 """
 
 
@@ -73,7 +83,14 @@ def system_prompt(scene: Scene, bounds: RoomBounds | None, camera: dict | None) 
     eye, fwd, right = view_directions(camera)
     objects = "\n".join(json.dumps(describe(o)) for o in scene.objects) or "(none)"
     room = json.dumps(bounds.as_dict()) if bounds else "unknown"
-    return SYSTEM.format(eye=eye, forward=fwd, right=right, room=room, objects=objects)
+    library = "\n".join(
+        f"{i.id}: {i.label}, {i.size[0]} x {i.size[1]} x {i.size[2]}"
+        + (", small" if i.on_surface else "")
+        for i in catalog().values()
+    )
+    return SYSTEM.format(
+        eye=eye, forward=fwd, right=right, room=room, objects=objects, library=library or "(empty)"
+    )
 
 
 def summarise(steps: list[dict[str, Any]]) -> str:

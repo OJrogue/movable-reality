@@ -76,6 +76,31 @@ def opacity(v: np.ndarray) -> np.ndarray:
 # ---------------------------------------------------------------- rotations
 
 
+def tame_splats(
+    v: np.ndarray,
+    world_per_unit: float = 1.0,
+    drop_sigma: float = 0.15,
+    max_sigma: float = 0.08,
+    ratio: float = 3.0,
+    min_long: float = 0.015,
+) -> np.ndarray:
+    """Splats few views constrained, the smears and hairs of a scan: a splat whose longest
+    sigma is over `drop_sigma` metres goes (blender07: the tall plant's white haze, sigmas
+    of 10 to 53 cm), and the rest are shortened, in place of being deleted so the surface
+    stays covered: no axis over `max_sigma`, and none over `ratio` times the middle axis
+    unless under `min_long` (needles, up to 30 cm drawn, on every edge). Sigmas are scaled by
+    `world_per_unit` to metres. Centres, colours and opacities stay."""
+    names = ["scale_0", "scale_1", "scale_2"]
+    scales = np.exp(np.stack([v[n] for n in names], 1).astype(np.float64)) * world_per_unit
+    kept = v[scales.max(1) <= drop_sigma].copy()
+    scales = scales[scales.max(1) <= drop_sigma]
+    cap = np.minimum(max_sigma, np.maximum(ratio * np.median(scales, axis=1), min_long))
+    clamped = np.log(np.minimum(scales, cap[:, None]) / world_per_unit)
+    for i, n in enumerate(names):
+        kept[n] = clamped[:, i]
+    return kept
+
+
 def quat_mul(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     """Hamilton product of (..., 4) quaternions in w x y z order."""
     aw, ax, ay, az = np.moveaxis(np.asarray(a, dtype=np.float64), -1, 0)
