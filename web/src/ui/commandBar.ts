@@ -2,13 +2,20 @@
 // hold-to-talk on Space while the text box is not focused (WAV upload to .../voice). It shows
 // the transcript, the agent's progress messages from the WebSocket and the reply. On touch
 // devices (lane devices sets setTouch) a microphone button does hold-to-talk instead.
-import type { AgentStage, CommandResult, SceneServer } from "./api";
+import type { AgentStage, CommandResult, SceneServer, ViewPose } from "./api";
 import { isTyping } from "./editor";
 import { Recorder } from "./recorder";
 
 const MAX_LINES = 6;
+const MIC_SVG =
+  '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" ' +
+  'stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/>' +
+  '<path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg>';
 const MIN_TALK_S = 0.3;
-export const NEED_SERVER = "commands need the scene server: uv run python -m movable_reality.server";
+export const NEED_SERVER =
+  "Commands need the agent, which is offline right now. You can still click, drag and rotate objects.";
+/** Shown in the console (and with developer info on) next to NEED_SERVER. */
+export const START_SERVER = "start it with: uv run python -m movable_reality.server";
 
 export type LineKind = "you" | "agent" | "reply" | "info" | "error";
 
@@ -18,6 +25,8 @@ export interface CommandBarDeps {
   /** Applies the manifest a command returned (the WebSocket push may arrive first). */
   applyResult(r: CommandResult): void;
   xr(): boolean;
+  /** The user's current pose, sent with every command. */
+  camera(): ViewPose | null;
 }
 
 export class CommandBar {
@@ -31,13 +40,15 @@ export class CommandBar {
   private talking = false;
   private busy = false;
   private lastHeard: string | null = null; // transcript already shown from the WebSocket
+  private status: HTMLElement | null = null; // the agent's progress line, updated in place
+  private lastReply: string | null = null;
 
   constructor(private readonly deps: CommandBarDeps) {
     this.root = el("div", "mr-ui-bar");
     this.log = el("div", "mr-ui-log");
     const row = el("div", "mr-ui-row");
     this.mic = el("span", "mr-ui-mic");
-    this.mic.textContent = "●";
+    this.mic.innerHTML = MIC_SVG;
     this.mic.title = "hold Space to talk";
     this.input = document.createElement("input");
     this.input.type = "text";
@@ -48,7 +59,7 @@ export class CommandBar {
     this.badge = el("span", "mr-ui-badge");
     this.talkButton = el("button", "mr-ui-talk");
     this.talkButton.type = "button";
-    this.talkButton.textContent = "Hold to talk";
+    this.talkButton.innerHTML = `${MIC_SVG}<span>Hold to talk</span>`;
     this.talkButton.setAttribute("aria-label", "hold to talk");
     row.append(this.mic, this.input, this.badge, this.talkButton);
     this.root.append(this.log, row);
@@ -101,6 +112,7 @@ export class CommandBar {
   /** Called when the server state changes; `text` describes it. */
   setMode(online: boolean, text: string): void {
     this.badge.textContent = text;
+    this.badge.title = text;
     this.badge.dataset.state = online ? "online" : "offline";
   }
 
@@ -110,28 +122,55 @@ export class CommandBar {
     this.input.focus();
   }
 
-  line(kind: LineKind, text: string): void {
+  line(kind: LineKind, text: string): HTMLElement {
     const p = el("div", `mr-ui-line mr-ui-${kind}`);
     p.textContent = text;
     this.log.appendChild(p);
     while (this.log.childElementCount > MAX_LINES) this.log.firstElementChild?.remove();
+    return p;
   }
 
-  /** Agent progress from the WebSocket. */
-  agent(stage: AgentStage, text: string): void {
+  private needServer(): void {
+    this.line("error", NEED_SERVER);
+    console.info(`[ui] ${START_SERVER}`);
+    if (document.body.hasAttribute("data-debug")) this.line("info", START_SERVER);
+  }
+
+  /** Agent progress from the WebSocket. One status line ("Moving the bed…") is updated in
+   * place; the raw tool calls are developer info. */
+  agent(stage: AgentStage, text: string, say?: string): void {
     if (stage === "transcript") {
       this.lastHeard = text;
       this.line("you", `heard: ${text}`);
+      return;
     }
-    else if (stage === "done") this.line("reply", text);
-    else this.line("agent", `${stage}: ${text}`);
+    if (stage === "done") {
+      // Our own command prints its reply from the HTTP answer, which can arrive first; a
+      // different text while idle is another viewer's. `done` is always the last event.
+      if (!this.busy && text !== this.lastReply) this.line("reply", text);
+      this.clearStatus();
+      return;
+    }
+    if (document.body.hasAttribute("data-debug")) this.line("agent", `${stage}: ${text}`).classList.add("mr-debug");
+    if (!this.status || !this.status.isConnected) {
+      this.status = this.line("agent", "");
+      this.status.classList.add("mr-ui-status");
+    }
+    const words = say ?? text;
+    this.status.textContent = words.endsWith(".") ? words : `${words}…`; // "Looks right." is done
+    this.log.appendChild(this.status); // stays the newest line
+  }
+
+  private clearStatus(): void {
+    this.status?.remove();
+    this.status = null;
   }
 
   private async send(raw: string): Promise<void> {
     const text = raw.trim();
     if (!text) return;
     if (!this.deps.server || !this.deps.online()) {
-      this.line("error", NEED_SERVER);
+      this.needServer();
       return;
     }
     if (this.busy) {
@@ -140,7 +179,7 @@ export class CommandBar {
     }
     this.input.value = "";
     this.line("you", text);
-    await this.run(() => this.deps.server!.command(text));
+    await this.run(() => this.deps.server!.command(text, this.deps.camera()));
   }
 
   private async run(call: () => Promise<CommandResult>): Promise<void> {
@@ -151,10 +190,13 @@ export class CommandBar {
       const r = await call();
       if (r.transcript !== undefined && r.transcript !== this.lastHeard) this.line("you", `heard: ${r.transcript}`);
       this.lastHeard = null;
-      const check = r.verified === true ? " (verified)" : r.verified === false ? " (verifier disagreed)" : "";
+      this.clearStatus();
+      this.lastReply = r.reply;
+      const check = r.verified === true ? " ✓ Checked" : r.verified === false ? " (the visual check disagreed)" : "";
       this.line("reply", `${r.reply}${check}`);
       this.deps.applyResult(r);
     } catch (err) {
+      this.clearStatus();
       this.line("error", `command failed: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       this.busy = false;
@@ -179,7 +221,7 @@ export class CommandBar {
   private beginTalk(): void {
     if (this.talking) return;
     if (!this.deps.server || !this.deps.online()) {
-      this.line("error", NEED_SERVER);
+      this.needServer();
       return;
     }
     if (this.busy) {
@@ -210,7 +252,7 @@ export class CommandBar {
       return;
     }
     this.line("info", `sending ${rec.seconds.toFixed(1)} s of audio`);
-    await this.run(() => this.deps.server!.voice(rec.wav));
+    await this.run(() => this.deps.server!.voice(rec.wav, this.deps.camera()));
   }
 }
 

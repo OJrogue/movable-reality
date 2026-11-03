@@ -4,10 +4,12 @@
 
 Text-driven editing of Gaussian splat scenes exists in research (for example TransSplat,
 SIMSplat), so editing alone is not the claim. The claim is the whole chain on consumer
-input and consumer hardware: **a 30 s phone video becomes a metric, object-separated,
+input and consumer hardware: **one phone video walking around the room becomes a metric, object-separated,
 agent-editable 3DGS twin; gaps in the capture are found and filled (recaptured or
-generated, generated parts tagged); and the whole room renders on a standalone VR headset
-at 72 FPS** while the agent edits it and checks its own edits visually.
+generated, generated parts tagged); and the whole room renders in a laptop or phone browser**
+while the agent edits it and checks its own edits visually. (Until 3 Nov the claim was a
+standalone VR headset at 72 FPS; it was dropped untested, D21 in `docs/HANDOFF.md`. The
+headset notes below are kept as design history.)
 
 Context for the rendering claim: Meta's Spatial SDK renders one splat at a time and advises
 staying under 150k splats on Quest; Hyperscape streams from the cloud. SAM 3.1 labels
@@ -120,6 +122,9 @@ Spark finds splats with `scene.traverseVisible`, so hiding a parent group hides 
 WebXR needs a secure context: for a headset over USB use `adb reverse tcp:5173 tcp:5173`
 and open `http://localhost:5173` on the headset, otherwise serve over HTTPS.
 Verified 26 Oct: `?scene=demo` renders, and remove/move edits appear without reload.
+Since 3 Nov `/` without a scene is the landing page (`web/src/landing/`), and the viewer
+has a top bar with a room switcher and a settings menu (`web/src/ui/chrome.ts`). Developer
+widgets, including the Enter VR button, show only with developer info on (`?debug=1`).
 
 ### 10. Coverage loop (lane: coverage, `src/movable_reality/coverage/`)
 A phone video is enough wherever a surface was seen from several angles; it fails where

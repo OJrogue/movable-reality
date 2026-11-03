@@ -10,7 +10,8 @@ import { CommandBar } from "./commandBar";
 import { applyEdit, EditError, type EditRequest } from "./edits";
 import { Editor } from "./editor";
 import { installMeasure } from "./measure";
-import { installOnboarding } from "./onboarding";
+import { installChrome } from "./chrome";
+import { installOnboarding, sampleCommands } from "./onboarding";
 import { UI_CSS } from "./style";
 
 /** main.ts passes the full context, which can also publish a manifest to every lane. */
@@ -19,7 +20,7 @@ export type UiContext = ViewerContext & {
 };
 
 const RETRY_MS = 5000;
-const OFFLINE_TEXT = "offline: edits are local";
+const OFFLINE_TEXT = "Agent offline";
 
 export interface UiHandle {
   editor: Editor;
@@ -65,14 +66,6 @@ export function installUi(ctx: UiContext): UiHandle {
     queueMicrotask(() => publish(keep));
   });
 
-  const frameWaiters: { left: number; resolve: () => void }[] = [];
-  ctx.onFrameEnd(() => {
-    for (let i = frameWaiters.length - 1; i >= 0; i--) {
-      if (--frameWaiters[i].left <= 0) frameWaiters.splice(i, 1)[0].resolve();
-    }
-  });
-  const frames = (n: number) => new Promise<void>((resolve) => frameWaiters.push({ left: n, resolve }));
-
   const bar = new CommandBar({
     server,
     online: () => online,
@@ -80,6 +73,11 @@ export function installUi(ctx: UiContext): UiHandle {
       if (r.scene) publish(r.scene);
     },
     xr: () => ctx.renderer.xr.isPresenting,
+    camera: () => {
+      const eye = ctx.camera.getWorldPosition(new THREE.Vector3());
+      const fwd = ctx.camera.getWorldDirection(new THREE.Vector3());
+      return { eye: [eye.x, eye.y, eye.z], forward: [fwd.x, fwd.y, fwd.z] };
+    },
   });
 
   // Lane devices: the mobile profile lays the bar out for a narrow portrait screen with a
@@ -91,14 +89,14 @@ export function installUi(ctx: UiContext): UiHandle {
   const setOnline = (on: boolean) => {
     const was = online;
     online = on;
-    bar.setMode(on, on ? "server" : sceneId ? OFFLINE_TEXT : "no scene");
+    bar.setMode(on, on ? "Agent online" : sceneId ? OFFLINE_TEXT : "No scene");
     if (on && !was) {
       latest = null; // the server's scene is the truth from here on
-      bar.line("info", "connected to the scene server");
+      bar.line("info", "Connected to the agent. Type or speak a command.");
       if (localEdits > 0) bar.line("info", `${localEdits} local edits replaced by the server's scene`);
       localEdits = 0;
     }
-    if (!on && was) bar.line("info", "lost the scene server; edits are local until it is back");
+    if (!on && was) bar.line("info", "Lost the agent. Edits stay in this tab until it is back.");
   };
 
   // Edits run one at a time, in order, so a fast Q Q Q never reorders on the server.
@@ -134,13 +132,16 @@ export function installUi(ctx: UiContext): UiHandle {
   const editor = new Editor(ctx, { edit, notify: (t) => bar.line("info", t) });
   installMeasure(ctx, (t) => bar.line("info", t));
 
+  // One capture at a time: a second one would save the verify camera as the user's view.
+  let captures: Promise<string | null> = Promise.resolve(null);
+
   // ---- server connection: health check, then the WebSocket; retry while it is down.
   const onMessage = (msg: ServerMessage) => {
     if (msg.type === "scene") publish(msg.scene);
-    else if (msg.type === "agent") bar.agent(msg.stage, msg.text);
+    else if (msg.type === "agent") bar.agent(msg.stage, msg.text, msg.say);
     else if (msg.type === "capture_request") {
       const ws = socket;
-      void capture(ctx, frames, msg.camera).then((jpeg) => {
+      void (captures = captures.then(() => capture(ctx, msg.camera), () => capture(ctx, msg.camera))).then((jpeg) => {
         // null answers at once, so the server need not wait for its timeout.
         if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "capture", id: msg.id, jpeg }));
       });
@@ -170,9 +171,10 @@ export function installUi(ctx: UiContext): UiHandle {
   setOnline(false);
   void connect();
 
-  installOnboarding({
+  const onboarding = installOnboarding({
     params: ctx.params,
     touch: touchUi(),
+    reopenButton: false, // the chrome's help button reopens it
     fill: (t) => bar.fill(t),
     // The coverage lane toggles its overlay on key G; main.ts keeps no handle to it.
     toggleGaps: () => document.dispatchEvent(new KeyboardEvent("keydown", { code: "KeyG", key: "g" })),
@@ -187,24 +189,39 @@ export function installUi(ctx: UiContext): UiHandle {
     })(),
   });
 
+  ctx.onManifest((m) => onboarding.setSamples(sampleCommands(m.objects.filter((o) => o.visible).map((o) => o.label))));
+  installChrome({ ctx, onboarding, notify: (t) => bar.line("info", t) });
+
   const handle: UiHandle = { editor, bar, online: () => online, edit, manifest: () => ctx.manifest };
   (window as unknown as { mrUi?: UiHandle }).mrUi = handle; // for console checks and tests
   return handle;
 }
 
 const _eye = new THREE.Vector3();
-const SETTLE_FRAMES = 3;
 const SETTLE_TIMEOUT_MS = 1500; // a hidden tab runs no frames
+const SETTLE_RENDERS = 12;
 
 /**
  * Screenshot for the verifier. With a camera request, the rig and camera move to `eye`
- * looking at `target` for a few frames, so Spark's sort and the LOD cut catch up with the
+ * looking at `target` for about 1.5 s of renders, so Spark's sort and the LOD cut catch up with the
  * new viewpoint, and then go back. In XR the headset renders into its own framebuffer and
  * the canvas holds no image, so the answer is null.
  */
+/** Covers the canvas with a still of the current view; the result removes it. */
+function freezeView(ctx: ViewerContext): () => void {
+  const src = ctx.renderer.domElement;
+  const still = document.createElement("canvas");
+  still.width = src.width;
+  still.height = src.height;
+  still.style.cssText = "position:fixed;inset:0;width:100%;height:100%;pointer-events:none";
+  ctx.renderer.render(ctx.scene, ctx.camera); // the drawing buffer only holds it until the next task
+  still.getContext("2d")?.drawImage(src, 0, 0);
+  src.after(still);
+  return () => still.remove();
+}
+
 async function capture(
   ctx: ViewerContext,
-  frames: (n: number) => Promise<void>,
   camera?: { eye: Vec3; target: Vec3 },
 ): Promise<string | null> {
   const fn = (window as unknown as { mrCapture?: () => string }).mrCapture;
@@ -220,6 +237,8 @@ async function capture(
     controls: ctx.controlsEnabled,
   };
   ctx.controlsEnabled = false; // SparkControls must not move the rig meanwhile
+  // The animation loop draws this camera too: the user keeps seeing a still of their view.
+  const unfreeze = freezeView(ctx);
   try {
     rig.position.set(0, 0, 0);
     rig.quaternion.identity();
@@ -227,9 +246,19 @@ async function capture(
     cam.position.copy(_eye.fromArray(camera.eye));
     cam.lookAt(camera.target[0], camera.target[1], camera.target[2]);
     rig.updateMatrixWorld(true);
-    await Promise.race([frames(SETTLE_FRAMES), new Promise((r) => setTimeout(r, SETTLE_TIMEOUT_MS))]);
+    // Render here instead of waiting for frames: a background tab or a hidden pane runs no
+    // animation frames (document.hidden can still be false), and Spark's sort and LOD cut
+    // only catch up on render. Without this the verifier saw no furniture (blender06, 3 Nov).
+    // A deadline, not a count: timers in a hidden tab fire once a second at best, and the
+    // server stops waiting after CAPTURE_TIMEOUT_S.
+    const deadline = performance.now() + SETTLE_TIMEOUT_MS;
+    do {
+      ctx.renderer.render(ctx.scene, cam);
+      await new Promise((r) => setTimeout(r, SETTLE_TIMEOUT_MS / SETTLE_RENDERS));
+    } while (performance.now() < deadline);
     return ctx.renderer.xr.isPresenting ? null : fn();
   } finally {
+    unfreeze();
     rig.position.copy(saved.rigPos);
     rig.quaternion.copy(saved.rigQuat);
     rig.scale.copy(saved.rigScale);

@@ -48,6 +48,7 @@ synthetic data in desktop browsers (no performance meaning).
 | D17 | C2 first does a full reconstruction rerun on all frames (best quality); the fast fine-tune path comes second and replaces it in the demo only if it comes close. | OJ, 29 Oct |
 | D18 | Scope: the viewer is a full product in a desktop browser too (mouse and keyboard, typed and spoken commands), not only in VR. The hosted demo link must work on a laptop with no headset. VR stays the frontier claim and the performance target. New lane **ui** (U1-U4, section 5). | OJ, 30 Oct |
 | D19 | Blender renders may use Cycles' OpenImageDenoise (offline data creation, not a runtime model) | OJ, 30 Oct |
+| D21 | VR is dropped from the demo and from every claim: it was never tested on a headset and would probably not hold the frame rate. The demo targets a laptop and a phone browser. The WebXR code stays; its Enter VR button only shows with developer info on. Headset benchmarks are out of scope. Replaces the VR parts of D18 and D20 and the frontier claim in `docs/PLAN.md`. | OJ, 3 Nov |
 | D20 | Scope: the product must work on any device, meaning a laptop or desktop browser, a phone or tablet browser and a standalone headset (WebXR). Each device renders at the best quality it can hold, so the laptop keeps full pixel ratio and a high splat budget and is not trimmed to the headset's level. The viewer picks a device profile (`desktop`, `mobile`, `xr`, override `?device=`), and the xr profile keeps the 72 Hz settings unchanged. New lane **devices** (`web/src/devices/`). | OJ, 31 Oct |
 
 Still open, OJ decides: **feature freeze date** (suggested Mon 2 Nov 20:00, the latest that
@@ -55,6 +56,22 @@ leaves Tue for the video), **borrowing a Quest 2** for one Meta-headset clip, **
 the demo (needs chunked `.RAD` or HTTP Range support, see `docs/LOD.md`).
 
 ## 3. Next steps
+
+### 3.0000 Tue 3 Nov, demo front end (branch lane/ui-landing)
+- `/` is a landing page (`web/src/landing/`): hero with the showcase video, what it does,
+  the six pipeline stages, the Meta models, the three demo rooms and the input video each
+  was trained on. `entry.ts` loads the viewer only when the URL names a scene.
+- The demo rooms are listed once in `web/src/landing/scenes.ts`: `blender07` living room,
+  `blender06` bedroom, `room01` real room (shows "Coming soon" until it has a scene.json).
+  Change the ids there when a scene is renamed.
+- Viewer chrome (`web/src/ui/chrome.ts`): top bar with home, room switcher, help and a ⋮
+  menu. Developer info (HUD, save log, detail slider, object style label, Enter VR) is off
+  by default; ⋮ switch, backtick or `?debug=1`. `?chrome=0` hides the bar for recordings.
+- Media in `web/public/media/`: `showcase.mp4` is a placeholder cut from the walk renders;
+  `capture_<scene>.mp4` are 960 px copies of `data/scenes/<scene>/input.mp4`. All `.mp4`
+  are gitignored. Still to do: a real screen recording for the hero, `room01` filmed and
+  processed with its `thumb_room01.jpg` and `capture_room01.mp4`.
+- D21: no VR in the demo or the claims.
 
 ### 3.000 Sun 1 Nov, pipeline for humans (branch lane/pipeline)
 - `scripts/run_pipeline.py video.mp4 --scene room01 --focal35 26` runs every stage

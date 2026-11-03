@@ -1,21 +1,57 @@
 # Movable Reality
 
-Film a room for 30 seconds on your phone. Minutes later you have a metric 3D Gaussian
-Splatting twin in which every object is separate, complete and movable. Gaps the phone
-missed are filled, by a short top-up video or by Meta's generative models, and generated
-parts stay tagged. The whole room renders on a standalone VR headset at 72 FPS, and you
-rearrange it by voice.
+Walk around a room once with your phone. What comes back is a 3D copy of it, true to
+scale, in which the sofa, the lamp and every chair are separate objects you can move.
+Drag them around in the browser, or say what should go where. The parts the phone did not
+see are filled in, by a short top-up video or by Meta's generative models, and everything
+generated stays tagged.
+
+Under the hood it is a metric 3D Gaussian Splatting scene with one splat per object,
+built by a pipeline of eight Meta models, and a three.js + Spark viewer that runs on a
+laptop or a phone.
 
 > Entry for the **Meta Global AI Developer Hackathon** (Indie Developer track, Push the
 > Frontier) by team **Gaussian Movers**. Everything in this repository was built during
 > the event (26 Oct to 4 Nov 2026). See [`docs/BUILD_LOG.md`](docs/BUILD_LOG.md) for what
 > was built when. Third-party components are listed below.
 
-**Status:** work in progress.
+**Status (3 Nov):** the pipeline runs end to end on the synthetic rooms. The demo has a
+landing page and three rooms: the living room `blender07`, the bedroom `blender06`, and a
+real phone capture (`room01`, not filmed yet). The viewer was checked in desktop Chromium
+and its phone emulation. A WebXR path exists in the code but was not tested on a headset,
+so the project makes no VR or headset frame-rate claims.
+
+## Try the demo
+
+```bash
+cd web && npm install && npm run dev       # http://localhost:5173/
+uv run python -m movable_reality.server    # optional: the agent behind typed and spoken commands
+```
+
+`/` is the landing page: a showcase video, what the project does, the pipeline, the Meta
+models, the input video of each room, and **Open the demo**, which lets you pick a room.
+In the viewer:
+
+- **Desktop:** drag to look, W A S D to walk, click an object to select it, drag to move
+  it, Q/E to rotate, Delete to hide, Ctrl+Z to undo, Alt+click twice to measure.
+- **Phone:** one finger looks, two fingers pan and pinch, tap selects, drag moves.
+- **Commands:** type in the bar at the bottom and press Enter, or hold Space (or the
+  microphone button) to talk. Commands need the server; without it the bar says
+  "Agent offline" and direct editing still works.
+- **Top bar:** back to the landing page, switch room, help, and ⋮ for coverage gaps,
+  generated splats and how objects are drawn (scanned splats, SAM 3D splats, SAM 3D meshes).
+- **Developer info** (frame-time HUD, save log, detail slider, object style label) is off
+  by default. Turn it on with the last switch in ⋮, the backtick key, or `?debug=1`.
+
+The demo media live in `web/public/media/`: card images (`thumb_<scene>.jpg`, committed),
+the hero video `showcase.mp4` and the input videos `capture_<scene>.mp4`. Videos are
+gitignored like every `.mp4`, so copy them next to the build when hosting. Without them the
+page shows stills and "Capture coming soon".
 
 ## How it works
 
-1. **Capture:** a short phone video; sharp frames are selected automatically.
+1. **Capture:** one phone video walking around the room; the sharpest frames (4 per
+   second) are kept automatically.
 2. **Reconstruct:** MapAnything predicts metric cameras and geometry; gsplat trains the
    Gaussian splat scene (GPU jobs on Modal).
 3. **Understand:** Muse Wonder watches the video and lists the objects; SAM 3.1 tracks
@@ -27,8 +63,9 @@ rearrange it by voice.
 5. **Fill gaps:** coverage is scored per region; large gaps prompt a 10 s top-up video,
    small gaps and object backs are repaired with Muse Image and SAM 3D Objects, and every
    generated splat is tagged.
-6. **View:** a three.js + Spark viewer on desktop and standalone WebXR headsets: per-object
-   LOD trees, baked floor and ceiling, and a frame-time budget controller hold 72 FPS.
+6. **View:** a three.js + Spark viewer in the browser on a laptop or a phone. Walls, floor
+   and ceiling become baked textured planes, every object gets its own LOD tree, and a
+   frame-time budget controller picks the detail each device can hold.
 
 Details: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
@@ -63,13 +100,14 @@ uv run python scripts/make_demo_scene.py   # synthetic scene, no GPU needed
 cd web && npm install && npm run dev       # open http://localhost:5173/?scene=demo
 cd ..
 uv run python scripts/edit_scene.py demo remove "table#1"   # viewer updates live
-
 ```
+
+`http://localhost:5173/scenes/` lists every scene in `data/scenes/`.
 
 ### Your own room, in one command
 
 Film the room first. Hold the phone level and walk the perimeter slowly, facing inwards,
-for 30 to 45 s. Then do one loop at knee height and one loop tilted slightly up, so the
+for 30 to 60 s. Then do one loop at knee height and one loop tilted slightly up, so the
 ceiling and the upper walls are covered. Lock exposure and focus if the camera app allows
 it, keep the lights on, and leave out mirrors, people and pets.
 
@@ -99,8 +137,8 @@ everything after it. `--dry-run` shows what would run.
 | [Spark](https://sparkjs.dev) | MIT | Web splat renderer |
 | [three.js](https://threejs.org) | MIT | Web 3D |
 | [meta-sam-parser](https://pypi.org/project/meta-sam-parser/) | see package | Parsing SAM 3.1 output |
-| [Blender](https://www.blender.org) 4.5 LTS | GPL-3.0 (tool only, not shipped) | Renders the synthetic ground-truth room `blender01` |
-| [Poly Haven](https://polyhaven.com) models and textures | CC0 | Furniture, floor and wall of `blender01`; full list in [docs/ASSETS.md](docs/ASSETS.md) |
+| [Blender](https://www.blender.org) 4.5 LTS | GPL-3.0 (tool only, not shipped) | Renders the synthetic ground-truth rooms `blender01` to `blender07` |
+| [Poly Haven](https://polyhaven.com) models and textures | CC0 | Furniture and materials of the synthetic rooms; full list in [docs/ASSETS.md](docs/ASSETS.md) |
 
 ## How this was built
 

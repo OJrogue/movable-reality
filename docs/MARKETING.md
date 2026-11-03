@@ -6,8 +6,11 @@ must not appear in the submission as finished features.
 
 ## One line
 
-Film your room for 30 seconds. Walk through it, move anything in it and try out changes
-before you spend money on them, on a laptop, a phone or a VR headset.
+Walk around your room once with your phone. Then move anything in it and try out changes
+before you spend money on them, right in the browser, on a laptop or a phone.
+
+Landing page hook (3 Nov): "Try the new layout before you lift the sofa." No VR claims
+anywhere (D21): VR was not tested on a headset.
 
 ## Taglines
 
@@ -28,7 +31,8 @@ visualisation exists, but it is priced for architects and takes days.
 
 ## What Movable Reality does
 
-1. The user films the room with a phone for about 30 seconds.
+1. The user films the room with a phone, one slow walk around it (under a minute for a
+   bedroom, about two for a large living room).
 2. The pipeline turns the video into a photoreal 3D Gaussian Splatting scene at real scale
    (metres, set by one tape measurement), in which every piece of furniture is a separate object.
 3. The user walks through the room and changes it, by voice or by typing. "Move the sofa
@@ -36,8 +40,7 @@ visualisation exists, but it is priced for architects and takes days.
    reading lamp in the corner." "Undo that."
 4. An agent built on Meta's Muse models carries out the request, checks the result in a
    rendered view and corrects itself when the edit went wrong.
-5. The room runs on the device the user has. A laptop browser, a phone or a standalone VR
-   headset.
+5. The room opens from a link in a laptop or phone browser.
 
 ## Visualisation before it is built
 
@@ -78,15 +81,15 @@ Movable Reality is one web app. It opens from a link, with no installation and n
 | --- | --- | --- |
 | Laptop or desktop browser | Mouse and keyboard, typed or spoken commands | Full resolution and the largest splat budget the GPU sustains at the display refresh rate. Not reduced to the VR budget. |
 | Phone or tablet browser | Touch (orbit, pinch, tap to select, drag to move), hold-to-talk | Resolution and splat budget scaled to the phone GPU, 30 to 60 fps |
-| Standalone VR headset (WebXR) | Walk through the room at 1:1 scale, controller and voice | Locked 72 Hz, p99 frame time at or under 13.9 ms, never streamed from a PC |
 
-Each device gets its own quality profile. The laptop shows the full scene. The headset gets
-level-of-detail trees per object and a frame-time controller that keeps it at 72 Hz. The
-phone sits in between. The same scene file feeds all three.
+Each device gets its own quality profile. The laptop shows the full scene; the phone gets
+level-of-detail trees per object and a frame-time controller that keeps it smooth. The
+same scene file feeds both. The WebXR path exists in the code but is untested on a headset
+and not part of the pitch (D21).
 
-Status. The desktop browser and WebXR paths are built. Per-device profiles and touch
+Status. The desktop browser path is built. Per-device profiles and touch
 controls are merged (PR #15) and tested in an emulated phone viewport, not yet on a real phone. Headset numbers are only claimed with their raw
-frame-time logs under `benchmarks/`.
+frame-time logs under `benchmarks/`; none are claimed.
 
 ## The self-correcting pipeline
 
@@ -182,16 +185,15 @@ Every model the product calls at runtime is a Meta model.
 ## Demo video outline (3 minutes)
 
 1. 0:00 Hook. A person stands in a half-furnished room with a tape measure and a furniture
-   catalogue. Cut to the same room on a laptop, then on a phone, then in a headset.
+   catalogue. Cut to the same room on a laptop, then on a phone.
    "See it before you build it."
-2. 0:20 Capture. The 30-second walk, sped up, with the filming guide in the corner.
+2. 0:20 Capture. The walk, sped up, with the filming guide in the corner.
 3. 0:40 The room appears. Orbit on the laptop, every object outlined once.
 4. 1:00 Voice edits. Move the sofa, ask whether the armchair fits, add a lamp. Show the
    verifier's check mark after each edit.
 5. 1:40 Self-correction. Gap overlay on, next-best viewpoint shown, 10-second top-up,
    gaps close. Then the generated toggle, showing what was invented.
-6. 2:10 Any device. The same room on a phone with touch, then in the headset at 1:1 scale
-   with the frame-time HUD at 72 Hz.
+6. 2:10 Any device. The same room on a phone with touch, from the same link.
 7. 2:40 Before and after. The original layout next to the new one. Closing line and the
    list of Meta models.
 
@@ -200,7 +202,6 @@ Every model the product calls at runtime is a Meta model.
 - Homeowners planning a renovation. Short vertical videos, before and after on a phone.
 - Furniture retailers. Embed "see it in your room" with the customer's own capture.
 - Interior designers and kitchen studios. A shareable link per client proposal.
-- VR enthusiasts. Photoreal room-scale scenes at a locked 72 Hz on a standalone headset.
 
 ## Claims to avoid until measured
 
@@ -209,3 +210,4 @@ Every model the product calls at runtime is a Meta model.
   measured.
 - "Works on every phone". Only devices with a measured frame-time log count.
 - "Design from a floor plan". Planned, not built.
+- Anything about VR or headsets (D21). Untested.

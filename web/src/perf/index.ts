@@ -141,10 +141,19 @@ export function installPerf(ctx: ViewerContext): PerfHandle {
   };
 
   // ---- HUD, input, download button
-  const hud = new Hud(ctx.camera, p.get("hud") !== "0", p.get("hudPanel") === "1");
+  // Developer info (ui/chrome.ts, body[data-debug]) shows and hides the HUD, also in XR;
+  // ?hud=0 and ?hud=1 still decide the start.
+  const debugOn = () => document.body.hasAttribute("data-debug");
+  const hudParam = p.get("hud");
+  const hud = new Hud(ctx.camera, hudParam === "1" || (hudParam !== "0" && debugOn()), p.get("hudPanel") === "1");
+  new MutationObserver(() => hud.setVisible(debugOn())).observe(document.body, {
+    attributes: true,
+    attributeFilter: ["data-debug"],
+  });
   const input = new PerfInput(ctx.renderer);
   const button = document.createElement("button");
   button.textContent = "save log";
+  button.className = "mr-debug mr-debug-savelog"; // developer info only (ui/chrome.ts)
   Object.assign(button.style, {
     position: "fixed",
     right: "12px",
@@ -383,7 +392,10 @@ export function installPerf(ctx: ViewerContext): PerfHandle {
     p.get("detail") === "0" ? null : new DetailControl(setDetail, () => setDetail("auto"));
   const act = (a: PerfAction) => {
     if (a === "mode") setMode(mode === "lod" ? "naive" : "lod");
-    else if (a === "hud") hud.toggle();
+    else if (a === "hud") {
+      // With developer info off the HUD stays hidden (H on its own would show the XR panel).
+      if (debugOn()) hud.toggle();
+    }
     else if (a === "budget") toggleBudget();
     else if (a === "save") {
       // A partial bench log would look like a finished run; the bench saves on its own.

@@ -83,9 +83,9 @@ class SceneHub:
     def save(self, scene: Scene) -> None:
         scene.save(self.manifest_path)
 
-    def room(self, scene: Scene) -> RoomBounds | None:
-        if not self.bounds_loaded:
-            self.bounds = room_bounds(scene, self.folder)
+    async def room(self, scene: Scene) -> RoomBounds | None:
+        if not self.bounds_loaded:  # reads the background PLY: keep the event loop free
+            self.bounds = await asyncio.to_thread(room_bounds, scene, self.folder)
             self.bounds_loaded = True
         return self.bounds
 
@@ -220,14 +220,14 @@ async def _command(h: SceneHub, text: str, camera: dict | None, verify: bool) ->
         if event.get("stage") == "tool":  # show each edit as it happens
             await h.broadcast({"type": "scene", "scene": live.model_dump(mode="json")})
 
-    async def capture() -> str | None:
-        return await h.capture()
+    async def capture(camera: dict | None = None) -> str | None:
+        return await h.capture(camera)
 
     async with h.lock:
         live = h.load()
         try:
             res = await run_command(
-                live, text, bounds=h.room(live), camera=camera, capture=capture, emit=emit,
+                live, text, bounds=await h.room(live), camera=camera, capture=capture, emit=emit,
                 inserter=_inserter(h), verify=verify,
             )  # fmt: skip
         except Exception as exc:  # noqa: BLE001 - report API failures to the command bar

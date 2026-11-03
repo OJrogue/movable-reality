@@ -12,10 +12,12 @@ next tasks per lane.
 Movable Reality turns a ~30 s phone video of a room into a metric 3D Gaussian Splatting
 (3DGS) scene in which every object is a separate, movable splat. It finds the parts of the
 room the video did not cover and fills them, either with a short top-up video or with Meta
-generative models, and tags what was generated. It renders the whole room on a standalone
-VR headset at a locked 72 FPS, and the user rearranges it by voice. The same viewer also runs in a desktop browser with
+generative models, and tags what was generated. The user rearranges the room by voice or by
+hand in a laptop or phone browser (the original goal was a standalone VR headset at 72 FPS). The same viewer also runs in a desktop browser with
 mouse and keyboard and typed or spoken commands (scope change of 30 Oct). It runs on any device,
-from laptop to phone to headset, each at the best quality it can hold (scope change of 31 Oct). It is an entry in the
+from laptop to phone to headset, each at the best quality it can hold (scope change of 31 Oct).
+VR is not tested on a headset, so the demo and the docs make no VR claims; the WebXR path
+stays in the code behind developer info (D21, 3 Nov). It is an entry in the
 Meta Global AI Developer Hackathon (Indie Developer track, theme "Push the Frontier").
 Team "Gaussian Movers", solo developer OJ.
 
@@ -207,6 +209,9 @@ uv run python scripts/lift_ids.py --scene blender01 --skip wall   # core: leave 
 uv run modal run modal_jobs/reconstruct.py --scene blender01 --objects   # core: per-object training after the lift (L40S, ~5 min), installs into objects/; then bake_planes.py --force
 # ui viewer: click an object, drag it, Q/E rotate, Delete hides, R restores, Ctrl/Cmd+Z undo; Enter sends a command, hold Space to talk
 # ui viewer: ?onboarding=0|1 (panel), ?server=0 (local edits even when the server runs); window.mrUi.manifest() in the console
+# ui: http://localhost:5173/ is the landing page (web/src/landing/); any ?scene= / ?ply= / ?bench= opens the viewer. Demo scenes: web/src/landing/scenes.ts
+# ui: showcase video web/public/media/showcase.mp4 (gitignored, copy it next to a hosted build); card images web/public/media/thumb_<id>.jpg
+# ui viewer: developer info (HUD, save log, detail slider, object style label) is off by default: settings menu (⋮) or the ` key; ?debug=1|0; ?chrome=0 hides the top bar; demo rooms open at their `view` (landing/scenes.ts), ?view=0 keeps the origin
 # devices viewer: ?device=desktop|mobile|xr overrides the detected quality profile (an XR session always uses xr); window.mrDevice in the console
 uv run python -m movable_reality.server          # core: scene server + agent on :8000 (Vite proxies /api, /ws)
 uv run python scripts/inventory.py --scene room01   # core: Muse Wonder lists objects -> inventory.json

@@ -1421,6 +1421,24 @@ test-walk metrics, `sfm.json`, GT pose ATE). Every row predates the lighting cha
   its videos as `data/raw/blender07_v1*.mp4`.
 - Next: pipeline results on the new video, compared with v1.
 
+- Pipeline on the 122 s walk: 171 min end to end after two SAM reruns.
+  - 488 frames, all registered. MapAnything held on the L40S.
+  - Pose ATE median 3.3 mm, max 36 mm (v1: 2.0 and 62 mm).
+  - Test-walk novel views: PSNR 26.1 dB mean, 26.7 median, SSIM 0.914, LPIPS 0.168 (90 views).
+  - The weakest views (17-19 dB) all look into the north-west corner from mid-room: the west
+    window's curtain and radiator, and the north end of the media console. The main walk only
+    sees that corner from close by.
+  - 32 objects. The bookshelf is one object now (v1 split it); the floor lamp and the TV are
+    missing.
+- SAM: the Meta API dropped the bookshelf stream four times on the 490-frame clip, and the
+  floor stream twice. `lift_ids.py` now asks for one frame in three after two drops and
+  records the noun in `ids/sam_sparse.json`, so reruns and the vote use the same frames. The
+  wall stream failed even on the sparse clip; the run went on without wall masks, as the code
+  allows.
+- Next: cover the north-west corner (a top-up video from mid-room through
+  `coverage_topup.py`, or new keys in the main walk), and find out why the lift dropped the
+  floor lamp and the TV.
+
 ## 3 Nov (day), ui: landing page, three-scene demo, viewer chrome
 
 - No Apple HIG or Material 3 skill exists in the skill catalog, so both guidelines were
@@ -1502,3 +1520,68 @@ test-walk metrics, `sfm.json`, GT pose ATE). Every row predates the lighting cha
   missing or empty; they were fetched again.
 - Next: the floor lamp is still labelled `table lamp#0`; look at views 30-40 and 290-310;
   make the gap map's walkable area independent of the camera heights.
+
+
+## 3 Nov (evening), ui + docs: new hook, no VR, input videos per room
+
+- Landing hero rewritten in plainer words ("Try the new layout before you lift the sofa."),
+  stats no longer quote 30 s or 72 FPS (the living-room walk is 122 s).
+- VR dropped from the demo and the claims (D21 in `docs/HANDOFF.md`): untested on a headset.
+  The landing page no longer mentions it, and the viewer's Enter VR button is now developer
+  info only.
+- New landing section "The videos each room was built from": the exact walk each scene
+  trained on (`capture_<scene>.mp4`, 960 px copies of `data/scenes/<scene>/input.mp4`,
+  1.9 MB and 4.4 MB, gitignored). The real room shows "Capture coming soon" until filmed.
+- README rewritten for the current state (try the demo, viewer controls, developer info,
+  media, rooms); PLAN, ARCHITECTURE, MARKETING and AGENTS.md follow D21; HANDOFF has a
+  3 Nov section.
+- Review fixes: a failed object PLY no longer fails the whole room on the loading card,
+  sample commands never pair an object with itself, H no longer shows the XR HUD panel
+  with developer info off, settings popover without menu roles, landing numbers match
+  the data (no object or frame counts).
+- Next: a real screen recording for the hero, then room01.
+
+## 3 Nov (night), core + ui: the agent in the demo works end to end
+
+Tested in the viewer on blender06 with the scene server, Muse Wonder and the Muse Spark Open
+verifier. Each fix below came from a command that went wrong:
+- **Verifier saw the wrong thing.** It got screenshots of the user's view, which often did
+  not show the edited object (the bedroom opened facing a wall), and rejected correct edits.
+  The before shot now waits for the first edit and frames that object and where it goes
+  (`edit_focus`, `verify_camera` in `agent/verify.py`), from a point between the object and
+  the user: the room box from the splats includes the view through the windows, and a
+  box-clamped camera ended up outside. After the edit the same viewpoint is used.
+- **Verifier called scan artifacts damage** ("toppled", "smeared"). Its prompt now says
+  blur, ghosting and dark patches are normal in a splat scan.
+- **Agent gamed the verifier:** after a rejection it moved the chair to mid-room "so it is
+  visible". The retry message now says to change nothing when the tool results show the edit
+  was done, and never to move an object just for the check.
+- **"Turn the chair" did nothing:** the chair overlaps the desk in the scan, every `fits`
+  said "collides" and the agent ran out of steps. Overlaps that already existed where the
+  object was scanned no longer count, and the prompt caps `fits` at three calls.
+- **First command on the living room froze the server for minutes:** room bounds read the
+  283 MB background PLY in full, inside the event loop, so no WebSocket message went out.
+  Now memory-mapped and strided (under 0.3 s) and run in a thread.
+- **Viewer screenshots in a hidden pane** had no furniture: no animation frames run there,
+  so the capture now renders for 1.5 s itself, behind a still of the user's view so the
+  picture does not jump. Checked in the app's hidden browser pane, not in a real background
+  tab.
+- **Command bar:** one progress line in words ("Measuring the bed…", "Checking the
+  result…") instead of raw tool calls (those stay as developer info), no duplicate reply,
+  "✓ Checked" when the verifier agrees. Replies name objects by label, not id.
+- **Start view:** each demo room opens on its furniture (`view` in `landing/scenes.ts`), and
+  the loading card waits for the objects as well as the background.
+- **Review fixes:** the viewer never sent its camera, so "left" and "right" assumed a view
+  along -Z and were wrong from the new start views; commands and voice now send the pose.
+  Undo frames where the object goes back to, null tool arguments no longer fail the command,
+  the fits exemption compares both scan poses and ends when objects get closer, a bad id
+  first no longer loses the framing, the start view is exact and levels in XR (XR not run),
+  and captures run one at a time. The verifier answers NO only when an edit is clearly wrong.
+  Commands with several objects still frame only the first.
+- Result on blender06, timed by hand with no log: "how wide is the bed" 5 s, "remove the
+  ukulele" 12 s, "undo that" 15 s, "turn the chair 45 degrees" verified. From the start view
+  "move the ukulele half a metre to the left" moved it (0.325, 0.38), the user's left,
+  verified. Not tested: voice (no microphone here) and
+  insert. The living room was rebuilding in another session, so it was only checked for the
+  bounds fix. The demo manifests were restored after each test.
+- Next: test voice and the living room once its pipeline run is done.
