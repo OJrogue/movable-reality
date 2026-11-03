@@ -102,7 +102,8 @@ export function splatsReady(scene: THREE.Object3D, spark: SparkRenderer): boolea
 
 /** Vertex count from a binary or ASCII PLY header; reads only the header bytes. */
 export async function plyVertexCount(url: string): Promise<number | null> {
-  const r = await fetch(url);
+  // Range: without it the hosted server starts sending the whole PLY, once per object at load.
+  const r = await fetch(url, { headers: { Range: "bytes=0-65535" } });
   if (!r.ok || !r.body) return null;
   const reader = r.body.getReader();
   const dec = new TextDecoder("latin1");

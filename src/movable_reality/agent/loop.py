@@ -178,7 +178,7 @@ async def run_command(
                 summary += f"; the agent says: {result.reply}"
             verdict = await verify_edit(text, summary, before, after)
         except Exception as exc:  # noqa: BLE001 - a verifier outage must not lose the edit
-            verdict = Verdict(ok=None, reason=f"verifier unavailable: {exc}")
+            verdict = Verdict(ok=None, reason=f"verifier unavailable ({type(exc).__name__})")
             result.verdicts.append(verdict.reason)
             break
         result.verdicts.append(verdict.reason)

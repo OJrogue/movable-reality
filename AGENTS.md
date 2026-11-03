@@ -218,6 +218,8 @@ uv run python scripts/inventory.py --scene room01   # core: Muse Wonder lists ob
 uv run python scripts/lift_ids.py --scene room01    # core: SAM 3.1 per noun, lift to Gaussians, floor alignment, objects/
 curl -X POST localhost:8000/api/scenes/demo/command -H 'content-type: application/json' -d '{"text":"move the chair left"}'
 MR_SESSIONS=1 uv run python -m movable_reality.server   # core: hosted mode (per-visitor scene copies, caps)
+uv run python scripts/publish_demo.py          # core: demo scenes -> Modal volume, test edits undone (--dry-run, --keep-edits, --force, --allow-no-lod)
+cd web && npm run build && cd .. && uv run modal deploy modal_jobs/demo.py   # core: hosted demo (viewer, server, agent), prints the public URL
 uv run modal deploy modal_jobs/sam3d.py        # core M4: SAM 3D Objects (+ MapAnything pointmap) on an L40S, once per code change
 uv run python scripts/insert_object.py --scene m4test "small wooden stool" --x 0.3 --z -0.6   # core M4: gen#<n> (cached)
 uv run python scripts/complete_objects.py --scene room01   # core M4: obj_<id>_completed.ply per object (--only <id>, --force)

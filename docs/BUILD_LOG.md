@@ -1537,3 +1537,33 @@ verifier. Each fix below came from a command that went wrong:
   insert. The living room was rebuilding in another session, so it was only checked for the
   bounds fix. The demo manifests were restored after each test.
 - Next: test voice and the living room once its pipeline run is done.
+
+## 3 Nov: hosted demo on Modal and security pass (lane core, renderer)
+
+- **Deployment:** `modal_jobs/demo.py` runs the viewer, scene server and agent in one CPU container
+  that scales to zero; `scripts/publish_demo.py` uploads scene.json and the files it names to a
+  volume, with test edits undone. It refuses a scene without LOD trees.
+- **Security fixes, found by probing the live URL:** a request without a cookie could edit the
+  shared scene (403 now); provider error text reached visitors, and the verifier's did too (generic
+  now); API docs were public (off); command caps reset on a cold start (kept in `usage.json`). New:
+  per-address daily cap, body and history limits, security headers, Secure cookie, captures must be
+  JPEG data URLs, reads no longer write a scene copy.
+- **Checked live, no key found:** repo, git history and viewer bundle scanned for the real values;
+  `.env`, traversal paths, raw scene files and docs answer 404; three prompt injections and two bad
+  inputs returned no key; a spoofed X-Forwarded-For was not counted as the address. The keys are in a
+  Modal secret holding only MODEL_API_KEY and BASETEN_API_KEY.
+- **Review fixes:** the reviewer agent found no key leak or crossing between visitors, and asked for
+  three fixes before merging, all done: `camera` is typed (a 2 MB `eye` list went into the paid
+  prompt), the body limit also counts chunked bodies, WebSockets need the cookie and are capped. Also
+  fixed: a corrupt `usage.json` stopped the container from starting, huge edit values overflowed.
+  Checked live: bad camera 422, chunked 4 MB cut off, a real command still works, and the `ip:` key in
+  `usage.json` is the hash of this machine's public address, so the proxy's last entry is the client.
+- **Not fixed:** new copies from fresh cookies are not limited (about 170 KB each on the volume), hubs
+  are never evicted, and a visitor's copy keeps the old manifest after a republish.
+- **Load time:** a HUD helper opened every PLY in full for its header; it reads a Range now. Living
+  room (180 MB of .RAD) was still loading at 107 s from Prague, bar near the end, when the test stopped; Bedroom took about 85 s before this fix.
+- **Known:** with `max_containers=1` a redeploy waits for open viewers (up to 10 min). A running
+  container needs a redeploy to see newly published files.
+- Next: blender07 has no LOD locally (34 meshes), so the live copy is older than the local scene.
+  Rebuild, publish and redeploy once its rework is done. The deployed build also held other
+  sessions' uncommitted work (mesh library, gizmo); the library route was only checked for the 403.
