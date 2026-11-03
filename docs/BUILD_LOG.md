@@ -1630,6 +1630,13 @@ verifier. Each fix below came from a command that went wrong:
   removed parent give 400, and after a reload the items return with no request for the bare scene
   folder. Limit, not fixed: an item stands on the top of the object's box, so on the bed it floats
   at the headboard's 1.32 m. No flat surface was aimed at by hand in the viewer.
+- Deployed to the hosted demo (merged main): `publish_demo.py blender06` (library, scene.json; the
+  blender06 files were already current), then `modal deploy`. On the live URL: catalogue of 29, all
+  licensed; ottoman added and undone; agent command "Put a ceramic vase on the dresser and remove
+  the ukulele" did both, vase at 1.07 m, verifier yes. Live blender07 is the older copy (38 objects,
+  with LOD) and was not republished: the local one has 50 objects and no LOD. It opens with the new
+  viewer, loading card gone at about 35 s, furniture in within about a minute. Next: `build_lod.py
+  blender07`, then publish, once its rework is done. A phone was not tried against the live URL.
 
 ## 3 Nov: hosted demo on Modal and security pass (lane core, renderer)
 
