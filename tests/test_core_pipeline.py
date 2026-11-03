@@ -19,7 +19,8 @@ def _load(name: str):
 
 rp = _load("run_pipeline")
 ARGS = argparse.Namespace(scene="t", video=None, focal35=None, preset="quality",
-                          ceiling_height=None, scale=None, skip="")  # fmt: skip
+                          ceiling_height=None, scale=None, skip="", real_capture=False,
+                          group="")  # fmt: skip
 
 
 def _touch(root: Path, rel: str, t: float) -> None:
@@ -90,3 +91,22 @@ def test_only_runs_one_stage(tmp_path):
 
 def test_bake_runs_before_lod():
     assert rp.NAMES.index("bake") < rp.NAMES.index("lod")
+
+
+def test_ceiling_height_reaches_the_room_shell():
+    a = argparse.Namespace(**{**vars(ARGS), "ceiling_height": 2.7})
+    shell = next(st for st in rp.stages(a) if st.name == "shell")
+    assert shell.cmd[-2:] == ["--height", "2.7"]
+    assert "--height" not in next(st for st in rp.stages(ARGS) if st.name == "shell").cmd
+
+
+def test_real_capture_reaches_only_the_reconstruction():
+    a = argparse.Namespace(**{**vars(ARGS), "real_capture": True})
+    with_flag = [st.name for st in rp.stages(a) if "--real-capture" in st.cmd]
+    assert with_flag == ["reconstruct"]
+    assert not [st.name for st in rp.stages(ARGS) if "--real-capture" in st.cmd]
+
+
+def test_group_reaches_only_the_lift():
+    a = argparse.Namespace(**{**vars(ARGS), "group": "table=chair"})
+    assert [st.name for st in rp.stages(a) if "--group" in st.cmd] == ["lift"]

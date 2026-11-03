@@ -129,7 +129,11 @@ def _full_res_model(recon: Path, frames: Path, full: Path) -> float:
 
 
 def _train_args(
-    preset: str, max_steps: int | None, cap_max: int, grow_grad2d: float = 0.0003
+    preset: str,
+    max_steps: int | None,
+    cap_max: int,
+    grow_grad2d: float = 0.0003,
+    real_capture: bool = False,
 ) -> list[str]:
     """simple_trainer.py arguments for a preset (data and result dirs are added by the caller)."""
     if preset == "quality":  # absolute-gradient densification; 0.0003 gave 763k on blender01
@@ -144,10 +148,13 @@ def _train_args(
         head = ["default"]
     else:
         raise ValueError(f"unknown preset {preset!r} (quality, mcmc, fast)")
+    # Camera footage with drifting exposure and small pose errors: fine-tune the poses, and fit
+    # a per-image colour correction that stays out of the exported splat.
+    real = ["--pose_opt", "--post_processing", "bilateral_grid"] if real_capture else []
     return [
         *head, "--data_factor", "1", "--max_steps", str(steps), "--eval_steps", str(steps),
         "--ply_steps", str(steps), "--save_steps", str(steps), "--save_ply",
-        "--no-normalize-world-space", "--disable_viewer",
+        "--no-normalize-world-space", "--disable_viewer", *real,
     ]  # fmt: skip
 
 
@@ -176,6 +183,7 @@ def reconstruct(
     intrinsics: dict | None = None,
     sfm: bool = True,
     grow_grad2d: float = 0.0003,
+    real_capture: bool = False,
 ) -> dict:
     scenes_vol.reload()
     root = Path(VOLUME_ROOT) / "scenes" / scene_id
@@ -236,7 +244,7 @@ def reconstruct(
 
     # 2. gsplat: keep the metric frame (no world-space normalisation), export PLY. Every 8th
     # frame is held out (gsplat's test_every) and scored at the last step.
-    args = _train_args(preset, max_steps, cap_max, grow_grad2d)
+    args = _train_args(preset, max_steps, cap_max, grow_grad2d, real_capture)
     train_stamp = result / "train_args.json"
     if force or not (result / "ply").exists() or _read(train_stamp) != json.dumps(args):
         shutil.rmtree(result, ignore_errors=True)
@@ -270,6 +278,7 @@ def main(
     no_sfm: bool = False,
     eval_walk: str = "",
     grow_grad2d: float = 0.0003,
+    real_capture: bool = False,
     objects: bool = False,
     obj_steps: int = 4000,
     bg_steps: int = 8000,
@@ -304,6 +313,7 @@ def main(
     out = reconstruct.remote(
         scene, preset=preset, max_steps=max_steps or None, cap_max=cap_max, force=force,
         intrinsics=intrinsics, sfm=not no_sfm, grow_grad2d=grow_grad2d,
+        real_capture=real_capture,
     )  # fmt: skip
     print("remote result:", out)
 

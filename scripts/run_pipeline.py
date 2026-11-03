@@ -71,10 +71,13 @@ def stages(a: argparse.Namespace) -> list[Stage]:
     elif a.scale:
         metric = ["--scale", str(a.scale)]
     skip = ["--skip", a.skip] if a.skip else []
+    group = ["--group", a.group] if a.group else []
     frames = [*PY, "scripts/extract_frames.py", str(a.video or "<video>"), "--scene", s]
     if a.focal35:
         frames += ["--focal35", str(a.focal35)]
     recon = [*MODAL, "run", "modal_jobs/reconstruct.py", "--scene", s, "--preset", a.preset]
+    if a.real_capture:
+        recon += ["--real-capture"]
     return [
         Stage("frames", "sharpest frames and SAM clip", frames, [],
               ["frames.json", "sam_input.mp4"]),
@@ -85,7 +88,7 @@ def stages(a: argparse.Namespace) -> list[Stage]:
         Stage("reconstruct", "MapAnything + SfM + gsplat on Modal", recon, ["frames.json"],
               ["splat/scene.ply"], force_flag=False),
         Stage("lift", "objects, floor and metric scale",
-              [*PY, "scripts/lift_ids.py", "--scene", s, *skip, *metric],
+              [*PY, "scripts/lift_ids.py", "--scene", s, *skip, *metric, *group],
               ["splat/scene.ply", "inventory.json"], ["ids/gaussian_ids.npy", "scene.json"]),
         Stage("objects", "per-object training on Modal",
               [*MODAL, "run", "modal_jobs/reconstruct.py", "--scene", s, "--objects"],
@@ -93,7 +96,11 @@ def stages(a: argparse.Namespace) -> list[Stage]:
         Stage("complete", "SAM 3D Objects completions and meshes",
               [*PY, "scripts/complete_objects.py", "--scene", s, "--mesh"],
               ["objects_trained/report.json"], ["completion.json"], optional=True),
-        Stage("shell", "room as textured quads", [*PY, "scripts/room_shell.py", "--scene", s],
+        # The tape-measured height also places the shell's ceiling: its own estimate took the
+        # 99th percentile on blender07 (3.01 m for 2.7), and the real ceiling splats then hung
+        # 30 cm below the quad, too far for room_surfaces.py to remove (3 Nov).
+        Stage("shell", "room as textured quads", [*PY, "scripts/room_shell.py", "--scene", s,
+              *(["--height", str(a.ceiling_height)] if a.ceiling_height else [])],
               ["ids/gaussian_ids.npy"], ["room/shell.json"], optional=True),
         Stage("bake", "floor quad", [*PY, "scripts/bake_planes.py", "--scene", s, "--labels",
               "floor"], ["objects_trained/report.json"], ["planes"], optional=True),
@@ -110,7 +117,7 @@ def stages(a: argparse.Namespace) -> list[Stage]:
 
 NAMES = [st.name for st in stages(argparse.Namespace(
     scene="x", video=None, focal35=None, preset="quality", ceiling_height=None, scale=None,
-    skip="",
+    skip="", real_capture=False, group="",
 ))]  # fmt: skip
 
 
@@ -263,6 +270,17 @@ def main() -> int:
         help="gsplat preset: quality (30k steps) or fast (7k, a quick look)",
     )
     ap.add_argument("--skip", default="", help="SAM nouns to leave out, comma-separated")
+    ap.add_argument(
+        "--group",
+        default="",
+        help="lift: parent=child,child, e.g. "
+        "'table=banquet chair,wooden chair' moves each table with its chairs",
+    )
+    ap.add_argument(
+        "--real-capture",
+        action="store_true",
+        help="camera footage: gsplat pose fine-tuning and per-image colour correction",
+    )
     ap.add_argument("--from", dest="start", choices=NAMES, help="rerun from this stage on")
     ap.add_argument("--to", dest="stop", choices=NAMES, help="stop after this stage")
     ap.add_argument("--only", choices=NAMES,

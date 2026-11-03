@@ -251,6 +251,14 @@ def dominant_yaw(xz: np.ndarray, bins: int = 90) -> float:
 
 
 ITEM_REACH = 0.3  # metres an item's lowest splats may float above the top it rests on
+OVER_TOP = 0.8  # share of an item's footprint that must lie over the top it rests on
+
+
+def footprint_share(clo, chi, plo, phi) -> float:
+    """Share of the child's x-z footprint (bbox) that lies inside the parent's."""
+    w = [max(0.0, min(chi[a], phi[a]) - max(clo[a], plo[a])) for a in (0, 2)]
+    area = max((chi[0] - clo[0]) * (chi[2] - clo[2]), 1e-9)
+    return float(w[0] * w[1] / area)
 
 
 def support(
@@ -289,9 +297,13 @@ def support(
             # under a table starts well below the top and stays separate.
             on_top = phi[1] - 0.1 < clo[1] < phi[1] + ITEM_REACH
             inside = plo[0] <= ccx <= phi[0] and plo[2] <= ccz <= phi[2]
+            # Most of it over the top: a wall-mounted TV 0.25 m above a narrower soundbar
+            # has its centre over it but overhangs both ends (blender07, 3 Nov).
+            over = footprint_share(clo, chi, plo, phi) >= OVER_TOP
             if (
                 on_top
                 and inside
+                and over
                 and (phi[0] - plo[0]) * (phi[2] - plo[2]) > (chi[0] - clo[0]) * (chi[2] - clo[2])
             ):
                 merged[child] = parent
@@ -315,4 +327,40 @@ def support(
         )
         ids[m] = o
         free &= ~m
+    return ids, merged
+
+
+def group_with_nearest(
+    world: np.ndarray,
+    ids: np.ndarray,
+    children: list[int],
+    parents: list[int],
+    reach: float = 0.4,
+    max_points: int = 500,
+) -> tuple[np.ndarray, dict[int, int]]:
+    """Each child joins the parent it comes closest to in x-z, if within `reach` metres, so a
+    table and its chairs move as one object. Returns new ids and {child: parent}."""
+    ids = ids.copy()
+    rng = np.random.default_rng(0)
+
+    def footprint(o: int) -> np.ndarray:
+        pts = world[ids == o][:, [0, 2]]
+        take = min(len(pts), max_points)
+        return pts[rng.choice(len(pts), take, replace=False)] if take else pts
+
+    plans = {o: footprint(o) for o in parents}
+    plans = {o: pts for o, pts in plans.items() if len(pts)}
+    merged: dict[int, int] = {}
+    for child in children:
+        pts = footprint(child)
+        if not len(pts) or child in plans:
+            continue
+        gaps = {
+            o: float(np.linalg.norm(pts[:, None] - plan[None], axis=2).min())
+            for o, plan in plans.items()
+        }
+        if gaps and min(gaps.values()) <= reach:
+            parent = min(gaps, key=lambda o: gaps[o])
+            merged[child] = parent
+            ids[ids == child] = parent
     return ids, merged

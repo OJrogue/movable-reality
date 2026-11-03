@@ -7,6 +7,7 @@ from movable_reality.lift import (
     assign,
     dominant_yaw,
     floor_alignment,
+    group_with_nearest,
     largest_cluster,
     support,
     vote,
@@ -113,6 +114,17 @@ def test_support_keeps_a_chair_tucked_under_a_table():
     chair = _box(rng, [-0.2, 0.45, 0.1], [0.2, 0.9, 0.45], 500)
     world = np.vstack([table, chair])
     ids = np.r_[np.zeros(3000), np.ones(500)].astype(int)
+    _, merged = support(world, ids, [0, 1], LiftParams())
+    assert merged == {}
+
+
+def test_support_keeps_a_wall_tv_above_a_soundbar():
+    # blender07: the TV hangs on the wall 0.25 m above the soundbar and is wider than it.
+    rng = np.random.default_rng(7)
+    soundbar = _box(rng, [-0.45, 0.55, -0.05], [0.45, 0.62, 0.05], 800)
+    tv = _box(rng, [-0.62, 0.87, -0.03], [0.62, 1.57, 0.0], 2000)
+    world = np.vstack([soundbar, tv])
+    ids = np.r_[np.zeros(800), np.ones(2000)].astype(int)
     _, merged = support(world, ids, [0, 1], LiftParams())
     assert merged == {}
 
@@ -232,3 +244,20 @@ def test_sparse_label_counts_only_its_queried_views():
     ids = assign(v_q, s_q, p)[: len(obj)]
     vis = s_q[: len(obj), 0] >= p.min_views
     assert (ids[vis] == 0).mean() > 0.9
+
+
+def test_group_with_nearest_gives_each_chair_to_its_closest_table():
+    rng = np.random.default_rng(0)
+    tables = [_box(rng, [0, 0, 0], [2, 0.75, 1], 400), _box(rng, [4, 0, 0], [6, 0.75, 1], 400)]
+    near_first = _box(rng, [2.1, 0, 0.2], [2.5, 0.9, 0.6], 200)  # 0.1 m from table 1
+    near_second = _box(rng, [3.7, 0, 0.2], [3.9, 0.9, 0.6], 200)  # 0.1 m from table 2
+    far = _box(rng, [8, 0, 0], [8.4, 0.9, 0.4], 200)  # by the wall, no table near
+    world = np.concatenate([*tables, near_first, near_second, far])
+    ids = np.repeat([0, 1, 2, 3, 4], [400, 400, 200, 200, 200])
+
+    out, merged = group_with_nearest(world, ids, [2, 3, 4], [0, 1])
+
+    assert merged == {2: 0, 3: 1}
+    assert (out[800:1000] == 0).all() and (out[1000:1200] == 1).all()
+    assert (out[1200:] == 4).all()  # stays its own object
+    assert (ids[800:1000] == 2).all()  # the input is left alone
