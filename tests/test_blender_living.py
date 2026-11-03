@@ -25,7 +25,7 @@ def _eyes(walk: str, step: int = 3) -> np.ndarray:
 def test_scene_entry():
     assert CFG["builder"] == "blender_living"
     assert CFG["room"] == (5.6, 4.8, 2.7)
-    assert CFG["walks"] == {"main": 62.0, "test": 20.0}
+    assert CFG["walks"] == {"main": 122.0, "test": 30.0}
     assert br.scene_paths("blender07")[0].name == "blender07"
 
 
@@ -62,7 +62,7 @@ def test_walker_is_never_over_the_furniture(walk):
 
 @pytest.mark.parametrize("walk", ["main", "test"])
 def test_camera_turns_like_a_handheld_phone(walk):
-    """No whip pans: under 75 deg/s between frames (blender07 peaks at about 58)."""
+    """No whip pans: under 75 deg/s between frames (blender07 peaks at about 53)."""
     n = int(CFG["walks"][walk] * br.FPS)
     rot = [br.camera_matrix(walk, i / br.FPS, "blender07")[:3, :3] for i in range(n)]
     cos = [(np.trace(a.T @ b) - 1) / 2 for a, b in zip(rot, rot[1:], strict=False)]
@@ -102,13 +102,22 @@ def test_obstacles_hold_the_built_furniture():
                 assert ok, f"{o['id']} ({lo}, {hi}) is outside obstacle {name}"
 
 
+def test_main_walk_visits_every_part_of_the_room():
+    """The chest tour reaches every pocket of free floor, not only the ring round the table."""
+    e = _eyes("main", step=1)
+    for name, (x, y) in {"south-west": (-1.9, -1.5), "TV wall": (-1.85, -0.4),
+                         "north-west": (-1.5, 1.45), "north-east": (1.4, 1.55),
+                         "bookshelf": (1.35, -1.55), "sofa": (1.5, 0.6)}.items():  # fmt: skip
+        assert np.hypot(e[:, 0] - x, e[:, 1] - y).min() < 0.1, name
+
+
 def test_main_walk_has_chest_knee_and_upward_parts():
     n = int(CFG["walks"]["main"] * br.FPS)
     z = np.array([br.camera_matrix("main", i / br.FPS, "blender07")[2, 3] for i in range(n)])
-    assert (z[: 28 * br.FPS] > 1.4).all()  # chest loop
-    assert (np.abs(z[31 * br.FPS : 44 * br.FPS] - 0.6) < 0.1).all()  # knee loop
+    assert (z[: 64 * br.FPS] > 1.4).all()  # chest tour
+    assert (np.abs(z[68 * br.FPS : 102 * br.FPS] - 0.6) < 0.1).all()  # knee ring
     # Last part looks up: the camera's -Z axis (view direction) points above the horizon.
-    view = -np.array([br.camera_matrix("main", t, "blender07")[:3, 2] for t in (50.0, 56.0)])
+    view = -np.array([br.camera_matrix("main", t, "blender07")[:3, 2] for t in (108.0, 116.0)])
     assert (view[:, 2] > 0.15).all()
 
 

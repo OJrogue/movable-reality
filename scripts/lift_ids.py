@@ -92,15 +92,35 @@ def sparse_clip(video: Path, step: int) -> Path:
     return out
 
 
+def sparse_file(video: Path) -> Path:
+    """Nouns that fell back to the sparse clip (so reruns and the vote know)."""
+    return Path(video).parent / "ids" / "sam_sparse.json"
+
+
+def sparse_nouns(video: Path) -> set[str]:
+    f = sparse_file(video)
+    fell_back = set(json.loads(f.read_text())) if f.exists() else set()
+    return set(SPARSE_NOUNS) | fell_back
+
+
 async def segment_all(video, nouns: list[str]):
     sem = asyncio.Semaphore(3)
+    fallback = sparse_file(video)
 
     async def one(noun):
         async with sem:
             t0 = time.time()
-            sparse = noun.lower() in SPARSE_NOUNS
-            clip = sparse_clip(Path(video), SPARSE_STEP) if sparse else video
+            sparse = noun.lower() in sparse_nouns(video)
             for attempt in range(3):  # SAM streams time out now and then (31 Oct, blender01)
+                if attempt == 2 and not sparse:
+                    # Two drops on the full clip: a large object (blender07's bookshelf on 490
+                    # frames, 3 Nov) streams too long. Ask on every SPARSE_STEP-th frame instead.
+                    sparse = True
+                    print(f"  SAM '{noun}': falling back to one frame in {SPARSE_STEP}")
+                    done = json.loads(fallback.read_text()) if fallback.exists() else []
+                    fallback.parent.mkdir(parents=True, exist_ok=True)
+                    fallback.write_text(json.dumps(sorted({*done, noun.lower()})))
+                clip = sparse_clip(Path(video), SPARSE_STEP) if sparse else video
                 try:
                     inst = await segment_video(clip, noun)
                     if sparse:  # back to indices of the full clip (= frames/{i:06d}.jpg)
@@ -211,8 +231,9 @@ def segment_and_vote(root, inv, p, cams, xyz, v, w, h):
     frame_of = [int(c.name.rsplit("/", 1)[-1].split(".")[0]) for c in cams]
     opacity = 1 / (1 + np.exp(-np.asarray(v["opacity"], dtype=np.float32)))
     t0 = time.time()
-    # Wall and ceiling were asked of SAM on every SPARSE_STEP-th frame only.
-    sparse = np.array([names[k].split("#")[0].lower() in SPARSE_NOUNS for k in range(len(names))])
+    # Wall, ceiling and any noun that fell back were asked on every SPARSE_STEP-th frame only.
+    sp = sparse_nouns(root / "sam_input.mp4")
+    sparse = np.array([names[k].split("#")[0].lower() in sp for k in range(len(names))])
     queried = [~sparse | (f % SPARSE_STEP == 0) for f in frame_of]
     votes, seen = vote(cams, [labels_img.get(f) for f in frame_of], xyz, opacity, len(names), p,
                        queried=queried)  # fmt: skip

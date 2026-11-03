@@ -6,6 +6,11 @@ plan agents follow.
 
 ## Frontier claim
 
+**Updated 3 Nov (D21):** VR is out. It was never tested on a headset, so the claim is now:
+a phone video becomes a metric room in which every object is a separate, movable splat,
+gaps are found and filled (generated parts tagged), and it is rearranged by voice or by
+hand in a laptop or phone browser. The headset text below is kept as history.
+
 A phone-captured room, separated into editable objects, with gaps in the capture found
 and filled (recaptured or generated, generated parts tagged), rendered **on a standalone
 headset** at p99 frame time <= 13.9 ms (72 FPS) while the user rearranges it by voice.
@@ -88,7 +93,7 @@ different walk** that is never used for training: it is the test set for off-pat
    of 10 objects.
 4. Agent: success rate on 20 scripted commands, with and without the verifier loop.
 5. Cost per scene in API dollars and GPU minutes.
-6. Headset performance, same scripted 10 min walk on both devices:
+6. Headset performance (dropped 3 Nov, D21; kept for reference), same scripted 10 min walk on both devices:
    | Metric | Bar |
    |---|---|
    | Frame time p50 / p99 | p99 <= 13.9 ms |
@@ -110,6 +115,9 @@ different walk** that is never used for training: it is the test set for off-pat
 Raw logs go to `benchmarks/`.
 
 ## Video (3 min, judged live in the final round; confirm the length limit)
+
+Updated 3 Nov (D21): no headset shots. Replace the headset beats below with the laptop and
+the phone, and use the landing page's input videos for the capture beat.
 
 0:00 capture with on-screen timer → 0:20 scene appears → 0:30 headset on, no PC, HUD with
 frame time and splat counts → 0:45 gaps glow red; top-up prompt; repaired areas and the

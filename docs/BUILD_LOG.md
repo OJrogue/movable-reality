@@ -1398,3 +1398,97 @@ test-walk metrics, `sfm.json`, GT pose ATE). Every row predates the lighting cha
 - Remaining on blender06: the rug's edge beside the bed takes the floor median, lacy
   curtain splats, a green floater above the dresser, the desk sits a few cm off GT (the
   scene's scale is 5 % off, scale_viewer_per_gt 1.049).
+
+## 3 Nov (night), blender + core: blender07 whole-room walk, no frame cap
+
+- The first blender07 run looked poor. Two causes: `extract_frames.py` capped training at
+  200 frames (about 7 per m² in this 27 m² room), and the 62 s walk only circled the
+  coffee table, so corners, pockets and close views were missing.
+- `extract_frames.py`: `--max-frames` removed, so every sharp frame at the target fps is
+  kept. A longer video now means more frames. Top-up videos keep their own cap of 60.
+- `blender_room.py`: `_make_key_walk` places hand-set keys (time, eye, look-at point) and
+  interpolates eye position, yaw and pitch with a time-scaled Catmull-Rom spline.
+  - blender07 main walk, 122 s: 64 s at 1.5 m through every free corner (bookshelf,
+    lounge chair, the south-west door and lamp pocket, TV wall, corner plant, pouf gap,
+    window strip, side table, sofa); 36 s at knee height round the coffee table; 20 s
+    with the phone tilted up for the upper walls and ceiling.
+  - Test walk, 30 s at 1.2-1.7 m, goes the other way between the main views.
+  - Turn rate at most 52 deg/s; mean speed 0.25 m/s.
+  - New test `test_main_walk_visits_every_part_of_the_room`.
+- Rendered on Modal (152 chunks, `--detach`). The chunks keep rendering if the local
+  machine goes offline. Only the download and the mp4 encode run locally.
+- The old run is kept as `data/scenes/blender07_v1` (200 frames, ATE median 2.0 mm), with
+  its videos as `data/raw/blender07_v1*.mp4`.
+- Next: pipeline results on the new video, compared with v1.
+
+- Pipeline on the 122 s walk: 171 min end to end after two SAM reruns.
+  - 488 frames, all registered. MapAnything held on the L40S.
+  - Pose ATE median 3.3 mm, max 36 mm (v1: 2.0 and 62 mm).
+  - Test-walk novel views: PSNR 26.1 dB mean, 26.7 median, SSIM 0.914, LPIPS 0.168 (90 views).
+  - The weakest views (17-19 dB) all look into the north-west corner from mid-room: the west
+    window's curtain and radiator, and the north end of the media console. The main walk only
+    sees that corner from close by.
+  - 32 objects. The bookshelf is one object now (v1 split it); the floor lamp and the TV are
+    missing.
+- SAM: the Meta API dropped the bookshelf stream four times on the 490-frame clip, and the
+  floor stream twice. `lift_ids.py` now asks for one frame in three after two drops and
+  records the noun in `ids/sam_sparse.json`, so reruns and the vote use the same frames. The
+  wall stream failed even on the sparse clip; the run went on without wall masks, as the code
+  allows.
+- Next: cover the north-west corner (a top-up video from mid-room through
+  `coverage_topup.py`, or new keys in the main walk), and find out why the lift dropped the
+  floor lamp and the TV.
+
+## 3 Nov (day), ui: landing page, three-scene demo, viewer chrome
+
+- No Apple HIG or Material 3 skill exists in the skill catalog, so both guidelines were
+  applied by hand: M3 dark colour roles, tonal buttons, menus, switches and state layers;
+  HIG translucent materials, system type, 44 px targets, a pause control for the moving
+  background and reduced-motion support.
+- `/` is now a landing page (`web/src/landing/`, loaded by `web/src/entry.ts`; three.js
+  and Spark are only loaded for the viewer). A showcase video plays behind the hero,
+  "Open the demo" offers the three rooms, and the page explains what the project does,
+  the six pipeline stages with the Meta model each calls, and the model list. Every
+  viewer URL (`?scene=`, `?ply=`, `?bench=`) still opens the viewer.
+- Demo rooms in `web/src/landing/scenes.ts`: living room (`blender07`), bedroom
+  (`blender06`), real room (`room01`, shown as "Coming soon" until it has a scene.json).
+  Cards read `/__scenes` on the dev server ("Updating" while a stage is running) and
+  fall back to HEAD on `scene.json` on a static host.
+- Viewer chrome (`web/src/ui/chrome.ts`): a top bar with back to the start page, a room
+  switcher, Enter VR (Spark's button, restyled, no longer the large default box), help and
+  a settings menu (coverage gaps, generated splats, object style, developer info).
+  A loading card stays up until the background splats have loaded, and tells you when a
+  room is still being processed.
+- Developer info is hidden by default: the HUD (also in XR), the save-log button, the
+  detail slider and the object style label carry the class `mr-debug`. The settings
+  menu's last switch or the ` key shows them, and the choice is remembered. `?debug=1|0`,
+  and `?bench=1` or `?hud=1` start with it on, so benchmark runs are unchanged.
+- Command bar: friendlier offline text ("Agent offline"; the server command goes to the
+  console), SVG microphone, a status dot only on phones. The onboarding sample commands
+  now name objects of the open room.
+- Placeholder media: `showcase.mp4` is 23 s cut from the blender07 and blender06 walk
+  renders (gitignored like every mp4); swap in a screen recording of the viewer for the
+  final page. Card images are capture frames.
+- Checked in the browser pane at desktop size and 375 x 812: landing, dialog, viewer load,
+  menus and the developer-info switch; no horizontal scroll on the phone. `npm test`
+  (189) and `npm run build` pass. Not checked on a headset or a real phone.
+- Next: a real showcase recording, `room01` once filmed, and its card image.
+
+## 3 Nov (evening), ui + docs: new hook, no VR, input videos per room
+
+- Landing hero rewritten in plainer words ("Try the new layout before you lift the sofa."),
+  stats no longer quote 30 s or 72 FPS (the living-room walk is 122 s).
+- VR dropped from the demo and the claims (D21 in `docs/HANDOFF.md`): untested on a headset.
+  The landing page no longer mentions it, and the viewer's Enter VR button is now developer
+  info only.
+- New landing section "The videos each room was built from": the exact walk each scene
+  trained on (`capture_<scene>.mp4`, 960 px copies of `data/scenes/<scene>/input.mp4`,
+  1.9 MB and 4.4 MB, gitignored). The real room shows "Capture coming soon" until filmed.
+- README rewritten for the current state (try the demo, viewer controls, developer info,
+  media, rooms); PLAN, ARCHITECTURE, MARKETING and AGENTS.md follow D21; HANDOFF has a
+  3 Nov section.
+- Review fixes: a failed object PLY no longer fails the whole room on the loading card,
+  sample commands never pair an object with itself, H no longer shows the XR HUD panel
+  with developer info off, settings popover without menu roles, landing numbers match
+  the data (no object or frame counts).
+- Next: a real screen recording for the hero, then room01.

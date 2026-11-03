@@ -62,33 +62,73 @@ export function shouldShowOnboarding(params: URLSearchParams, storage: KeyValue 
   }
 }
 
+/**
+ * Sample commands that name objects in this scene, so a click on one does something. The
+ * generic SAMPLE_COMMANDS fill in when the scene has fewer than four useful labels.
+ */
+export function sampleCommands(labels: readonly string[]): string[] {
+  const seen = new Set<string>();
+  const big: string[] = [];
+  for (const l of labels) {
+    const name = l.trim().toLowerCase();
+    if (!name || seen.has(name) || SKIP_LABELS.has(name)) continue;
+    seen.add(name);
+    big.push(name);
+  }
+  const pick = (i: number) => big[i % Math.max(big.length, 1)];
+  if (big.length < 2) return [...SAMPLE_COMMANDS];
+  const out = [
+    `Move the ${pick(0)} half a metre to the left`,
+    `Turn the ${pick(1)} 90 degrees`,
+    `Remove the ${pick(2)}`,
+  ];
+  // "next to" needs a fourth object, or it names one object twice.
+  if (big.length >= 4) out.push(`Put the ${pick(3)} next to the ${pick(0)}`);
+  return [...new Set(out)];
+}
+
+/** Labels that make poor sample commands (room surfaces, clutter). */
+const SKIP_LABELS = new Set(["wall", "floor", "ceiling", "window", "door", "book", "picture frame", "poster", "pillow", "rug", "curtain"]);
+
 export interface OnboardingDeps {
   params: URLSearchParams;
   /** Show the touch controls instead of mouse and keyboard (mobile profile). */
   touch?: boolean;
+  /** False when another button (ui/chrome.ts) reopens the panel; default true. */
+  reopenButton?: boolean;
   fill(text: string): void;
   toggleGaps(): void;
   /** Placeholder until generated splats exist (M4); returns the new state. */
   toggleGenerated(): boolean;
 }
 
-export function installOnboarding(deps: OnboardingDeps): void {
+export interface OnboardingHandle {
+  show(on: boolean): void;
+  shown(): boolean;
+  /** Replaces the sample command chips (sampleCommands of the scene's labels). */
+  setSamples(texts: readonly string[]): void;
+}
+
+export function installOnboarding(deps: OnboardingDeps): OnboardingHandle {
   const storage = safeStorage();
   const panel = el("div", "mr-ui-onboarding");
+  panel.setAttribute("role", "dialog");
+  panel.setAttribute("aria-label", "Controls and sample commands");
   const reopen = el("button", "mr-ui-help");
   reopen.textContent = "?";
   reopen.title = "controls and sample commands";
 
   const head = el("div", "mr-ui-ob-head");
   const title = el("strong", "");
-  title.textContent = "Movable Reality";
+  title.textContent = "How to use";
   const close = el("button", "mr-ui-close");
   close.textContent = "×";
   close.title = "close";
+  close.setAttribute("aria-label", "Close");
   head.append(title, close);
 
   const intro = el("p", "mr-ui-ob-intro");
-  intro.textContent = "A room scanned from a 30 s phone video. Every object is its own splat, so you can rearrange it.";
+  intro.textContent = "A room rebuilt from one phone video. Every object is its own splat, so you can rearrange it.";
 
   const table = el("table", "mr-ui-ob-keys");
   for (const [key, what] of deps.touch ? TOUCH_CONTROLS : CONTROLS) {
@@ -104,12 +144,16 @@ export function installOnboarding(deps: OnboardingDeps): void {
   const samplesTitle = el("div", "mr-ui-ob-sub");
   samplesTitle.textContent = "Try a command";
   const samples = el("div", "mr-ui-ob-samples");
-  for (const text of SAMPLE_COMMANDS) {
-    const b = el("button", "mr-ui-chip");
-    b.textContent = text;
-    b.addEventListener("click", () => deps.fill(text));
-    samples.appendChild(b);
-  }
+  const setSamples = (texts: readonly string[]) => {
+    samples.replaceChildren();
+    for (const text of texts) {
+      const b = el("button", "mr-ui-chip");
+      b.textContent = text;
+      b.addEventListener("click", () => deps.fill(text));
+      samples.appendChild(b);
+    }
+  };
+  setSamples(SAMPLE_COMMANDS);
 
   const toggles = el("div", "mr-ui-ob-toggles");
   const gaps = el("button", "mr-ui-toggle");
@@ -127,8 +171,11 @@ export function installOnboarding(deps: OnboardingDeps): void {
   });
   toggles.append(gaps, generated);
 
-  panel.append(head, intro, table, samplesTitle, samples, toggles);
-  document.body.append(panel, reopen);
+  panel.append(head, intro, table, samplesTitle, samples);
+  // With the chrome's menu the toggles live there (ui/chrome.ts).
+  if (deps.reopenButton !== false) panel.append(toggles);
+  document.body.append(panel);
+  if (deps.reopenButton !== false) document.body.append(reopen);
 
   const show = (on: boolean) => {
     panel.hidden = !on;
@@ -147,4 +194,5 @@ export function installOnboarding(deps: OnboardingDeps): void {
     show(true);
     reopen.blur();
   });
+  return { show, shown: () => !panel.hidden, setSamples };
 }

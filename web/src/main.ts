@@ -46,8 +46,15 @@ rig.add(camera);
 scene.add(rig);
 
 const controls = new SparkControls({ canvas: renderer.domElement });
+// Enter VR button: Spark shows it when WebXR works; the ui lane places and styles it
+// (ui/chrome.ts) instead of Spark's large default button.
+const xrButton = document.createElement("button");
+xrButton.id = "mr-vr";
+xrButton.type = "button";
+document.body.appendChild(xrButton);
 new SparkXr({
   renderer,
+  element: xrButton,
   mode: "vr",
   referenceSpaceType: "local-floor",
   frameBufferScaleFactor: xrFramebufferScale,

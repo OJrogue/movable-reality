@@ -4,8 +4,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>Movable Reality</title>
+    <meta name="description" content="Film a room on a phone and rearrange every object in it, right in the browser." />
+    <meta name="theme-color" content="#0f1015" />
     <style>
-      html, body { margin: 0; height: 100%; overflow: hidden; background: #111; }
+      html, body { margin: 0; height: 100%; overflow: hidden; background: #0f1015; }
       canvas { display: block; }
       #hud {
         position: fixed; left: 12px; top: 12px; padding: 6px 10px; border-radius: 6px;
@@ -16,6 +18,6 @@
   </head>
   <body>
     <div id="hud">loading…</div>
-    <script type="module" src="/src/main.ts"></script>
+    <script type="module" src="/src/entry.ts"></script>
   </body>
 </html>
