@@ -155,6 +155,10 @@ body[data-chrome="0"] .mr-chrome-top, body[data-chrome="0"] .mr-chrome-menu { di
 @media (prefers-reduced-motion: reduce) { .mr-ui-line { animation: none; } }
 .mr-ui-you { align-self: flex-end; background: rgba(51, 65, 138, 0.86); color: var(--mr-on-primary-container); border-color: transparent; }
 .mr-ui-agent { color: var(--mr-on-surface-variant); font-style: italic; }
+.mr-ui-status { font-style: normal; display: flex; align-items: center; gap: 8px; }
+.mr-ui-status::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--mr-primary, #b9c3ff); animation: mr-pulse 1.2s ease-in-out infinite; flex: none; }
+@keyframes mr-pulse { 50% { opacity: 0.3; transform: scale(0.7); } }
+@media (prefers-reduced-motion: reduce) { .mr-ui-status::before { animation: none; } }
 .mr-ui-reply { background: rgba(20, 90, 60, 0.82); border-color: transparent; }
 .mr-ui-info { color: var(--mr-on-surface-variant); }
 .mr-ui-error { background: var(--mr-error-container); color: #ffdad6; border-color: transparent; }

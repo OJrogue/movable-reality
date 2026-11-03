@@ -5,6 +5,7 @@
 // switch or the ` key; ?debug=1 or ?bench=1 start with it on, and the choice is remembered.
 // ?chrome=0 hides the top bar (clean recordings). Lanes mark their debug widgets with the
 // class mr-debug (CSS in style.ts hides them while body has no data-debug).
+import * as THREE from "three";
 import type { ViewerContext } from "../context";
 import { DEMO_SCENES, findDemoScene, viewerUrl } from "../landing/scenes";
 import type { ObjectStyle } from "../scene";
@@ -339,8 +340,35 @@ export function installChrome(deps: ChromeDeps): ChromeHandle {
     back.textContent = "Back to all rooms";
     card.append(back);
   };
-  ctx.onManifest((_m, view) => {
-    view.backgroundMesh()?.initialized.then(finish, () => fail("This room could not be loaded."));
+  // ---- start view: a demo room opens looking at its furniture, not at the origin's wall.
+  // Bench walks, eval views (mrCamera) and ?view=0 keep the default.
+  let placed = !demo?.view || ctx.params.has("bench") || ctx.params.get("view") === "0";
+  ctx.onManifest(() => {
+    if (placed || !demo?.view) return;
+    placed = true;
+    const eye = new THREE.Vector3(...demo.view.eye);
+    const look = new THREE.Matrix4().lookAt(eye, new THREE.Vector3(...demo.view.target), new THREE.Vector3(0, 1, 0));
+    ctx.rig.quaternion.setFromRotationMatrix(look);
+    // The camera sits 1.6 m up inside the rig, and the rig is pitched: undo that offset.
+    ctx.rig.position.copy(eye).sub(ctx.camera.position.clone().applyQuaternion(ctx.rig.quaternion));
+  });
+  // A headset needs a level rig on the floor, or the whole room tilts.
+  ctx.renderer.xr.addEventListener("sessionstart", () => {
+    const yaw = new THREE.Euler().setFromQuaternion(ctx.rig.quaternion, "YXZ").y;
+    ctx.rig.quaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
+    ctx.rig.position.y = 0;
+  });
+  ctx.onManifest((m, view) => {
+    // The furniture loads after the background; an empty room under a hidden card looked
+    // broken (blender06, 3 Nov). Object failures do not hold the card (allSettled).
+    const objects = m.objects
+      .filter((o) => o.visible)
+      .map((o) => view.objectNode(o.id)?.mesh.initialized)
+      .filter((p) => p !== undefined);
+    view.backgroundMesh()?.initialized.then(
+      () => void Promise.allSettled(objects).then(finish),
+      () => fail("This room could not be loaded."),
+    );
   });
   // A missing scene.json falls back to a plain PLY (main.ts). Only the background failing
   // fails the room (above): a missing object PLY leaves the rest of the room usable.

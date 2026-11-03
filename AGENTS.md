@@ -211,7 +211,7 @@ uv run modal run modal_jobs/reconstruct.py --scene blender01 --objects   # core:
 # ui viewer: ?onboarding=0|1 (panel), ?server=0 (local edits even when the server runs); window.mrUi.manifest() in the console
 # ui: http://localhost:5173/ is the landing page (web/src/landing/); any ?scene= / ?ply= / ?bench= opens the viewer. Demo scenes: web/src/landing/scenes.ts
 # ui: showcase video web/public/media/showcase.mp4 (gitignored, copy it next to a hosted build); card images web/public/media/thumb_<id>.jpg
-# ui viewer: developer info (HUD, save log, detail slider, object style label) is off by default: settings menu (⋮) or the ` key; ?debug=1|0; ?chrome=0 hides the top bar
+# ui viewer: developer info (HUD, save log, detail slider, object style label) is off by default: settings menu (⋮) or the ` key; ?debug=1|0; ?chrome=0 hides the top bar; demo rooms open at their `view` (landing/scenes.ts), ?view=0 keeps the origin
 # devices viewer: ?device=desktop|mobile|xr overrides the detected quality profile (an XR session always uses xr); window.mrDevice in the console
 uv run python -m movable_reality.server          # core: scene server + agent on :8000 (Vite proxies /api, /ws)
 uv run python scripts/inventory.py --scene room01   # core: Muse Wonder lists objects -> inventory.json
