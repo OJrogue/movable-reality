@@ -7,8 +7,15 @@ import { isTyping } from "./editor";
 import { Recorder } from "./recorder";
 
 const MAX_LINES = 6;
+const MIC_SVG =
+  '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" ' +
+  'stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/>' +
+  '<path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg>';
 const MIN_TALK_S = 0.3;
-export const NEED_SERVER = "commands need the scene server: uv run python -m movable_reality.server";
+export const NEED_SERVER =
+  "Commands need the agent, which is offline right now. You can still click, drag and rotate objects.";
+/** Shown in the console (and with developer info on) next to NEED_SERVER. */
+export const START_SERVER = "start it with: uv run python -m movable_reality.server";
 
 export type LineKind = "you" | "agent" | "reply" | "info" | "error";
 
@@ -37,7 +44,7 @@ export class CommandBar {
     this.log = el("div", "mr-ui-log");
     const row = el("div", "mr-ui-row");
     this.mic = el("span", "mr-ui-mic");
-    this.mic.textContent = "●";
+    this.mic.innerHTML = MIC_SVG;
     this.mic.title = "hold Space to talk";
     this.input = document.createElement("input");
     this.input.type = "text";
@@ -48,7 +55,7 @@ export class CommandBar {
     this.badge = el("span", "mr-ui-badge");
     this.talkButton = el("button", "mr-ui-talk");
     this.talkButton.type = "button";
-    this.talkButton.textContent = "Hold to talk";
+    this.talkButton.innerHTML = `${MIC_SVG}<span>Hold to talk</span>`;
     this.talkButton.setAttribute("aria-label", "hold to talk");
     row.append(this.mic, this.input, this.badge, this.talkButton);
     this.root.append(this.log, row);
@@ -101,6 +108,7 @@ export class CommandBar {
   /** Called when the server state changes; `text` describes it. */
   setMode(online: boolean, text: string): void {
     this.badge.textContent = text;
+    this.badge.title = text;
     this.badge.dataset.state = online ? "online" : "offline";
   }
 
@@ -117,6 +125,12 @@ export class CommandBar {
     while (this.log.childElementCount > MAX_LINES) this.log.firstElementChild?.remove();
   }
 
+  private needServer(): void {
+    this.line("error", NEED_SERVER);
+    console.info(`[ui] ${START_SERVER}`);
+    if (document.body.hasAttribute("data-debug")) this.line("info", START_SERVER);
+  }
+
   /** Agent progress from the WebSocket. */
   agent(stage: AgentStage, text: string): void {
     if (stage === "transcript") {
@@ -131,7 +145,7 @@ export class CommandBar {
     const text = raw.trim();
     if (!text) return;
     if (!this.deps.server || !this.deps.online()) {
-      this.line("error", NEED_SERVER);
+      this.needServer();
       return;
     }
     if (this.busy) {
@@ -179,7 +193,7 @@ export class CommandBar {
   private beginTalk(): void {
     if (this.talking) return;
     if (!this.deps.server || !this.deps.online()) {
-      this.line("error", NEED_SERVER);
+      this.needServer();
       return;
     }
     if (this.busy) {

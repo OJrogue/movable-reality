@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DISMISS_KEY, shouldShowOnboarding, type KeyValue } from "./onboarding";
+import { DISMISS_KEY, SAMPLE_COMMANDS, sampleCommands, shouldShowOnboarding, type KeyValue } from "./onboarding";
 
 const store = (v: string | null): KeyValue => ({ getItem: () => v, setItem: () => undefined });
 const throwing: KeyValue = {
@@ -27,5 +27,25 @@ describe("shouldShowOnboarding", () => {
   });
   it("uses a namespaced key", () => {
     expect(DISMISS_KEY.startsWith("mr.")).toBe(true);
+  });
+});
+
+describe("sampleCommands", () => {
+  it("names objects of the scene, skipping surfaces and clutter", () => {
+    const out = sampleCommands(["wall", "Sofa", "sofa", "book", "armchair", "coffee table", "lamp"]);
+    expect(out[0]).toBe("Move the sofa half a metre to the left");
+    expect(out.join(" ")).not.toMatch(/wall|book/);
+    expect(out).toContain("Remove the coffee table");
+  });
+  it("falls back to the generic samples", () => {
+    expect(sampleCommands(["wall", "chair"])).toEqual(SAMPLE_COMMANDS);
+  });
+  it("never pairs an object with itself", () => {
+    const out = sampleCommands(["bed", "desk", "chair"]);
+    expect(out.join(" ")).not.toMatch(/next to/);
+  });
+  it("never repeats a command with few labels", () => {
+    const out = sampleCommands(["bed", "desk"]);
+    expect(new Set(out).size).toBe(out.length);
   });
 });

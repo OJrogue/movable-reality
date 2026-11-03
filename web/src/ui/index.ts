@@ -10,7 +10,8 @@ import { CommandBar } from "./commandBar";
 import { applyEdit, EditError, type EditRequest } from "./edits";
 import { Editor } from "./editor";
 import { installMeasure } from "./measure";
-import { installOnboarding } from "./onboarding";
+import { installChrome } from "./chrome";
+import { installOnboarding, sampleCommands } from "./onboarding";
 import { UI_CSS } from "./style";
 
 /** main.ts passes the full context, which can also publish a manifest to every lane. */
@@ -19,7 +20,7 @@ export type UiContext = ViewerContext & {
 };
 
 const RETRY_MS = 5000;
-const OFFLINE_TEXT = "offline: edits are local";
+const OFFLINE_TEXT = "Agent offline";
 
 export interface UiHandle {
   editor: Editor;
@@ -91,14 +92,14 @@ export function installUi(ctx: UiContext): UiHandle {
   const setOnline = (on: boolean) => {
     const was = online;
     online = on;
-    bar.setMode(on, on ? "server" : sceneId ? OFFLINE_TEXT : "no scene");
+    bar.setMode(on, on ? "Agent online" : sceneId ? OFFLINE_TEXT : "No scene");
     if (on && !was) {
       latest = null; // the server's scene is the truth from here on
-      bar.line("info", "connected to the scene server");
+      bar.line("info", "Connected to the agent. Type or speak a command.");
       if (localEdits > 0) bar.line("info", `${localEdits} local edits replaced by the server's scene`);
       localEdits = 0;
     }
-    if (!on && was) bar.line("info", "lost the scene server; edits are local until it is back");
+    if (!on && was) bar.line("info", "Lost the agent. Edits stay in this tab until it is back.");
   };
 
   // Edits run one at a time, in order, so a fast Q Q Q never reorders on the server.
@@ -170,9 +171,10 @@ export function installUi(ctx: UiContext): UiHandle {
   setOnline(false);
   void connect();
 
-  installOnboarding({
+  const onboarding = installOnboarding({
     params: ctx.params,
     touch: touchUi(),
+    reopenButton: false, // the chrome's help button reopens it
     fill: (t) => bar.fill(t),
     // The coverage lane toggles its overlay on key G; main.ts keeps no handle to it.
     toggleGaps: () => document.dispatchEvent(new KeyboardEvent("keydown", { code: "KeyG", key: "g" })),
@@ -186,6 +188,9 @@ export function installUi(ctx: UiContext): UiHandle {
       };
     })(),
   });
+
+  ctx.onManifest((m) => onboarding.setSamples(sampleCommands(m.objects.filter((o) => o.visible).map((o) => o.label))));
+  installChrome({ ctx, onboarding, notify: (t) => bar.line("info", t) });
 
   const handle: UiHandle = { editor, bar, online: () => online, edit, manifest: () => ctx.manifest };
   (window as unknown as { mrUi?: UiHandle }).mrUi = handle; // for console checks and tests

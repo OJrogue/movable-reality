@@ -56,6 +56,7 @@ export class DetailControl {
   private total: number | null = null;
 
   constructor(onManual: (count: number) => void, onAuto: () => void) {
+    this.el.className = "mr-debug mr-debug-detail"; // developer info only (ui/chrome.ts)
     Object.assign(this.el.style, {
       position: "fixed",
       right: "12px",

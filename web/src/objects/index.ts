@@ -99,6 +99,7 @@ export function installObjects(ctx: ViewerContext): ObjectsHandle {
 
   const label = document.createElement("button");
   label.type = "button";
+  label.className = "mr-debug mr-debug-objects"; // developer info only; the ui menu offers the styles
   label.title =
     "How objects are drawn (key V): auto (scan, SAM 3D splats once moved), scan, SAM 3D splats, " +
     "SAM 3D meshes, meshes only (room mesh too, no splats)";

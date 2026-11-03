@@ -1421,6 +1421,24 @@ test-walk metrics, `sfm.json`, GT pose ATE). Every row predates the lighting cha
   its videos as `data/raw/blender07_v1*.mp4`.
 - Next: pipeline results on the new video, compared with v1.
 
+- Pipeline on the 122 s walk: 171 min end to end after two SAM reruns.
+  - 488 frames, all registered. MapAnything held on the L40S.
+  - Pose ATE median 3.3 mm, max 36 mm (v1: 2.0 and 62 mm).
+  - Test-walk novel views: PSNR 26.1 dB mean, 26.7 median, SSIM 0.914, LPIPS 0.168 (90 views).
+  - The weakest views (17-19 dB) all look into the north-west corner from mid-room: the west
+    window's curtain and radiator, and the north end of the media console. The main walk only
+    sees that corner from close by.
+  - 32 objects. The bookshelf is one object now (v1 split it); the floor lamp and the TV are
+    missing.
+- SAM: the Meta API dropped the bookshelf stream four times on the 490-frame clip, and the
+  floor stream twice. `lift_ids.py` now asks for one frame in three after two drops and
+  records the noun in `ids/sam_sparse.json`, so reruns and the vote use the same frames. The
+  wall stream failed even on the sparse clip; the run went on without wall masks, as the code
+  allows.
+- Next: cover the north-west corner (a top-up video from mid-room through
+  `coverage_topup.py`, or new keys in the main walk), and find out why the lift dropped the
+  floor lamp and the TV.
+
 ## 3 Nov (day), ui: landing page, three-scene demo, viewer chrome
 
 - No Apple HIG or Material 3 skill exists in the skill catalog, so both guidelines were
@@ -1455,20 +1473,22 @@ test-walk metrics, `sfm.json`, GT pose ATE). Every row predates the lighting cha
   menus and the developer-info switch; no horizontal scroll on the phone. `npm test`
   (189) and `npm run build` pass. Not checked on a headset or a real phone.
 - Next: a real showcase recording, `room01` once filmed, and its card image.
-- Pipeline on the 122 s walk: 171 min end to end after two SAM reruns.
-  - 488 frames, all registered. MapAnything held on the L40S.
-  - Pose ATE median 3.3 mm, max 36 mm (v1: 2.0 and 62 mm).
-  - Test-walk novel views: PSNR 26.1 dB mean, 26.7 median, SSIM 0.914, LPIPS 0.168 (90 views).
-  - The weakest views (17-19 dB) all look into the north-west corner from mid-room: the west
-    window's curtain and radiator, and the north end of the media console. The main walk only
-    sees that corner from close by.
-  - 32 objects. The bookshelf is one object now (v1 split it); the floor lamp and the TV are
-    missing.
-- SAM: the Meta API dropped the bookshelf stream four times on the 490-frame clip, and the
-  floor stream twice. `lift_ids.py` now asks for one frame in three after two drops and
-  records the noun in `ids/sam_sparse.json`, so reruns and the vote use the same frames. The
-  wall stream failed even on the sparse clip; the run went on without wall masks, as the code
-  allows.
-- Next: cover the north-west corner (a top-up video from mid-room through
-  `coverage_topup.py`, or new keys in the main walk), and find out why the lift dropped the
-  floor lamp and the TV.
+
+## 3 Nov (evening), ui + docs: new hook, no VR, input videos per room
+
+- Landing hero rewritten in plainer words ("Try the new layout before you lift the sofa."),
+  stats no longer quote 30 s or 72 FPS (the living-room walk is 122 s).
+- VR dropped from the demo and the claims (D21 in `docs/HANDOFF.md`): untested on a headset.
+  The landing page no longer mentions it, and the viewer's Enter VR button is now developer
+  info only.
+- New landing section "The videos each room was built from": the exact walk each scene
+  trained on (`capture_<scene>.mp4`, 960 px copies of `data/scenes/<scene>/input.mp4`,
+  1.9 MB and 4.4 MB, gitignored). The real room shows "Capture coming soon" until filmed.
+- README rewritten for the current state (try the demo, viewer controls, developer info,
+  media, rooms); PLAN, ARCHITECTURE, MARKETING and AGENTS.md follow D21; HANDOFF has a
+  3 Nov section.
+- Review fixes: a failed object PLY no longer fails the whole room on the loading card,
+  sample commands never pair an object with itself, H no longer shows the XR HUD panel
+  with developer info off, settings popover without menu roles, landing numbers match
+  the data (no object or frame counts).
+- Next: a real screen recording for the hero, then room01.
