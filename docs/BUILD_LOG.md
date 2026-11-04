@@ -1660,3 +1660,38 @@ verifier. Each fix below came from a command that went wrong:
 - Next: blender07 has no LOD locally (34 meshes), so the live copy is older than the local scene.
   Rebuild, publish and redeploy once its rework is done. The library route was only checked for the
   403; library panel not tested on the live URL.
+
+## 4 Nov, core: blender07 objects keep their lifted splats, walls stay splats
+
+Compared the viewer with ground truth on blender07's 45 test views, next to the full-scene
+render at the same cameras. The full scene was nearly clean, so the smearing came from after
+reconstruction. Two causes:
+
+- Per-object fine-tuning frayed the objects. Each trains alone on black against frame * mask,
+  so a dark splat outside the mask costs no colour error (dark halos on paintings and the TV),
+  and there was rainbow speckle on curtains and walls.
+- The room shell whitewashed the windows, painted wall texture over a door and left a jagged
+  skirting.
+
+`objtrain.install` now keeps the lifted object splats by default (`objects_from="trained"` is
+the old way; trained copies still find the duplicates) and clears `room_planes`. New
+`run_pipeline.py --room-splats` leaves out the shell, floor quad and surface removal. New merge
+rule: same noun and boxes overlapping by 25% or more join (upper and lower curtain pieces 0.33
+to 0.43, every other same-noun pair under 0.02). Added the nouns rug, pendant lamp, curtain and
+radiator on blender07: 40 visible objects, 4 curtains, 2 radiators.
+
+Viewer PSNR against GT, 45 views, 1024x768 with GT centre-cropped to 4:3, whole frame:
+22.16 dB before, 27.83 dB after (median 22.93 to 27.47, minimum 13.90 to 20.63, better in 44
+of 45). Rendered with LOD off and nothing merged, not separating out of the training result
+(43 views) gives 29.03 dB, and with lifted objects 28.07 dB. The captures are in
+`data/scenes/blender07/eval/viewer/` (gitignored). Only blender07 was measured; the pipeline
+default still builds the shell, and scenes already installed change only on a rerun.
+
+Still wrong: moving an object leaves marks (ghost of the TV on the wall, smeared floor under
+the chair, a green smear on the wall above the plant); the bookshelf's books are streaky and
+some picture frames keep dark edges; the soundbar is two pieces, end to end, so the rule does
+not join it. Object training still runs for the background, and its object half is now only
+used to find duplicates (about 25 min of GPU).
+
+Next: reviewer, PR by OJ, publish blender07 if it goes in the demo.
+
