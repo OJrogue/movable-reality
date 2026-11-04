@@ -31,6 +31,10 @@ export interface ViewerContext {
    * main.ts copies it onto the SceneView before the first manifest is applied.
    */
   meshOptions?: SceneView["meshOptions"];
+  /** Set at install time (lane ui, the loading card); main.ts copies it onto the SceneView. */
+  loadObserver?: SceneView["loadObserver"];
+  /** A splat file failed to load (lane ui tells the user once the room is open). */
+  onLoadError?: (ply: string) => void;
   /** WebXR framebuffer scale requested for the session (?xrScale=, Spark's default 0.5). */
   readonly xrFramebufferScale: number;
   /** False while something else drives the rig (bench mode); desktop controls then pause. */

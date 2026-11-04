@@ -8,13 +8,16 @@
 import * as THREE from "three";
 import type { ViewerContext } from "../context";
 import { DEMO_SCENES, findDemoScene, viewerUrl } from "../landing/scenes";
+import { splatsReady } from "../perf/sparkInfo";
 import type { ObjectStyle } from "../scene";
 import { OBJECT_STYLES } from "../scene";
 import { isTyping } from "./editor";
+import { LoadProgress, loadingText, probeSize } from "./loadProgress";
 import { type KeyValue, type OnboardingHandle, safeStorage } from "./onboarding";
 
 export const DEBUG_KEY = "mr.debug";
-const LOADING_TIMEOUT_MS = 120_000; // never leave the card up for good
+const LOADING_STALL_MS = 60_000; // never leave the card up for good: no byte in this long lifts it
+const FIRST_CUT_TIMEOUT_MS = 8_000;
 
 /** ?debug wins, bench mode and an explicit ?hud=1 turn it on, then the remembered choice. */
 export function debugInitial(params: URLSearchParams, storage: KeyValue | null): boolean {
@@ -313,30 +316,77 @@ export function installChrome(deps: ChromeDeps): ChromeHandle {
   );
   document.body.append(bar, scenesMenu.el, settingsMenu.el);
 
-  // ---- loading card, until the background splats are in (or an error)
+  // ---- loading card, until every splat file is in and drawn (or an error)
   const loading = h("div", "mr-chrome-loading");
-  loading.setAttribute("role", "status");
   const card = h("div", "mr-chrome-loading-card");
   const lt = h("div", "mr-chrome-loading-title");
   lt.textContent = demo?.title ?? sceneId ?? "";
   const ls = h("div", "mr-chrome-loading-sub");
-  ls.textContent = "Loading the room";
-  const bar2 = h("div", "mr-chrome-progress", "<span></span>");
-  card.append(lt, ls, bar2);
+  const progressBar = h("div", "mr-chrome-progress", "<span></span>");
+  const progressFill = progressBar.firstElementChild as HTMLElement;
+  progressBar.setAttribute("role", "progressbar");
+  progressBar.setAttribute("aria-label", "Loading the room");
+  progressBar.setAttribute("aria-valuemin", "0");
+  progressBar.setAttribute("aria-valuemax", "100");
+  card.append(lt, ls, progressBar);
   loading.append(card);
   if (sceneId) document.body.append(loading);
+
+  const progress = new LoadProgress();
   let done = false;
+  let lastActivity = performance.now();
+  let settledAt: number | null = null;
+  const render = () => {
+    const s = progress.snapshot();
+    ls.textContent = loadingText(s);
+    progressFill.style.transform = `scaleX(${s.fraction})`;
+    progressBar.setAttribute("aria-valuenow", String(Math.floor(s.fraction * 100)));
+  };
+  render();
+  ctx.loadObserver = {
+    start(url) {
+      lastActivity = performance.now();
+      progress.add(url);
+      if (done) return;
+      probeSize(url)
+        .then((size) => size !== null && progress.setSize(url, size))
+        .catch(() => undefined); // no size: the bar counts this file as an average one
+    },
+    progress(url, loaded, total) {
+      lastActivity = performance.now();
+      progress.update(url, loaded, total);
+    },
+    end(url) {
+      lastActivity = performance.now();
+      progress.settle(url);
+    },
+  };
+
+  // During the first load the room opens without a failed object, as it always has. Once the card
+  // is gone the user would otherwise never hear of it (a hidden object shown again, a late failure).
+  ctx.onLoadError = () => {
+    if (done) deps.notify("Part of this room could not be loaded. Reload the page to try again.");
+  };
   const finish = () => {
     if (done) return;
     done = true;
+    progress.complete();
+    render();
     loading.dataset.out = "1";
     setTimeout(() => loading.remove(), 400);
   };
-  const fail = (text: string) => {
+  const fail = (text: string, retry = false) => {
     if (done) return;
     done = true;
     ls.textContent = text;
-    bar2.remove();
+    ls.setAttribute("role", "alert");
+    progressBar.remove();
+    if (retry) {
+      const again = h("a", "mr-chrome-loading-back");
+      again.href = location.href;
+      again.textContent = "Try again";
+      card.append(again);
+    }
     const back = h("a", "mr-chrome-loading-back");
     back.href = "/";
     back.textContent = "Back to all rooms";
@@ -360,31 +410,37 @@ export function installChrome(deps: ChromeDeps): ChromeHandle {
     ctx.rig.quaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
     ctx.rig.position.y = 0;
   });
-  ctx.onManifest((m, view) => {
-    // The furniture loads after the background; an empty room under a hidden card looked
-    // broken (blender06, 3 Nov). Object failures do not hold the card (allSettled).
-    const objects = m.objects
-      .filter((o) => o.visible)
-      .map((o) => view.objectNode(o.id)?.mesh?.initialized)
-      .filter((p) => p !== undefined);
-    view.backgroundMesh()?.initialized.then(
-      () => void Promise.allSettled(objects).then(finish),
-      () => fail("This room could not be loaded."),
-    );
+  ctx.onManifest((_m, view) => {
+    view.backgroundMesh()?.initialized.catch(() => fail("This room could not be loaded.", true));
   });
   // A missing scene.json falls back to a plain PLY (main.ts). Only the background failing
   // fails the room (above): a missing object PLY leaves the rest of the room usable.
   // A demo room without a scene.json is still in the pipeline; other scenes get 10 s.
-  let checks = 0;
   const started = performance.now();
   const watch = () => {
     if (done) return;
-    if (ctx.status.startsWith("single PLY")) {
-      if (demo) return fail("This room is still being processed. Try another one.");
-      if (++checks > 40) return finish();
+    try {
+      const now = performance.now();
+      if (ctx.status.startsWith("error:")) return fail("This room could not be loaded.", true);
+      if (ctx.status.startsWith("single PLY")) {
+        if (demo) return fail("This room is still being processed. Try another one.");
+        if (now - started > 10_000) return finish();
+      }
+      if (progress.allSettled()) {
+        // The files are in, but nothing is drawn until Spark has its first LOD cut: without this
+        // wait the card lifted on an empty room and the furniture popped in afterwards. The limit
+        // is for a hidden tab, which renders no frames, and a mesh whose cut stays empty.
+        settledAt ??= now;
+        if (splatsReady(ctx.scene, ctx.spark) || now - settledAt > FIRST_CUT_TIMEOUT_MS) return finish();
+      } else if (now - lastActivity > LOADING_STALL_MS) {
+        return finish(); // nothing has arrived for a long time: show what there is
+      }
+      render();
+    } catch (err) {
+      console.warn(`[ui] loading card: ${String(err)}`);
+      return finish(); // the card must never outlive a bug in this loop
     }
-    if (performance.now() - started > LOADING_TIMEOUT_MS) return finish();
-    setTimeout(watch, 250);
+    setTimeout(watch, 150);
   };
   watch();
 

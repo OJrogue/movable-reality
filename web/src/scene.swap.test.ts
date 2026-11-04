@@ -73,6 +73,38 @@ const flush = () => new Promise((r) => setTimeout(r, 0));
 const mesh = (ply: string) => created.find((m) => m.url === `/s/${ply}`)!;
 const shown = (ply: string) => mesh(ply).parent!.visible;
 
+describe("SceneView loading", () => {
+  beforeEach(() => void (created.length = 0));
+
+  it("loads a hidden object when it is first shown, and only then", () => {
+    const hidden = manifest(0);
+    hidden.objects[0].visible = false;
+    const view = new SceneView("/s");
+    view.apply(hidden);
+    expect(created.map((m) => m.url)).toEqual(["/s/objects/background.ply"]);
+    expect(view.objectNode("chair#1")!.mesh).toBeUndefined();
+    view.apply(manifest(0));
+    expect(view.objectNode("chair#1")!.mesh).toBe(mesh(SCAN));
+  });
+
+  it("reports the url the mesh loads when each file starts and ends, loaded or failed", async () => {
+    const events: string[] = [];
+    const view = new SceneView("/s");
+    view.loadObserver = {
+      start: (url) => events.push(`start ${url}`),
+      progress: () => undefined,
+      end: (url) => events.push(`end ${url}`),
+    };
+    view.meshOptions = (ply) => (ply === SCAN ? { url: "/s/lod/chair.rad" } : {});
+    view.apply(manifest(0));
+    expect(events).toEqual(["start /s/objects/background.ply", "start /s/lod/chair.rad"]);
+    created[0].reject();
+    created[1].resolve();
+    await flush();
+    expect(events.slice(2).sort()).toEqual(["end /s/lod/chair.rad", "end /s/objects/background.ply"]);
+  });
+});
+
 describe("SceneView completed swap", () => {
   beforeEach(() => void (created.length = 0));
 

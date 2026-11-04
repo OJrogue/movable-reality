@@ -56,7 +56,7 @@ export function splatMeshes(scene: THREE.Object3D): SplatMesh[] {
   return out;
 }
 
-function visibleMeshes(scene: THREE.Object3D): Set<SplatMesh> {
+export function visibleMeshes(scene: THREE.Object3D): Set<SplatMesh> {
   const out = new Set<SplatMesh>();
   scene.traverseVisible((o) => {
     if (o instanceof SplatMesh) out.add(o);
