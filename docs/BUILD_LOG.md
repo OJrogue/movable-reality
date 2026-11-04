@@ -1800,3 +1800,9 @@ models, 49 movable objects, 0 hand labels), new room section text, no
 semicolons in the copy, model tiles 4 x 2 so no tile is empty. The "What's next" section is gone:
 the closing section now says it is a working demo on two synthetic rooms and a good place to start.
 The README keeps its limits under "Known limits". Next: OJ's go-ahead to push, publish and deploy.
+
+## 5 Nov, ui: living room start view, merge to main
+
+Lane: ui. Compared 11 viewpoints in the viewer. The living room now opens from in front of the sofa,
+facing the TV wall, which keeps most of the rug and ceiling smears out of frame. Merged the site
+work into main and redeployed. Next: submission.
