@@ -192,3 +192,20 @@ def test_install_default_keeps_lifted_splats_and_clears_the_shell(tmp_path):
     assert [o["visible"] for o in scene["objects"]] == [True, False]
     assert scene["room_planes"] == []
     assert scene["background_ply"] == "objects/background.ply"
+
+
+def test_merge_duplicates_joins_end_to_end_pieces_only_for_a_noun_counted_once():
+    from movable_reality.objtrain import merge_duplicates
+
+    rng = np.random.default_rng(5)
+    xyz = {
+        "soundbar#1": _surface(rng, (0.5, 0.6, 0), (0.9, 0.15, 0.1), 3000),
+        "soundbar#2": _surface(rng, (-0.2, 0.6, 0), (0.4, 0.15, 0.1), 1500),
+        "pillow#1": _surface(rng, (3.0, 0.7, 0), (0.5, 0.5, 0.2), 2000),
+        "pillow#2": _surface(rng, (3.6, 0.7, 0), (0.5, 0.5, 0.2), 2000),
+        "vase#1": _surface(rng, (6.0, 0.8, 0), (0.2, 0.4, 0.2), 2000),
+        "vase#2": _surface(rng, (6.3, 0.72, 0), (0.2, 0.24, 0.2), 1000),  # shorter: not one vase
+    }
+    labels = {o: o.split("#")[0] for o in xyz}
+    got = merge_duplicates(xyz, labels=labels, single={"soundbar", "vase"})
+    assert got == {"soundbar#2": "soundbar#1"}

@@ -254,6 +254,17 @@ def box_overlap(a: np.ndarray, b: np.ndarray) -> float:
     return float(inter / small) if small > 0 else 0.0
 
 
+def end_to_end(a: np.ndarray, b: np.ndarray, reach: float) -> bool:
+    """Boxes [2, 3] within reach of each other, at the same level and of about the same height
+    (y is up): the shorter is at least 75% of the taller and 70% inside its height range."""
+    ha, hb = a[1, 1] - a[0, 1], b[1, 1] - b[0, 1]
+    if min(ha, hb) < 0.75 * max(ha, hb) or min(ha, hb) <= 0:
+        return False
+    level = min(a[1, 1], b[1, 1]) - max(a[0, 1], b[0, 1])
+    gap = np.clip(np.maximum(a[0], b[0]) - np.minimum(a[1], b[1]), 0, None)
+    return bool(level >= 0.7 * min(ha, hb) and np.hypot(gap[0], gap[2]) <= reach)
+
+
 def near_share(a: np.ndarray, b: np.ndarray, r: float) -> np.ndarray:
     """Per point of a [n, 3]: True when a point of b lies in its voxel of size r or one of
     the 26 around it (about r to 2r away at most)."""
@@ -278,6 +289,8 @@ def merge_duplicates(
     box: float = 0.15,
     labels: dict[str, str] | None = None,
     same_noun: float = 0.25,
+    single: set[str] | None = None,
+    reach: float = 0.25,
 ) -> dict[str, str]:
     """Scene objects that are one thing trained twice: two nouns for it (blender01: the
     armchair is both sofa#1 and armchair#0), a SAM track that lost the object and picked it
@@ -290,13 +303,24 @@ def merge_duplicates(
     by `box` of the smaller first. Two pieces of one thing share no surface but do share a
     box: objects with the same noun (`labels`) whose boxes overlap by `same_noun` join too
     (blender07: upper and lower pieces of a curtain 0.33-0.43, every other same-noun pair
-    under 0.02). Chains resolve to the largest: {absorbed: kept}."""
+    under 0.02). A noun the inventory counts once (`single`) joins pieces lying end to end: within
+    `reach` metres, level with each other and of about the same height (blender07: the soundbar
+    in two, not the vase beside a smaller pot). Chains resolve to the largest: {absorbed: kept}."""
     boxes = {o: np.percentile(p, [5, 95], axis=0) for o, p in xyz.items() if len(p) >= 50}
     order = sorted(boxes, key=lambda o: -len(xyz[o]))
     out: dict[str, str] = {}
     for i, big in enumerate(order):
         for small in order[i + 1 :]:
             overlap = box_overlap(boxes[big], boxes[small])
+            if (
+                small not in out
+                and single
+                and labels is not None
+                and labels[big] == labels[small]
+                and labels[big] in single
+                and end_to_end(boxes[big], boxes[small], reach)
+            ):
+                out[small] = big
             if small in out or overlap <= box:
                 continue
             pieces = labels is not None and labels[big] == labels[small] and overlap >= same_noun
@@ -831,7 +855,11 @@ def install(root: Path, objects_from: str = "lifted") -> dict:
         if o.source == "scan" and (trained / Path(o.ply).name).exists()
     }
     labels = {o.id: o.label for o in scene.objects}
-    merged = merge_duplicates({o: world(v) for o, v in verts.items()}, labels=labels)
+    single = None
+    if (root / "inventory.json").exists():
+        nouns = json.loads((root / "inventory.json").read_text()).get("objects", [])
+        single = {n["noun"] for n in nouns if n.get("count") == 1}
+    merged = merge_duplicates({o: world(v) for o, v in verts.items()}, labels=labels, single=single)
     if objects_from == "lifted":  # the lift gives each splat one object: nothing is duplicated
         lifted = root / "objects_lifted"
         verts = {o: read_vertices(lifted / Path(o_ply).name) for o, o_ply in
