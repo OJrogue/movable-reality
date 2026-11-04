@@ -77,6 +77,13 @@ def hosted(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
 MOVE = {"op": "move", "object_id": "chair#1", "args": {"dx": 1, "dy": 0, "dz": 0}}
 
 
+def test_splat_files_ask_proxies_not_to_compress_them(hosted: Path):
+    with TestClient(server.app) as client:
+        assert "no-transform" in client.get("/scenes/s/lod/x.rad").headers["cache-control"]
+        manifest = client.get("/scenes/s/scene.json").headers
+        assert "no-transform" not in manifest.get("cache-control", "")
+
+
 def test_edit_without_a_session_is_refused(hosted: Path):
     with TestClient(server.app) as client:
         assert client.post("/api/scenes/s/edit", json=MOVE).status_code == 403

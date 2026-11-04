@@ -125,12 +125,12 @@ body[data-chrome="0"] .mr-chrome-top, body[data-chrome="0"] .mr-chrome-menu { di
 .mr-chrome-loading-sub { margin-top: 4px; font-size: 14px; color: var(--mr-on-surface-variant); }
 .mr-chrome-progress { position: relative; height: 4px; margin-top: 20px; border-radius: 2px; overflow: hidden; background: rgba(185, 195, 255, 0.18); }
 .mr-chrome-progress span {
-  position: absolute; top: 0; bottom: 0; width: 40%; border-radius: 2px; background: var(--mr-primary);
-  animation: mr-indeterminate 1.4s var(--mr-ease) infinite;
+  position: absolute; inset: 0; border-radius: 2px; background: var(--mr-primary);
+  transform: scaleX(0); transform-origin: left; transition: transform 200ms linear;
 }
-@keyframes mr-indeterminate { from { left: -40%; } to { left: 100%; } }
+.mr-chrome-loading-sub { font-variant-numeric: tabular-nums; }
 .mr-chrome-loading-back {
-  display: inline-flex; align-items: center; min-height: 44px; margin-top: 16px; padding: 0 20px; border-radius: 22px;
+  display: inline-flex; align-items: center; min-height: 44px; margin: 16px 4px 0; padding: 0 20px; border-radius: 22px;
   background: var(--mr-primary); color: var(--mr-on-primary); font-weight: 600; font-size: 15px; text-decoration: none;
 }
 
