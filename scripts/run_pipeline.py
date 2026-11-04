@@ -209,6 +209,15 @@ def _run_once(root: Path, st: Stage, force: bool, report: Report) -> bool:
     return ok
 
 
+def uses_room_splats(root: Path) -> bool:
+    """A resume must not bake or remove wall splats: clean has already emptied room_planes."""
+    try:
+        manifest = json.loads((root / "scene.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return False
+    return manifest.get("background_ply") == "objects/background_clean.ply"
+
+
 def preflight(a: argparse.Namespace, root: Path) -> list[str]:
     problems = []
     if not (root / "frames.json").exists() and not a.video:
@@ -314,6 +323,9 @@ def main() -> int:
     a = ap.parse_args()
 
     root = scene_dir(a.scene)
+    if not a.room_splats and uses_room_splats(root):
+        print("this scene's background came from --room-splats; keeping it on")
+        a.room_splats = True
     plan = stages(a)
     lo = NAMES.index(a.only or a.start) if (a.only or a.start) else 0
     hi = NAMES.index(a.only or a.stop) if (a.only or a.stop) else len(NAMES) - 1

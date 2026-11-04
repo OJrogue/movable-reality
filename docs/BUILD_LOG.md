@@ -1668,6 +1668,23 @@ verifier. Each fix below came from a command that went wrong:
   Rebuild, publish and redeploy once its rework is done. The library route was only checked for the
   403; library panel not tested on the live URL.
 
+- Meeting room, real-capture retrain and lift:
+  - `reconstruct.py --real-capture` (`--pose_opt`, bilateral grid, not in the PLY), passed on
+    by `run_pipeline.py`: PSNR 18.1 dB, SSIM 0.70, LPIPS 0.41, 1.36M Gaussians, 23 min. In the
+    viewer the pillars, trusses and chairs no longer ghost from a training pose; held-out near
+    chairs still smear. `--scale 1.564` (Sim3 to the scan's frame) gives a room of about
+    16.6 x 16.7 m, against the benchmark's crop of about 17 x 13 m.
+  - `lift_ids.py --group "table=banquet chair,..."` and `lift.group_with_nearest` give each
+    chair to its nearest table within 0.4 m (unit tested). On this scene it merged nothing.
+  - The lift labelled only 5% of the Gaussians and kept 10 objects, most of them fragments.
+    SAM returned at most 16 objects per noun over the whole 482-frame clip (`table`: 300
+    masks, `banquet chair`: 560), so most chairs and tables have no label. Whether pose
+    fine-tuning also hurts the vote is not checked. Stopped at `complete`.
+  - Prototype, not in the repo: a top-down occupancy map at 0.15-1.1 m shows the table blocks.
+    The two upper blocks separate at every setting tried (2.7 x 3.0 m and 2.5 x 3.2 m), the
+    buffet at most (1.4 x 4.3 m). The lower blocks stay joined to each other, and at some
+    settings to the noise along the wall.
+
 ## 4 Nov, core: blender07 objects keep their lifted splats, walls stay splats
 
 Compared the viewer with ground truth on blender07's 45 test views, next to the full-scene
@@ -1702,7 +1719,7 @@ used to find duplicates (about 25 min of GPU).
 
 Next: reviewer, PR by OJ, publish blender07 if it goes in the demo.
 
-## 4 Nov, core: moving an object leaves no mark, the soundbar is one object
+## 4 Nov, core: moving an object leaves fewer marks, the soundbar is one object
 
 Lane: core. `scripts/clean_background.py` and `src/movable_reality/bgclean.py` are new; the
 `--room-splats` pipeline runs them as stage `clean`. No learned model: geometry and frame colours
@@ -1724,7 +1741,7 @@ back, keeping only trained splats inside the object's box that match at least 25
 with them in view; without those filters they brought coloured specks and a dark lump on the
 soundbar. By eye the books and the armchair are much sharper.
 
-**Correction.** The 22.16, 27.83 and 27.90 dB I wrote earlier today came from a scratch script
+**Correction.** The 22.16 and 27.83 dB I wrote earlier today came from a scratch script
 that scored five 960x540 captures of the baseline against a 4:3 crop. `scripts/blender_viewer_psnr.py`
 now scores each capture at its own aspect and size and writes `score.json`. Earlier figures from the
 scratch script, including the 22.16 and 27.83 in the entry above, are not comparable with these.
@@ -1750,24 +1767,16 @@ thresholds were tuned on it. `bgclean.run()` itself has no unit test; the review
 a copy of the scene with identical output, before the last changes. `flat` never fires on this
 scene (the rug spans y -0.14 to 0.69).
 
-Next: PR by OJ, `publish_demo.py` if blender07 goes in the demo.
+Reviewer pass on code and text before the merge (no splats regenerated), verdict merge. Fixed: a
+resume without `--room-splats` of a scene that used it would have removed its wall splats, so the
+flag now turns itself on when the background is `objects/background_clean.ply`. Left open: L-shaped
+rooms are only partly handled (`bgclean.py:366`, the centroid points the normal out of the room on
+re-entrant walls, and `wall_tinted` measures to the infinite wall line); the same-noun overlap merge
+has no inventory guard; off stages show as `todo`; `run()` may not be idempotent for an object with
+no trained PLY. These affect a rerun only. `install` now defaults to lifted objects and clears
+`room_planes` on any scene's next objects install, and only blender07 was measured.
 
-- Meeting room, real-capture retrain and lift:
-  - `reconstruct.py --real-capture` (`--pose_opt`, bilateral grid, not in the PLY), passed on
-    by `run_pipeline.py`: PSNR 18.1 dB, SSIM 0.70, LPIPS 0.41, 1.36M Gaussians, 23 min. In the
-    viewer the pillars, trusses and chairs no longer ghost from a training pose; held-out near
-    chairs still smear. `--scale 1.564` (Sim3 to the scan's frame) gives a room of about
-    16.6 x 16.7 m, against the benchmark's crop of about 17 x 13 m.
-  - `lift_ids.py --group "table=banquet chair,..."` and `lift.group_with_nearest` give each
-    chair to its nearest table within 0.4 m (unit tested). On this scene it merged nothing.
-  - The lift labelled only 5% of the Gaussians and kept 10 objects, most of them fragments.
-    SAM returned at most 16 objects per noun over the whole 482-frame clip (`table`: 300
-    masks, `banquet chair`: 560), so most chairs and tables have no label. Whether pose
-    fine-tuning also hurts the vote is not checked. Stopped at `complete`.
-  - Prototype, not in the repo: a top-down occupancy map at 0.15-1.1 m shows the table blocks.
-    The two upper blocks separate at every setting tried (2.7 x 3.0 m and 2.5 x 3.2 m), the
-    buffet at most (1.4 x 4.3 m). The lower blocks stay joined to each other, and at some
-    settings to the noise along the wall.
+Next: `publish_demo.py`, then the video.
 
 ## 4 Nov: first splat of the private test video (lane core)
 
