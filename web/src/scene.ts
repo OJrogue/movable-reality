@@ -151,8 +151,8 @@ export function shownPly(o: SceneObject, style: ObjectStyle = "auto"): string {
 
 export interface ObjectNode {
   pivot: THREE.Group; // world position of the bbox centre, carries the edit
-  mesh?: SplatMesh; // none for a library object, which library/index.ts draws as a mesh
-  ply: string; // the PLY `mesh` shows: obj.ply, or obj.completed_ply in the completed style
+  mesh?: SplatMesh; // none for a library object (library/index.ts draws it) or one not yet shown
+  ply: string; // the PLY `mesh` shows: obj.ply, or obj.completed_ply; "" until first shown
 }
 
 /** Show or hide a splat mesh through its recon group (Spark skips hidden subtrees). */

@@ -11,6 +11,8 @@ import { dropPoint, type LibraryItem, yawFacing } from "../library";
 import { addLibraryObject, applyEdit, EditError, type EditRequest, type LibraryPlacement } from "./edits";
 import { Editor } from "./editor";
 import { installMeasure } from "./measure";
+import { failedMeshes } from "../scene";
+import { visibleMeshes } from "../perf/sparkInfo";
 import { installChrome } from "./chrome";
 import { installLibraryPanel } from "./libraryPanel";
 import { installOnboarding, sampleCommands } from "./onboarding";
@@ -249,6 +251,8 @@ export function installUi(ctx: UiContext): UiHandle {
 const _eye = new THREE.Vector3();
 const SETTLE_TIMEOUT_MS = 1500; // a hidden tab runs no frames
 const SETTLE_RENDERS = 12;
+const LOADING_CAPTURE_MS = 6000; // the server stops waiting for a capture at 8 s
+const LOADED_SETTLE_MS = 500;
 
 /**
  * Screenshot for the verifier. With a camera request, the rig and camera move to `eye`
@@ -300,10 +304,15 @@ async function capture(
     // only catch up on render. Without this the verifier saw no furniture (blender06, 3 Nov).
     // A deadline, not a count: timers in a hidden tab fire once a second at best, and the
     // server stops waiting after CAPTURE_TIMEOUT_S.
-    const deadline = performance.now() + SETTLE_TIMEOUT_MS;
+    // A hidden object starts loading when it is restored, so the verifier must not judge the
+    // room before that file is in: wait for it, within the server's limit, then settle briefly.
+    const started = performance.now();
+    let deadline = started + SETTLE_TIMEOUT_MS;
     do {
       ctx.renderer.render(ctx.scene, cam);
       await new Promise((r) => setTimeout(r, SETTLE_TIMEOUT_MS / SETTLE_RENDERS));
+      const loading = [...visibleMeshes(ctx.scene)].some((m) => !m.isInitialized && !failedMeshes.has(m));
+      if (loading) deadline = Math.min(started + LOADING_CAPTURE_MS, performance.now() + LOADED_SETTLE_MS);
     } while (performance.now() < deadline);
     return ctx.renderer.xr.isPresenting ? null : fn();
   } finally {

@@ -1705,8 +1705,9 @@ verifier. Each fix below came from a command that went wrong:
 
 - **Measured on the live URL:** Modal's proxy zstd-compresses full `.rad` responses, which saves
   nothing (bed: 8.75 MB either way) and drops Content-Length, so Spark's workers report total 0. A
-  `bytes=0-0` Range answer is not compressed and gives the size. Live Living room: 79.5 MB visible
-  plus 9.7 MB for 5 hidden objects, which were downloaded too. Card gone at 22 s in the browser pane.
+  `bytes=0-0` Range answer is not compressed and gives the size. Live Living room: 85.2 MB visible
+  (79.5 MB of objects, 5.7 MB of background) plus 9.7 MB for 5 hidden objects, which were downloaded
+  too. Card gone at 22 s in the browser pane. Timings in this entry are by hand, with no committed log.
 - **Progress bar:** `ui/loadProgress.ts` sums the bytes Spark reports per file against sizes probed
   up front, because only 4 workers load at a time and a running total would make the bar fall. The
   card shows `38% · 11 of 27 MB`, and files instead of MB if a size cannot be had. `SceneView.loadObserver`
@@ -1739,3 +1740,10 @@ verifier. Each fix below came from a command that went wrong:
   the chair's obstacle); this work touched no Blender code and it was left alone.
 - Next: try switching rooms mid-load in a visible window; the deploy needs `PYTHONUTF8=1` when its
   output is piped on Windows.
+- **Reviewer pass before the PR, verdict merge, fixed anyway:** the verifier could judge a restored
+  object before its file arrived, so a capture now waits for visible files still loading (up to 6 s;
+  by reading, the agent's restore was not run). A splat file failing after the card has gone now
+  tells the user. Only a 404 falls back to a plain PLY, other errors show the error card. A bug in the
+  card's loop lifts the card. The header test now uses real files on 200 and 206. Restoring a hidden
+  object in the viewer (`trash can#1`, blender06, dev server) loads and draws it. These fixes are after
+  the deploy, so the live URL does not have them yet.

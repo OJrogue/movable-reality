@@ -77,11 +77,27 @@ def hosted(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
 MOVE = {"op": "move", "object_id": "chair#1", "args": {"dx": 1, "dy": 0, "dz": 0}}
 
 
-def test_splat_files_ask_proxies_not_to_compress_them(hosted: Path):
-    with TestClient(server.app) as client:
-        assert "no-transform" in client.get("/scenes/s/lod/x.rad").headers["cache-control"]
-        manifest = client.get("/scenes/s/scene.json").headers
-        assert "no-transform" not in manifest.get("cache-control", "")
+def test_splat_files_ask_proxies_not_to_compress_them(tmp_path: Path):
+    from starlette.staticfiles import StaticFiles  # noqa: PLC0415
+
+    (tmp_path / "x.rad").write_bytes(b"0123456789")
+    (tmp_path / "x.json").write_text("{}")
+    server.app.mount("/test-static", StaticFiles(directory=tmp_path), name="test-static")
+    try:
+        # The catch-all viewer mount may come first, so this route goes to the front.
+        server.app.router.routes.insert(0, server.app.router.routes.pop())
+        with TestClient(server.app) as client:
+            full = client.get("/test-static/x.rad")
+            assert full.status_code == 200
+            assert full.headers["cache-control"] == "no-cache, no-transform"
+            # The viewer's size probe: the total must stay readable and the header present.
+            probe = client.get("/test-static/x.rad", headers={"Range": "bytes=0-0"})
+            assert probe.status_code == 206
+            assert probe.headers["content-range"] == "bytes 0-0/10"
+            assert probe.headers["cache-control"] == "no-cache, no-transform"
+            assert "cache-control" not in client.get("/test-static/x.json").headers
+    finally:
+        server.app.router.routes.pop(0)
 
 
 def test_edit_without_a_session_is_refused(hosted: Path):

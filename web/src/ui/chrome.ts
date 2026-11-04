@@ -362,6 +362,11 @@ export function installChrome(deps: ChromeDeps): ChromeHandle {
     },
   };
 
+  // During the first load the room opens without a failed object, as it always has. Once the card
+  // is gone the user would otherwise never hear of it (a hidden object shown again, a late failure).
+  ctx.onLoadError = () => {
+    if (done) deps.notify("Part of this room could not be loaded. Reload the page to try again.");
+  };
   const finish = () => {
     if (done) return;
     done = true;
@@ -414,22 +419,27 @@ export function installChrome(deps: ChromeDeps): ChromeHandle {
   const started = performance.now();
   const watch = () => {
     if (done) return;
-    const now = performance.now();
-    if (ctx.status.startsWith("error:")) return fail("This room could not be loaded.", true);
-    if (ctx.status.startsWith("single PLY")) {
-      if (demo) return fail("This room is still being processed. Try another one.");
-      if (now - started > 10_000) return finish();
+    try {
+      const now = performance.now();
+      if (ctx.status.startsWith("error:")) return fail("This room could not be loaded.", true);
+      if (ctx.status.startsWith("single PLY")) {
+        if (demo) return fail("This room is still being processed. Try another one.");
+        if (now - started > 10_000) return finish();
+      }
+      if (progress.allSettled()) {
+        // The files are in, but nothing is drawn until Spark has its first LOD cut: without this
+        // wait the card lifted on an empty room and the furniture popped in afterwards. The limit
+        // is for a hidden tab, which renders no frames, and a mesh whose cut stays empty.
+        settledAt ??= now;
+        if (splatsReady(ctx.scene, ctx.spark) || now - settledAt > FIRST_CUT_TIMEOUT_MS) return finish();
+      } else if (now - lastActivity > LOADING_STALL_MS) {
+        return finish(); // nothing has arrived for a long time: show what there is
+      }
+      render();
+    } catch (err) {
+      console.warn(`[ui] loading card: ${String(err)}`);
+      return finish(); // the card must never outlive a bug in this loop
     }
-    if (progress.allSettled()) {
-      // The files are in, but nothing is drawn until Spark has its first LOD cut: without this
-      // wait the card lifted on an empty room and the furniture popped in afterwards. The limit
-      // is for a hidden tab, which renders no frames, and a mesh whose cut stays empty.
-      settledAt ??= now;
-      if (splatsReady(ctx.scene, ctx.spark) || now - settledAt > FIRST_CUT_TIMEOUT_MS) return finish();
-    } else if (now - lastActivity > LOADING_STALL_MS) {
-      return finish(); // nothing has arrived for a long time: show what there is
-    }
-    render();
     setTimeout(watch, 150);
   };
   watch();

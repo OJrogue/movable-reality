@@ -268,9 +268,10 @@ async def session_cookie(request: Request, call_next):
         return JSONResponse({"detail": "request too large"}, status_code=413)
     response = await call_next(request)
     if request.url.path.endswith(SPLAT_SUFFIXES):
-        # no-transform: these are already packed. A proxy that compresses them gains nothing and
-        # drops Content-Length. no-cache: a republish keeps the names, so repeat visits ask first
-        # (a 304) instead of trusting a guessed lifetime.
+        # no-cache: a republish keeps the names, so repeat visits ask first (a 304) instead of
+        # trusting a guessed lifetime. no-transform: these are already packed, so compressing them
+        # gains nothing and drops Content-Length. Modal's proxy ignores it (4 Nov); the viewer gets
+        # sizes from a Range request (web/src/ui/loadProgress.ts).
         response.headers["Cache-Control"] = "no-cache, no-transform"
     if HOSTED:
         https = "https" in (request.url.scheme, request.headers.get("x-forwarded-proto"))
