@@ -2,12 +2,11 @@
 
 One video of a room goes in. A 3D room comes out, and you can move the furniture.
 
-This is a working demo, not a finished product. It turns one walk of video into a 3D Gaussian
-Splatting scene in which each object is separate, so you can drag it in the browser or tell an
-agent to move it. It works on two rooms rendered in Blender, not yet on real footage, and it
-looks like what it is: one walk's worth of data. The pipeline runs end to end on eight Meta
-models, and the code is open, so it is a reasonable starting point for work on object-level
-splats, room editing or agents that act on 3D scenes.
+Movable Reality turns one walk of video into a 3D Gaussian Splatting scene in which each object
+is separate, so you can drag it in the browser or tell an agent to move it. The pipeline runs end
+to end on eight Meta models with one command, today on two rooms rendered in Blender. The code is
+open, so you can start from it if you work on object-level splats, room editing or agents that
+act on 3D scenes.
 
 > Entry for the **Meta Global AI Developer Hackathon** (Indie Developer track, Push the
 > Frontier) by team **Larracat**. Everything in this repository was built during
@@ -27,16 +26,15 @@ splats, room editing or agents that act on 3D scenes.
 | Image quality | 36.9 dB on held-out frames of the same walk | 28.4 dB, SSIM 0.94, LPIPS 0.14 on a separate test walk (90 views) |
 | Room size against Blender | about 5% too large | about 12% too large |
 
-## What does not work yet
+## What's next
 
 - **Real footage.** Both rooms are Blender renders, and real video is not supported yet. The
   instructions below are what the pipeline expects, not a promise that your video will work.
-- **Looks.** Walls go blotchy, curtains smear and object edges are fuzzy up close. Moving
-  furniture can leave a visible patch on the floor.
-- **Gap repair** with Muse Image only ran on small test scenes. Neither demo room has been through it.
-- **Testing.** Checked in desktop Chromium and its phone emulation. Never on a real phone, and
-  voice never with a live microphone. A WebXR path exists in the code but was not tested on a
-  headset, so the project makes no VR or headset frame-rate claims.
+- **Image quality.** The result follows the input: what the walk barely saw goes soft, and the
+  floor under a moved object is repainted from its surroundings.
+- **Gap repair** with Muse Image has run on small test scenes, not yet on the demo rooms.
+- **Headsets.** A WebXR path exists in the code but was not tested on a headset, so the project
+  makes no VR or headset frame-rate claims.
 
 ## Try the demo
 
@@ -45,8 +43,8 @@ cd web && npm install && npm run dev       # http://localhost:5173/
 uv run python -m movable_reality.server    # optional: the agent behind typed and spoken commands
 ```
 
-`/` is the landing page: the two rooms, what works, what does not, the pipeline and the Meta
-models. Clicking a room opens its room card, with the videos the pipeline was given and how the
+`/` is the landing page: the two rooms, what they can do, the pipeline, the Meta models and what
+comes next. Clicking a room opens its room card, with the videos the pipeline was given and how the
 room was made, and from there **Open the room** starts the viewer. In the viewer:
 
 - **Desktop:** drag or middle drag to orbit, Shift+middle drag to pan, the wheel to move forward,

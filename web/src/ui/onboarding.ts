@@ -132,7 +132,7 @@ export function installOnboarding(deps: OnboardingDeps): OnboardingHandle {
   head.append(title, close);
 
   const intro = el("p", "mr-ui-ob-intro");
-  intro.textContent = "This room was rebuilt from the video on the room card, so it looks rough up close. Every object is separate, so you can move it.";
+  intro.textContent = "This room was built from the video on the room card. Every object is separate, so go ahead and move it.";
 
   const table = el("table", "mr-ui-ob-keys");
   for (const [key, what] of deps.touch ? TOUCH_CONTROLS : CONTROLS) {

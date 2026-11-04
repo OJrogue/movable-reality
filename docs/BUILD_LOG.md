@@ -1783,3 +1783,12 @@ verifier. Each fix below came from a command that went wrong:
 - **Not checked:** a real phone, a live microphone. The hero video and card images are still input
   renders, and the page says so. Next: a screen recording for the hero and the video itself, then deploy and publish.
 
+## 4 Nov, ui: landing copy stops underselling
+
+Lane: ui, docs. The page said "rough", "not a product" and "not real footage" in the hero, the room
+section, the features, a whole section and the closing. OJ: not a claim to be the best, but not an
+apology either, and not so many times. The copy now leads with what it does, and the limits appear
+once, in a three-card "What's next" section near the end of the page (real footage, image quality,
+room size), plus one line on gap repair in the pipeline step. The per-room "What to expect" block
+is gone from the room card. README, submission text, X post and video script follow the same rule.
+Next: OJ's go-ahead to push, publish both rooms and deploy.

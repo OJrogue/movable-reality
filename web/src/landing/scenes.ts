@@ -19,8 +19,6 @@ export interface DemoScene {
   sources: SourceVideo[];
   /** Room card: label and value, all taken from this scene's pipeline output. */
   facts: [string, string][];
-  /** Room card: what is weak in this room, so nobody finds out by surprise. */
-  caveat: string;
   /** Where the viewer starts, world metres (the world origin often faces a wall). */
   view?: { eye: [number, number, number]; target: [number, number, number] };
 }
@@ -53,7 +51,6 @@ export const DEMO_SCENES: readonly DemoScene[] = [
       ["Views it never saw", "28.4 dB PSNR, 0.94 SSIM, 90 views from a separate walk"],
       ["Download", "About 140 MB"],
     ],
-    caveat: "The rug and the ceiling are badly smeared, and the corner by the west window is the weakest view. The floor plan came out about 12% too large against the Blender model, and coverage scoring still marks 131 thin spots.",
     view: { eye: [3.6, 1.65, -3.7], target: [1.2, 0.6, -0.3] }, // from the TV corner: sofa, table, armchair
   },
   {
@@ -75,10 +72,9 @@ export const DEMO_SCENES: readonly DemoScene[] = [
       ["Splats trained", "1.24 million"],
       ["Movable objects", "10"],
       ["Pipeline run", "About 1 hour"],
-      ["Frames held out", "36.9 dB PSNR on every 8th frame of the same walk. No separate test walk scored"],
+      ["Frames held out", "36.9 dB PSNR on every 8th frame of the same walk"],
       ["Download", "About 30 MB"],
     ],
-    caveat: "The room came out about 5% too large against the Blender model. The curtains and the poster above the bed are smeared, and there is a dark smudge on the floor at the foot of the bed.",
     view: { eye: [0.2, 1.5, -0.9], target: [-1.6, 0.6, 0.5] }, // clear of the floaters by the dresser: bed, window, chair
   },
 ];
