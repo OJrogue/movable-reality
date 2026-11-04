@@ -107,6 +107,9 @@ def stages(a: argparse.Namespace) -> list[Stage]:
         Stage("surfaces", "shell replaces wall, floor, ceiling splats",
               [*PY, "scripts/room_surfaces.py", "--scene", s], ["room/shell.json", "planes"],
               ["objects/background_room.ply"], force_flag=False, optional=True),
+        Stage("clean", "background behind objects (--room-splats only)",
+              [*PY, "scripts/clean_background.py", "--scene", s], ["room/shell.json"],
+              ["objects/background_clean.ply"], force_flag=False, optional=True),
         Stage("lod", "LOD trees", [*PY, "scripts/build_lod.py", s],
               ["objects_trained/report.json", "completion.json", "planes",
                "objects/background_room.ply"], ["lod"], optional=True),
@@ -115,7 +118,7 @@ def stages(a: argparse.Namespace) -> list[Stage]:
     ]  # fmt: skip
 
 
-ROOM_SHELL = ("shell", "bake", "surfaces")  # what --room-splats leaves out
+ROOM_SHELL = ("bake", "surfaces")  # what --room-splats leaves out
 NAMES = [st.name for st in stages(argparse.Namespace(
     scene="x", video=None, focal35=None, preset="quality", ceiling_height=None, scale=None,
     skip="", real_capture=False, group="",
@@ -285,8 +288,9 @@ def main() -> int:
     ap.add_argument(
         "--room-splats",
         action="store_true",
-        help="keep the trained walls, floor and ceiling as splats: no shell, floor quad or "
-        "surface removal (blender07: sharper, windows and doors stay as filmed)",
+        help="keep the trained walls, floor and ceiling as splats: no floor quad or surface "
+        "removal, shell not drawn; clean_background.py repaints what objects cover "
+        "(blender07: sharper, windows and doors stay as filmed)",
     )
     ap.add_argument("--from", dest="start", choices=NAMES, help="rerun from this stage on")
     ap.add_argument("--to", dest="stop", choices=NAMES, help="stop after this stage")
@@ -306,8 +310,7 @@ def main() -> int:
 
     print(f"scene {a.scene} ({root})")
     verdicts = decide(root, plan, lo, hi, forced)
-    if a.room_splats:
-        verdicts.update(dict.fromkeys(ROOM_SHELL, "off (--room-splats)"))
+    verdicts.update(dict.fromkeys(ROOM_SHELL if a.room_splats else ("clean",), "off"))
     todo = [st for st in plan if verdicts[st.name].startswith("run")]
     for st in plan:
         print(f"  {st.name:<12} {verdicts[st.name]:<20} {st.what}")
