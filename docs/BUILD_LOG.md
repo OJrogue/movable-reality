@@ -1884,7 +1884,7 @@ section, the features, a whole section and the closing. OJ: not a claim to be th
 apology either, and not so many times. The copy now leads with what it does, and the limits appear
 once, in a three-card "What's next" section near the end of the page (real footage, image quality,
 room size), plus one line on gap repair in the pipeline step. The per-room "What to expect" block
-is gone from the room card. README, submission text, X post and video script follow the same rule.
+is gone from the room card. README, submission text and X post follow the same rule.
 Next: OJ's go-ahead to push, publish both rooms and deploy.
 
 ## 4 Nov, ui: landing copy, OJ's review

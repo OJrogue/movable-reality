@@ -1,6 +1,6 @@
 # Movable Reality marketing notes
 
-Working copy for the submission page, the demo video script and the pitch. Claims marked
+Working copy for the submission page and the pitch. Claims marked
 "measured" have a log or benchmark behind them. Claims marked "planned" are not built yet and
 must not appear in the submission as finished features.
 
@@ -178,28 +178,6 @@ Every model the product calls at runtime is a Meta model.
 - Muse Image generates new furniture and repairs coverage gaps.
 - Muse Voice Transcribe hears voice commands.
 - Muse Spark Open checks each edit in a rendered view and triggers a retry when it fails.
-
-## Demo video script (3 minutes)
-
-Screen recording of the hosted demo, with one voice over it. Show the viewer as it really looks,
-with no speed-ups. Every number below is from the pipeline's own output for these rooms.
-
-| Time | On screen | Voice |
-|---|---|---|
-| 0:00 | Landing page, then cut to the bed being dragged in the viewer | "This is Movable Reality. One video of a room goes in. A 3D room comes out, and you can move the furniture." |
-| 0:12 | Landing page, "Two rooms, ready to open" | "It runs on eight Meta models. Both rooms you will see were rendered in Blender, so every result can be scored against the true room." |
-| 0:27 | Click Bedroom. The room card opens, with the video playing | "Here is everything the pipeline got for this bedroom. A 54 second walk, the camera's focal length and the ceiling height. That is it. No depth, no floor plan, nobody labelling objects." |
-| 0:47 | Click Open the room. Orbit slowly | "About an hour later, this comes out. A room you can walk around, made from nothing but that video." |
-| 1:02 | Drag empty space to orbit. Click the bed, drag it, right drag to turn it, Ctrl+Z | "And the bed is its own object. I can move it, turn it, and undo that. Every splat was sorted into the object it belongs to, using Muse Wonder to name things and SAM 3.1 to follow them through the video." |
-| 1:25 | Type: "Delete the ukulele, add a potted plant by the window, and put a ceramic vase on the dresser". Wait for the reply | "I can also just ask. A Muse Wonder agent makes the edits with tool calls, then Muse Spark Open looks at a screenshot and checks them. If it disagrees, the agent tries again." |
-| 1:50 | Alt+click both ends of the bed. The label shows about 2.2 m | "It works in metres. The bed measures about 2.2 metres with its frame." |
-| 2:05 | Switch to Living room. Show the card's two clips, then the room. Press G to show the thin spots | "The living room is bigger: two clips, 132 seconds, 39 objects. On views it never trained on, it scores 28 dB. These markers are the spots the video barely saw. The pipeline knows what it missed." |
-| 2:25 | Landing page, pipeline section, then the models section | "One command runs twelve stages. MapAnything and COLMAP find the cameras, gsplat trains the splats, SAM 3D Objects guesses the hidden sides. Eight Meta models in total, and every model called at runtime is Meta's." |
-| 2:42 | Landing page, "Build on it" | "This is a working demo on two synthetic rooms, and a good place to start for research or a project. It is MIT licensed, each stage is a plain script you can swap, and the Blender rooms are included so you can measure your change." |
-| 2:56 | Landing page with the link on screen | "Movable Reality, by team Larracat. Try it at the link." |
-
-Before recording: start from a fresh room (`publish_demo.py` undoes test edits), and close the
-help card if it covers the bed.
 
 ## Audiences and channels
 
