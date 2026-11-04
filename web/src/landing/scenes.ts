@@ -51,7 +51,7 @@ export const DEMO_SCENES: readonly DemoScene[] = [
       ["Views it never saw", "28.4 dB PSNR, 0.94 SSIM, 90 views from a separate walk"],
       ["Download", "About 140 MB"],
     ],
-    view: { eye: [3.6, 1.65, -3.7], target: [1.2, 0.6, -0.3] }, // from the TV corner: sofa, table, armchair
+    view: { eye: [2.2, 1.3, -0.2], target: [1.2, 1.1, -4.2] }, // from the sofa: armchair, TV wall, plant; clear of the rug and ceiling smears
   },
   {
     id: "blender06",
