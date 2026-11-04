@@ -6,10 +6,13 @@ const json = (body: unknown, ok = true) =>
 const html = { ok: true, headers: new Headers({ "content-type": "text/html" }) } as Response;
 
 describe("demo scenes", () => {
-  it("has three scenes with unique ids, one of them real", () => {
-    expect(DEMO_SCENES).toHaveLength(3);
-    expect(new Set(DEMO_SCENES.map((s) => s.id)).size).toBe(3);
-    expect(DEMO_SCENES.filter((s) => s.kind === "real")).toHaveLength(1);
+  it("has two rooms with unique ids, each with its source videos", () => {
+    expect(DEMO_SCENES).toHaveLength(2);
+    expect(new Set(DEMO_SCENES.map((s) => s.id)).size).toBe(2);
+    for (const s of DEMO_SCENES) {
+      expect(s.sources.length).toBeGreaterThan(0);
+      expect(s.facts.length).toBeGreaterThan(0);
+    }
     expect(findDemoScene("blender06")?.title).toBe("Bedroom");
     expect(findDemoScene(null)).toBeUndefined();
   });

@@ -1839,5 +1839,64 @@ Next: `publish_demo.py`, then the video.
   by reading, the agent's restore was not run). A splat file failing after the card has gone now
   tells the user. Only a 404 falls back to a plain PLY, other errors show the error card. A bug in the
   card's loop lifts the card. The header test now uses real files on 200 and 206. Restoring a hidden
-  object in the viewer (`trash can#1`, blender06, dev server) loads and draws it. These fixes are after
-  the deploy, so the live URL does not have them yet.
+  object in the viewer (`trash can#1`, blender06, dev server) loads and draws it.
+- **Redeployed after the merge (PR 33, commit c8caad9) and checked live:** Bedroom has 11 meshes, all
+  drawing, with both hidden objects not downloaded. Living room reached "Setting up the room" at about
+  20 s without the bar falling. Agent command restoring `potted plant#7` (4.8 MB, hidden): reply "I've
+  brought back the potted plant", verified on the first verdict, 72,344 splats drawn, 31 s. No console
+  errors on Bedroom; the console was not read on Living room. Scenes not republished, so live Living
+  room is still the older copy. Times by hand, in a hidden pane, on files the browser had seen before.
+
+## 4 Nov (night), ui + core: demo positioning, room cards, measuring, Blender-style mouse
+
+- **Positioning (OJ):** a working demo on two synthetic rooms and a starting point for research, not a
+  finished product. Landing page, viewer text, README and `docs/MARKETING.md` rewritten that way,
+  with a "Where it falls short" section. The demo script is now in `docs/MARKETING.md`. Team name Larracat.
+- **Landing:** logo removed from the header, favicon `web/public/favicon.svg` (a box lifted off the
+  floor), third room removed, labels removed from the cards, feature cards a fixed 3 x 2 grid.
+- **Room card:** a click on a room opens its input videos, numbers, how it was made and what to
+  expect, then Open the room. `capture_blender07_topup.mp4` added, since the living room's 528 frames
+  include 40 from a 10 s top-up (`frames.json`). Both rooms also got a ceiling height for scale
+  (`metric scale (ceiling)` in `lift.log`), so the card lists it as input.
+- **Room sizes against Blender** (`room/shell.json` walls against the build scripts): bedroom
+  3.81 x 4.36 m against 3.6 x 4.2 (about 5% large), living room 6.29 x 5.35 m against 5.6 x 4.8
+  (about 12% large). Measured from the shell only, not a separate scale study.
+- **Measure bug:** three causes. Rays hit SparkRenderer's own invisible 2 x 2 m quad at the world
+  origin; with a selection they hit the gizmo's planes; and Spark's raycast missed large parts of the
+  bed, so a ray through the blanket landed on the floor behind it. Measure now tests a thin cone against the
+  splat centres of the LOD tree and needs 4 splats to agree. Bed on blender06: 2.18 m long, 1.45 m wide, the same
+  with the gizmo showing (Blender bed: 120 x 200 cm plus frame and overhanging blanket, room about 5% large).
+- **Mouse:** a left or middle drag orbits about the selection or the spot under the mouse, including
+  from an unselected object. Shift+middle pans. Only the selected object drags, and a right drag on it turns it.
+  The camera now stays inside the room outline (`room/shell.json`, convex rooms only), for every control:
+  an orbit from a corner swung it through the wall into loose splats.
+- **Bedroom start view** moved clear of the floaters by the dresser. Thin spots switch shows the count and is
+  off in a room with none (bedroom: 0, living room: 131). Generated splats switch only shows in a room that has some (neither demo room).
+- **Kept:** developer info stays, off by default behind the ⋮ menu and the backtick key. Frame times
+  suit a research audience.
+- **Not checked:** a real phone, a live microphone. The hero video and card images are still input
+  renders, and the page says so. Next: a screen recording for the hero and the video itself, then deploy and publish.
+
+## 4 Nov, ui: landing copy stops underselling
+
+Lane: ui, docs. The page said "rough", "not a product" and "not real footage" in the hero, the room
+section, the features, a whole section and the closing. OJ: not a claim to be the best, but not an
+apology either, and not so many times. The copy now leads with what it does, and the limits appear
+once, in a three-card "What's next" section near the end of the page (real footage, image quality,
+room size), plus one line on gap repair in the pipeline step. The per-room "What to expect" block
+is gone from the room card. README, submission text, X post and video script follow the same rule.
+Next: OJ's go-ahead to push, publish both rooms and deploy.
+
+## 4 Nov, ui: landing copy, OJ's review
+
+Lane: ui, docs. Button back to "Open the demo", no "Read the code" button, new hero numbers (8 Meta
+models, 49 movable objects, 0 hand labels), new room section text, no
+semicolons in the copy, model tiles 4 x 2 so no tile is empty. The "What's next" section is gone:
+the closing section now says it is a working demo on two synthetic rooms and a good place to start.
+The README keeps its limits under "Known limits". Next: OJ's go-ahead to push, publish and deploy.
+
+## 5 Nov, ui: living room start view, merge to main
+
+Lane: ui. Compared 11 viewpoints in the viewer. The living room now opens from in front of the sofa,
+facing the TV wall, which keeps most of the rug and ceiling smears out of frame. Merged the site
+work into main and redeployed. Next: submission.

@@ -57,6 +57,15 @@ the demo (needs chunked `.RAD` or HTTP Range support, see `docs/LOD.md`).
 
 ## 3. Next steps
 
+### 3.00000 Wed 4 Nov, demo positioning and last fixes
+- Team name is now **Larracat**. The pitch is a working demo on two synthetic rooms and a starting
+  point for research (`docs/MARKETING.md`, "Positioning"). All web text follows that.
+- Two rooms only, `room01` is gone. A room opens its room card first (videos, facts, how it was
+  made, what to expect); facts live in `web/src/landing/scenes.ts`.
+- Mouse view as in Blender (`web/src/ui/orbit.ts`): left or middle drag orbits, also from an
+  unselected object; only the selected object drags. The tape measure no longer uses Spark's
+  raycast (`web/src/ui/measure.ts`).
+
 ### 3.0000 Tue 3 Nov, demo front end (branch lane/ui-landing)
 - `/` is a landing page (`web/src/landing/`): hero with the showcase video, what it does,
   the six pipeline stages, the Meta models, the three demo rooms and the input video each

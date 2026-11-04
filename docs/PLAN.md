@@ -116,8 +116,8 @@ Raw logs go to `benchmarks/`.
 
 ## Video (3 min, judged live in the final round; confirm the length limit)
 
-Updated 3 Nov (D21): no headset shots. Replace the headset beats below with the laptop and
-the phone, and use the landing page's input videos for the capture beat.
+Updated 4 Nov: the script is now in `docs/MARKETING.md` ("Demo video script"), as a working demo
+on two synthetic rooms. The outline below is the old plan, kept for reference only.
 
 0:00 capture with on-screen timer → 0:20 scene appears → 0:30 headset on, no PC, HUD with
 frame time and splat counts → 0:45 gaps glow red; top-up prompt; repaired areas and the

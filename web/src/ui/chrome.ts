@@ -1,5 +1,5 @@
 // Lane ui: the viewer's app chrome. A top bar with a way home, the scene switcher (the
-// three demo scenes, landing/scenes.ts), Enter VR, help and a settings menu; a loading card
+// demo rooms, landing/scenes.ts), Enter VR, help and a settings menu; a loading card
 // until the room's splats arrive. Developer info (HUD, frame log button, detail slider,
 // object style label) is hidden by default and lives behind the settings menu's last
 // switch or the ` key; ?debug=1 or ?bench=1 start with it on, and the choice is remembered.
@@ -224,7 +224,7 @@ export function installChrome(deps: ChromeDeps): ChromeHandle {
   const titleText = h("span", "mr-chrome-title-text");
   titleText.textContent = demo?.title ?? sceneId ?? "Movable Reality";
   const sub = h("span", "mr-chrome-title-sub");
-  sub.textContent = demo ? (demo.kind === "real" ? "Real capture" : "Synthetic room") : "Scene";
+  sub.textContent = demo ? "Rendered in Blender" : "Scene";
   const titleStack = h("span", "mr-chrome-title-stack");
   titleStack.append(titleText, sub);
   title.append(titleStack, h("span", "mr-chrome-chevron", ICONS.chevron));
@@ -273,25 +273,30 @@ export function installChrome(deps: ChromeDeps): ChromeHandle {
       const cov = lanes().mrCoverage;
       const obj = lanes().mrObjects;
       m.append(section("View"));
-      m.append(
-        switchItem("Coverage gaps", "Where the video saw too little  ·  G", cov?.visible() ?? false, !cov, () => {
-          cov?.toggle();
-          return cov?.visible() ?? false;
-        }),
-      );
-      const n = cov?.generatedCount() ?? 0;
+      // Red markers on the spots the video barely saw. A room with none has nothing to switch on.
+      const gaps = ctx.manifest?.coverage?.gaps.length ?? 0;
       m.append(
         switchItem(
-          "Generated splats",
-          n > 0 ? `${n.toLocaleString()} splats filled in by Muse Image  ·  T` : "None in this room yet",
-          n > 0 && (cov?.generatedVisible() ?? false),
-          n === 0,
+          "Thin spots in the video",
+          gaps > 0 ? `Marks ${gaps} places the camera barely saw  ·  G` : "None found in this room",
+          gaps > 0 && (cov?.visible() ?? false),
+          !cov || gaps === 0,
           () => {
-            cov?.toggleGenerated();
-            return cov?.generatedVisible() ?? false;
+            cov?.toggle();
+            return cov?.visible() ?? false;
           },
         ),
       );
+      // Only rooms repaired by Muse Image have generated splats; neither demo room does.
+      const n = cov?.generatedCount() ?? 0;
+      if (n > 0) {
+        m.append(
+          switchItem("Generated splats", `${n.toLocaleString()} splats painted in by Muse Image, not filmed  ·  T`, cov?.generatedVisible() ?? false, false, () => {
+            cov?.toggleGenerated();
+            return cov?.generatedVisible() ?? false;
+          }),
+        );
+      }
       if (obj) {
         m.append(section("Objects drawn as"));
         const current = obj.style();

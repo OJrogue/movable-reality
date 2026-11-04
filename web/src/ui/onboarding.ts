@@ -14,18 +14,21 @@ export const SAMPLE_COMMANDS = [
 ];
 
 const CONTROLS: [string, string][] = [
-  ["Drag empty space", "look around"],
+  ["Drag, or middle drag", "orbit the view"],
+  ["Shift + middle drag", "pan"],
+  ["Wheel", "move forward or back"],
   ["W A S D, Q / E", "walk, down / up"],
   ["Click an object", "select it"],
-  ["Drag an object", "move it on the floor"],
-  ["Q / E (selected)", "rotate 15°"],
+  ["Drag the selected object", "move it on the floor"],
+  ["Right drag the selected object", "turn it"],
+  ["Q / E (selected)", "turn 15°"],
   ["+ in the top bar", "add furniture, list and remove items"],
   ["Delete", "remove the selected object"],
   ["R", "bring back the last removed object"],
   ["Ctrl+Z / Cmd+Z", "undo"],
   ["Hold Space", "speak a command"],
-  ["G", "coverage gap overlay"],
-  ["Alt+click twice", "measure in metres"],
+  ["G", "mark spots the video barely saw"],
+  ["Alt+click two points", "measure in metres"],
 ];
 
 /** Phones and tablets (lane devices, mobile profile). */
@@ -129,7 +132,7 @@ export function installOnboarding(deps: OnboardingDeps): OnboardingHandle {
   head.append(title, close);
 
   const intro = el("p", "mr-ui-ob-intro");
-  intro.textContent = "A room rebuilt from one phone video. Every object is its own splat, so you can rearrange it.";
+  intro.textContent = "This room was built from the video on the room card. Every object is separate, so go ahead and move it.";
 
   const table = el("table", "mr-ui-ob-keys");
   for (const [key, what] of deps.touch ? TOUCH_CONTROLS : CONTROLS) {

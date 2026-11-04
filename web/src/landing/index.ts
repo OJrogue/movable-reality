@@ -1,8 +1,11 @@
-// Landing page at / (entry.ts loads it when the URL names no scene). A showcase video
-// behind the hero, an "Open the demo" button that offers the three scenes, and what the
-// project does and how. The video is web/public/media/showcase.mp4 (gitignored like every
-// .mp4: copy it next to the build when hosting); without it the hero shows a still.
-import { DEMO_SCENES, type DemoScene, sceneAvailability, viewerUrl } from "./scenes";
+// Landing page at / (entry.ts loads it when the URL names no scene). A showcase video behind
+// the hero, the demo rooms, what it does, how it is built and how to build on it. Clicking a room
+// opens its room card first: the videos the pipeline was given and how the room was made, then
+// a button into the viewer, so people see how little went in before they see what came out.
+// Copy: say what it does, and that it is a working demo on synthetic rooms, once each.
+// The video is web/public/media/showcase.mp4 (gitignored like every .mp4: copy it next to the
+// build when hosting); without it the hero shows a still.
+import { DEMO_SCENES, type DemoScene, sceneAvailability, type SourceVideo, viewerUrl } from "./scenes";
 import { LANDING_CSS } from "./style";
 
 const REPO = "https://github.com/OJrogue/movable-reality";
@@ -23,12 +26,12 @@ const I = {
 };
 
 const FEATURES: [string, string, string][] = [
-  [I.video, "Film it with a phone", "Walk once around the room with a phone. MapAnything recovers metric cameras and geometry, so a metre in the scene is a metre in the room."],
-  [I.cube, "Every object is its own splat", "Muse Wonder lists what is in the room, SAM 3.1 tracks each object through the video, and every Gaussian votes for the object it belongs to."],
-  [I.sparkle, "Gaps found and filled", "Coverage scoring finds what the video missed. SAM 3D Objects completes the backs of objects, Muse Image repairs gaps, and generated splats stay tagged."],
-  [I.mic, "Rearrange it by voice", "Say “move the sofa under the window”. A Muse Wonder agent edits the scene with tool calls and Muse Spark Open checks a screenshot of the result."],
-  [I.devices, "Runs in a browser", "Nothing to install. The same viewer runs on a laptop and on a phone, and picks the level of detail each device can hold."],
-  [I.ruler, "Measured, not guessed", "Alt+click twice to measure anything in metres. The floor sits at y = 0 and every edit is an undoable delta in one scene file."],
+  [I.video, "One video in", "Give it one walk through a room. MapAnything works out where the camera was, and gsplat trains the 3D scene from the frames. No depth sensor, no floor plan."],
+  [I.cube, "The furniture comes apart", "Muse Wonder names what it sees, SAM 3.1 follows each item through the video, and every splat goes to the item it belongs to. The sofa ends up as its own object, in its own file."],
+  [I.mic, "Say what you want", "Type “move the sofa under the window”. A Muse Wonder agent edits the scene, then Muse Spark Open checks a screenshot and sends it back if the edit is wrong."],
+  [I.sparkle, "It knows what it missed", "No walk sees everything. Coverage scoring marks the spots the camera barely saw, and SAM 3D Objects builds the side of each object it never saw."],
+  [I.devices, "Opens in a browser", "Nothing to install. Mouse and keyboard on a laptop, touch on a phone. Each object has its own level of detail, so a weaker machine gets a lighter version of the same room."],
+  [I.ruler, "Measure", "Alt+click two points to read the distance. See how much space a sofa takes, move it, and undo any edit you don’t like."],
 ];
 
 interface Step {
@@ -40,45 +43,45 @@ interface Step {
 const STEPS: Step[] = [
   {
     title: "Capture",
-    text: "One walk around the room with a phone. The sharpest frames are kept at 3 to 5 per second, and the same frames, in the same order, become the clip that SAM tracks.",
-    flow: ["phone video", "sharpest frames", "SAM clip"],
+    text: "One walk through the room. We keep the sharpest 4 frames per second, and those same frames, in the same order, become the clip that SAM tracks.",
+    flow: ["video", "sharpest frames", "SAM clip"],
   },
   {
-    title: "Metric reconstruction",
-    text: "MapAnything predicts metric cameras and geometry, exported to COLMAP. gsplat trains a 3D Gaussian Splatting scene on full-resolution frames on a Modal GPU.",
-    flow: ["frames", "*MapAnything", "COLMAP (metric)", "gsplat", "scene.ply"],
+    title: "Cameras and 3D scene",
+    text: "MapAnything predicts the cameras and geometry, and COLMAP refines them. gsplat then trains a 3D Gaussian Splatting scene on the full-size frames, on a Modal GPU.",
+    flow: ["frames", "*MapAnything", "COLMAP", "gsplat", "scene.ply"],
   },
   {
     title: "Objects",
-    text: "Muse Wonder watches the video and names the objects. SAM 3.1 tracks each noun through the clip. Masks, cameras and rendered depth vote each Gaussian into an object, and each object is trained on its own.",
+    text: "Muse Wonder watches the video and names the objects. SAM 3.1 tracks each one through the clip. Masks, cameras and rendered depth decide which object each splat belongs to, and each object is then trained on its own.",
     flow: ["*Muse Wonder", "nouns", "*SAM 3.1", "instance masks", "ID vote", "obj_<id>.ply"],
   },
   {
-    title: "Completion and coverage",
-    text: "SAM 3D Objects completes every object from its best view, so it can be turned around. A gap map scores what the video saw too little; small gaps are repaired with Muse Image and distilled back, tagged as generated.",
-    flow: ["*SAM 3D Objects", "gap map", "*Muse Image", "generated = 1"],
+    title: "Hidden sides and thin spots",
+    text: "SAM 3D Objects rebuilds each object from its best view, including the side the camera never saw. A coverage map scores what the video barely saw. A repair path paints thin spots with Muse Image and tags what it painted. So far it has run on test scenes.",
+    flow: ["*SAM 3D Objects", "coverage map", "*Muse Image"],
   },
   {
-    title: "Made to run smoothly",
-    text: "Floor, walls and ceiling become baked, opaque textured planes. Every object gets its own level-of-detail tree, and one joint LOD cut across the room spends the detail on what you are looking at.",
-    flow: ["plane fit", "baked quads", "Spark LOD trees", "joint cut", "frame budget"],
+    title: "Fit it in a browser",
+    text: "Floor, walls and ceiling become flat textured surfaces instead of splats. Every object gets its own level-of-detail tree, and the viewer spends its splat budget on what you are looking at.",
+    flow: ["plane fit", "textured surfaces", "Spark LOD trees", "frame budget"],
   },
   {
     title: "Talk to the room",
-    text: "Speech is transcribed, a Muse Wonder agent turns it into scene edits, the viewer updates live, and Muse Spark Open looks at a screenshot to accept the edit or ask for a retry.",
+    text: "A typed or spoken command goes to a Muse Wonder agent, which edits the scene file. The viewer updates, and Muse Spark Open looks at a screenshot to accept the edit or ask for a retry.",
     flow: ["voice", "*Muse Voice Transcribe", "*Muse Wonder agent", "scene.json", "*Muse Spark Open"],
   },
 ];
 
 const MODELS: [string, string, string][] = [
-  ["Muse Wonder", "muse-wonder-1.0", "Agent brain with tool calls; object inventory from the video"],
-  ["SAM 3.1", "sam-3.1", "Video segmentation and tracking of every object"],
-  ["MapAnything", "facebook/map-anything-apache", "Metric cameras and geometry from the frames"],
-  ["SAM 3D Objects", "open weights", "Completing objects and their unseen backs"],
-  ["Muse Image", "muse-image-1.0", "Repairing coverage gaps; furniture to insert"],
-  ["Muse Spark Open", "muse-spark-open-1026", "Visual verifier after every edit"],
+  ["Muse Wonder", "muse-wonder-1.0", "Lists the objects in the video and edits the scene"],
+  ["SAM 3.1", "sam-3.1", "Finds and follows every object through the video"],
+  ["MapAnything", "facebook/map-anything-apache", "Cameras and geometry from the frames"],
+  ["SAM 3D Objects", "open weights", "Builds the hidden side of each object"],
+  ["Muse Image", "muse-image-1.0", "New furniture to insert, and repairs to thin spots"],
+  ["Muse Spark Open", "muse-spark-open-1026", "Looks at a screenshot after every edit"],
   ["Muse Voice Transcribe", "muse-voice-transcribe-1.0", "Voice commands"],
-  ["Muse Spark", "muse-spark-1.3", "Short helper calls, typical object heights for scale"],
+  ["Muse Spark", "muse-spark-1.3", "Short helper calls"],
 ];
 
 const flowHtml = (flow: string[]) =>
@@ -89,15 +92,15 @@ const flowHtml = (flow: string[]) =>
 const PAGE = `
 <header class="lp-nav">
   <div class="lp-wrap">
-    <a class="lp-brand" href="#top"><span class="lp-mark">M</span>Movable Reality</a>
+    <a class="lp-brand" href="#top">Movable Reality</a>
     <nav class="lp-links" aria-label="Sections">
+      <a href="#try">Rooms</a>
       <a href="#what">What it does</a>
       <a href="#pipeline">Pipeline</a>
       <a href="#models">Models</a>
-      <a href="#captures">Captures</a>
       <a href="${REPO}" target="_blank" rel="noopener">GitHub</a>
     </nav>
-    <button class="lp-btn lp-btn-filled lp-btn-small" data-open-demo>Open the demo</button>
+    <a class="lp-btn lp-btn-filled lp-btn-small" href="#try">Open the demo</a>
   </div>
 </header>
 
@@ -105,43 +108,61 @@ const PAGE = `
   <section class="lp-hero">
     <div class="lp-hero-media" aria-hidden="true"></div>
     <div class="lp-wrap lp-hero-body">
-      <span class="lp-eyebrow">Meta Global AI Developer Hackathon &middot; Push the Frontier</span>
-      <h1>Try the new layout <em>before you lift the sofa.</em></h1>
-      <p class="lp-lede">Walk around your room once with your phone. What comes back is a 3D copy of
-      it, true to scale, where the sofa, the lamp and every chair come loose. Drag things around, or
-      just say what should go where.</p>
+      <span class="lp-eyebrow">Working demo &middot; Meta Global AI Developer Hackathon</span>
+      <h1>Film a room. <em>Move the furniture.</em></h1>
+      <p class="lp-lede">Movable Reality turns one walk through a room into a 3D scene where every
+      piece of furniture is its own object. Drag the sofa across the room, or just ask for it. No depth
+      sensor, no floor plan, no hand labelling. Open source, and running today on two rooms rendered in
+      Blender.</p>
       <div class="lp-ctas">
-        <button class="lp-btn lp-btn-filled" data-open-demo>${I.play}Open the demo</button>
-        <a class="lp-btn lp-btn-tonal" href="#pipeline">${I.down}How it works</a>
+        <a class="lp-btn lp-btn-filled" href="#try">${I.play}Open the demo</a>
       </div>
       <div class="lp-stats">
-        <div><b>1 walk</b>with a phone</div>
-        <div><b>Every object</b>moves on its own</div>
         <div><b>8</b>Meta models</div>
-        <div><b>0 installs</b>runs in the browser</div>
+        <div><b>49</b>movable objects</div>
+        <div><b>0</b>hand labels</div>
       </div>
+      <p class="lp-hero-note">Background: the input video.</p>
     </div>
     <button class="lp-motion" hidden aria-label="Pause the background video"></button>
+  </section>
+
+  <section class="lp-section" id="try">
+    <div class="lp-wrap">
+      <p class="lp-kicker">The demo</p>
+      <h2 class="lp-h2">Two rooms, ready to open.</h2>
+      <p class="lp-sub">See the video each room was built from, then open it and start moving the furniture.</p>
+      <div class="lp-scenes" data-scenes></div>
+    </div>
   </section>
 
   <section class="lp-section" id="what">
     <div class="lp-wrap">
       <p class="lp-kicker">What it does</p>
-      <h2 class="lp-h2">A scan you can rearrange, not just look at.</h2>
-      <p class="lp-sub">Most room scans are one frozen blob. Here the room is taken apart into the
-      things in it, the parts the camera missed are filled in, and the result opens in a browser.</p>
+      <h2 class="lp-h2">A room you can edit.</h2>
       <div class="lp-grid">
         ${FEATURES.map(([ic, h, p]) => `<article class="lp-card"><div class="lp-icon">${ic}</div><h3>${h}</h3><p>${p}</p></article>`).join("")}
       </div>
     </div>
   </section>
 
+  <section class="lp-section" id="captures">
+    <div class="lp-wrap">
+      <p class="lp-kicker">The input</p>
+      <h2 class="lp-h2">Built from these videos.</h2>
+      <p class="lp-sub">The videos, the camera’s focal length and the ceiling height are the whole
+      input. No depth, no floor plan, no hand labels. Blender’s own depth and masks were only
+      used afterwards, to score the result.</p>
+      <div class="lp-captures" data-captures></div>
+    </div>
+  </section>
+
   <section class="lp-section" id="pipeline">
     <div class="lp-wrap">
       <p class="lp-kicker">How it is done</p>
-      <h2 class="lp-h2">From video to a movable room in six stages.</h2>
-      <p class="lp-sub">One command runs every stage, resumes where it stopped and skips work that is
-      already done. Highlighted steps call a Meta model; the rest is geometry and rendering code.</p>
+      <h2 class="lp-h2">From video to movable room.</h2>
+      <p class="lp-sub">One command runs all of it, picks up where it stopped and skips what is already
+      done. Highlighted steps call a Meta model, and the rest is geometry and rendering code.</p>
       <ol class="lp-steps">
         ${STEPS.map((s) => `<li class="lp-step"><div class="lp-step-n"></div><div><h3>${s.title}</h3><p>${s.text}</p><div class="lp-flow">${flowHtml(s.flow)}</div></div></li>`).join("")}
       </ol>
@@ -151,68 +172,84 @@ const PAGE = `
   <section class="lp-section" id="models">
     <div class="lp-wrap">
       <p class="lp-kicker">Meta models</p>
-      <h2 class="lp-h2">Every model it calls at runtime is a Meta model.</h2>
-      <p class="lp-sub">Hosted models run through the Meta Model API; open weights run on Modal and Baseten.
-      Rendering uses open-source code with no learned weights: gsplat, Spark and three.js.</p>
+      <h2 class="lp-h2">Every model it calls at runtime is from Meta.</h2>
+      <p class="lp-sub">Hosted models run through the Meta Model API, and open weights run on Modal and Baseten.
+      Rendering is open-source code with no learned weights: gsplat, Spark and three.js.</p>
       <div class="lp-models">
         ${MODELS.map(([n, id, job]) => `<div class="lp-model-card"><b>${n}</b><small>${id}</small><span>${job}</span></div>`).join("")}
       </div>
     </div>
   </section>
 
-  <section class="lp-section" id="try">
+  <section class="lp-section" id="build">
     <div class="lp-wrap">
-      <p class="lp-kicker">Try it</p>
-      <h2 class="lp-h2">Three rooms to rearrange.</h2>
-      <p class="lp-sub">Two synthetic rooms with ground truth, used to measure the pipeline, and a real
-      room filmed on a phone, coming soon. Mouse and keyboard on a laptop, touch on a phone.</p>
-      <div class="lp-scenes" data-scenes></div>
-    </div>
-  </section>
-
-  <section class="lp-section" id="captures">
-    <div class="lp-wrap">
-      <p class="lp-kicker">The input</p>
-      <h2 class="lp-h2">The videos each room was built from.</h2>
-      <p class="lp-sub">Nothing else goes in: no depth sensor, no floor plan, no hand-labelled objects.
-      These are the exact walks the pipeline trained on.</p>
-      <div class="lp-captures" data-captures></div>
+      <p class="lp-kicker">Build on it</p>
+      <h2 class="lp-h2">A working demo, and a good place to start.</h2>
+      <p class="lp-sub">It runs end to end on two synthetic rooms. If your research or project touches
+      object-level splats, room editing or agents that act on 3D scenes, you can start here instead of
+      rebuilding all of this. It is MIT licensed. Each stage is a plain script
+      you can rerun alone or swap out. Objects come out as separate splat files with one JSON scene file,
+      and the Blender rooms and scoring tools are included, so you can measure every change.</p>
+      <a class="lp-btn lp-btn-tonal" href="${REPO}" target="_blank" rel="noopener">Source on GitHub</a>
     </div>
   </section>
 </main>
 
 <footer class="lp-footer">
   <div class="lp-wrap">
-    <span>Movable Reality &middot; team Gaussian Movers &middot; built 26 Oct to 4 Nov 2026</span>
+    <span>Movable Reality &middot; team Larracat &middot; built 26 Oct to 4 Nov 2026</span>
     <span><a href="${REPO}" target="_blank" rel="noopener">Source on GitHub</a></span>
   </div>
 </footer>
 
-<dialog class="lp-dialog" aria-labelledby="lp-dialog-title">
+<dialog class="lp-dialog lp-room" aria-labelledby="lp-room-title">
   <div class="lp-dialog-inner">
     <div class="lp-dialog-head">
       <div>
-        <h2 id="lp-dialog-title">Choose a room</h2>
-        <p>Each opens in the viewer. Click an object to select it, drag it to move it, or type a command.</p>
+        <h2 id="lp-room-title"></h2>
+        <p data-room-blurb></p>
       </div>
       <button class="lp-close" aria-label="Close">${I.close}</button>
     </div>
-    <div class="lp-scenes" data-scenes></div>
-    <div class="lp-devices">
-      <span>Desktop: drag to look, W A S D to walk</span>
-      <span>Phone: one finger looks, two fingers move</span>
+    <div class="lp-room-body">
+      <div class="lp-room-input">
+        <h3>What went in</h3>
+        <div data-room-videos></div>
+        <p class="lp-room-note">That is the whole input, plus the focal length and ceiling height. Blender’s
+        depth and masks were only used afterwards, to score the result.</p>
+      </div>
+      <div class="lp-room-made">
+        <h3>What came out</h3>
+        <dl data-room-facts></dl>
+        <h3>How it was made</h3>
+        <ol class="lp-room-steps">
+          <li>Blender renders the walk through the room.</li>
+          <li>The sharpest frames go to MapAnything and COLMAP for the cameras, then gsplat trains the splats.</li>
+          <li>Muse Wonder names the objects, SAM 3.1 tracks them, and each object is trained on its own.</li>
+          <li>SAM 3D Objects builds hidden sides. Walls, floor and ceiling become flat textured surfaces.</li>
+          <li>Each object gets levels of detail, so the room can load in a browser.</li>
+        </ol>
+      </div>
+    </div>
+    <div class="lp-room-foot">
+      <a class="lp-btn lp-btn-filled" data-room-open>${I.play}Open the room</a>
+      <span class="lp-devices">
+        <span>Laptop: drag to orbit, click to select</span>
+        <span>Phone: one finger looks, two fingers move</span>
+      </span>
     </div>
   </div>
 </dialog>
 `;
 
-const STATE_TEXT = { ready: "", updating: "Updating", processing: "Processing", missing: "Coming soon" };
+const STATE_TEXT = { ready: "", updating: "Updating", processing: "Processing", missing: "Not available" };
 
-function sceneCard(s: DemoScene, base: string | null): HTMLAnchorElement {
-  const a = document.createElement("a");
+function sceneCard(s: DemoScene, openRoom: (s: DemoScene) => void): HTMLButtonElement {
+  const a = document.createElement("button");
+  a.type = "button";
   a.className = "lp-scene";
-  a.href = viewerUrl(s.id, base);
   a.dataset.scene = s.id;
+  a.addEventListener("click", () => openRoom(s));
   const img = document.createElement("div");
   img.className = "lp-scene-img";
   const pic = document.createElement("img");
@@ -227,14 +264,10 @@ function sceneCard(s: DemoScene, base: string | null): HTMLAnchorElement {
     else pic.remove();
   });
   pic.src = sources.shift()!;
-  const kind = document.createElement("span");
-  kind.className = "lp-chip";
-  kind.dataset.kind = s.kind;
-  kind.textContent = s.kind === "real" ? "Real capture" : "Synthetic, with ground truth";
   const state = document.createElement("span");
   state.className = "lp-chip lp-chip-state";
   state.dataset.state = "ready";
-  img.append(pic, kind, state);
+  img.append(pic, state);
   const body = document.createElement("div");
   body.className = "lp-scene-body";
   const t = document.createElement("b");
@@ -246,32 +279,65 @@ function sceneCard(s: DemoScene, base: string | null): HTMLAnchorElement {
   return a;
 }
 
-function captureFigure(s: DemoScene): HTMLElement {
+function sourceFigure(s: DemoScene, v: SourceVideo, opts: { title?: boolean; autoplay?: boolean } = {}): HTMLElement {
   const fig = document.createElement("figure");
   fig.className = "lp-capture";
   const video = document.createElement("video");
-  video.src = s.capture;
+  video.src = v.src;
   video.poster = s.thumb;
   video.controls = true;
   video.muted = true;
   video.playsInline = true;
   video.preload = "metadata";
-  video.setAttribute("aria-label", `Input video of the ${s.title.toLowerCase()}`);
-  // No capture yet (the real room before it is filmed): a placeholder instead of a broken player.
+  video.setAttribute("aria-label", `${v.label}: input video of the ${s.title.toLowerCase()}`);
+  if (opts.autoplay && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    video.autoplay = true;
+    video.loop = true;
+  }
+  // A missing file (copied next to the build by hand): a placeholder instead of a broken player.
   video.addEventListener("error", () => {
     const empty = document.createElement("div");
     empty.className = "lp-capture-empty";
-    empty.textContent = "Capture coming soon";
+    empty.textContent = "Video not uploaded";
     video.replaceWith(empty);
   });
   const cap = document.createElement("figcaption");
   const t = document.createElement("b");
-  t.textContent = s.title;
+  t.textContent = opts.title ? `${s.title}: ${v.label.toLowerCase()}` : v.label;
   const note = document.createElement("span");
-  note.textContent = s.captureNote;
+  note.textContent = v.note;
   cap.append(t, note);
   fig.append(video, cap);
   return fig;
+}
+
+/** The room card: fills the one dialog for a room. Closing it removes the videos, so they stop. */
+function roomCard(root: HTMLElement, base: string | null): (s: DemoScene) => void {
+  const dialog = root.querySelector<HTMLDialogElement>(".lp-room")!;
+  const videos = dialog.querySelector<HTMLElement>("[data-room-videos]")!;
+  const facts = dialog.querySelector<HTMLElement>("[data-room-facts]")!;
+  dialog.querySelector(".lp-close")!.addEventListener("click", () => dialog.close());
+  dialog.addEventListener("click", (e) => {
+    if (e.target === dialog) dialog.close(); // a click on the backdrop
+  });
+  dialog.addEventListener("close", () => videos.replaceChildren());
+  return (s) => {
+    dialog.querySelector("#lp-room-title")!.textContent = s.title;
+    dialog.querySelector("[data-room-blurb]")!.textContent = s.blurb;
+    dialog.querySelector<HTMLAnchorElement>("[data-room-open]")!.href = viewerUrl(s.id, base);
+    videos.replaceChildren(...s.sources.map((v, i) => sourceFigure(s, v, { autoplay: i === 0 })));
+    facts.replaceChildren(
+      ...s.facts.flatMap(([k, v]) => {
+        const dt = document.createElement("dt");
+        const dd = document.createElement("dd");
+        dt.textContent = k;
+        dd.textContent = v;
+        return [dt, dd];
+      }),
+    );
+    dialog.showModal();
+    dialog.scrollTop = 0;
+  };
 }
 
 function heroMedia(root: HTMLElement): void {
@@ -320,7 +386,7 @@ function heroMedia(root: HTMLElement): void {
 
 export function installLanding(): void {
   document.documentElement.classList.add("lp");
-  document.title = "Movable Reality: rearrange a room you filmed";
+  document.title = "Movable Reality: move the furniture in a room from one video";
   const style = document.createElement("style");
   style.textContent = LANDING_CSS;
   document.head.appendChild(style);
@@ -332,38 +398,24 @@ export function installLanding(): void {
   document.body.appendChild(root);
 
   const base = new URLSearchParams(location.search).get("base");
-  const cards: HTMLAnchorElement[] = [];
+  const openRoom = roomCard(root, base);
+  const cards: HTMLButtonElement[] = [];
   for (const holder of root.querySelectorAll<HTMLElement>("[data-scenes]")) {
     for (const s of DEMO_SCENES) {
-      const card = sceneCard(s, base);
+      const card = sceneCard(s, openRoom);
       cards.push(card);
       holder.appendChild(card);
     }
   }
-  root.querySelector("[data-captures]")!.append(...DEMO_SCENES.map(captureFigure));
+  root.querySelector("[data-captures]")!.append(...DEMO_SCENES.flatMap((s) => s.sources.map((v) => sourceFigure(s, v, { title: true }))));
   void sceneAvailability(DEMO_SCENES.map((s) => s.id), base ?? "/scenes").then((avail) => {
     for (const card of cards) {
       const st = avail.get(card.dataset.scene!) ?? "missing";
       const chip = card.querySelector<HTMLElement>(".lp-chip-state")!;
       chip.dataset.state = st;
       chip.textContent = STATE_TEXT[st];
-      const closed = st === "processing" || st === "missing";
-      card.setAttribute("aria-disabled", String(closed));
-      if (closed) {
-        card.removeAttribute("href");
-        card.setAttribute("role", "link"); // an <a> without href has no role for aria-disabled
-        card.tabIndex = -1;
-      }
+      card.disabled = st === "processing" || st === "missing";
     }
-  });
-
-  const dialog = root.querySelector<HTMLDialogElement>(".lp-dialog")!;
-  for (const b of root.querySelectorAll("[data-open-demo]")) {
-    b.addEventListener("click", () => dialog.showModal());
-  }
-  root.querySelector(".lp-close")!.addEventListener("click", () => dialog.close());
-  dialog.addEventListener("click", (e) => {
-    if (e.target === dialog) dialog.close(); // a click on the backdrop
   });
 
   const nav = root.querySelector<HTMLElement>(".lp-nav")!;
