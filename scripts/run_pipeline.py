@@ -18,6 +18,7 @@ Stages, in order (SAM runs next to the GPU reconstruction, since it needs only t
     bake        bake_planes.py --labels floor    floor as an opaque textured quad
     surfaces    room_surfaces.py          the shell replaces the wall, floor and ceiling
                                           splats (blur, haze, furniture smears)
+    clean       clean_background.py       background behind objects (only with --room-splats)
     lod         build_lod.py              Spark LOD tree per object (after the bake, which
                                           changes the background)
     coverage    score_coverage.py         gap map and next-best views
@@ -112,7 +113,8 @@ def stages(a: argparse.Namespace) -> list[Stage]:
               ["objects/background_clean.ply"], force_flag=False, optional=True),
         Stage("lod", "LOD trees", [*PY, "scripts/build_lod.py", s],
               ["objects_trained/report.json", "completion.json", "planes",
-               "objects/background_room.ply"], ["lod"], optional=True),
+               "objects/background_room.ply", "objects/background_clean.ply"], ["lod"],
+              optional=True),
         Stage("coverage", "gap map", [*PY, "scripts/score_coverage.py", "--scene", s],
               ["objects_trained/report.json"], ["coverage"], optional=True),
     ]  # fmt: skip
@@ -238,12 +240,23 @@ def sam3d_deployed() -> bool:
     )
 
 
-def decide(root: Path, plan: list[Stage], lo: int, hi: int, forced: set[str]) -> dict[str, str]:
-    """Verdict per stage ("run (...)", "skip (up to date)", "out of range"). A stage that runs
-    forces every later stage in range, since each depends on the ones before; `forced` grows."""
+def decide(
+    root: Path,
+    plan: list[Stage],
+    lo: int,
+    hi: int,
+    forced: set[str],
+    off: tuple[str, ...] = (),
+) -> dict[str, str]:
+    """Verdict per stage ("run (...)", "skip (up to date)", "out of range", "off"). A stage that
+    runs forces every later stage in range, since each depends on the ones before; `forced` grows.
+    A stage in `off` never runs, so it forces nothing."""
     names = [st.name for st in plan]
     out: dict[str, str] = {}
     for i, st in enumerate(plan):
+        if st.name in off:
+            out[st.name] = "off"
+            continue
         fresh = freshness(root, st)
         if i < lo or i > hi:
             verdict = "out of range"
@@ -309,8 +322,7 @@ def main() -> int:
         forced.add("frames")
 
     print(f"scene {a.scene} ({root})")
-    verdicts = decide(root, plan, lo, hi, forced)
-    verdicts.update(dict.fromkeys(ROOM_SHELL if a.room_splats else ("clean",), "off"))
+    verdicts = decide(root, plan, lo, hi, forced, ROOM_SHELL if a.room_splats else ("clean",))
     todo = [st for st in plan if verdicts[st.name].startswith("run")]
     for st in plan:
         print(f"  {st.name:<12} {verdicts[st.name]:<20} {st.what}")
