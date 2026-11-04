@@ -139,7 +139,10 @@ function emptyManifest(ply: string): SceneManifest {
 
 async function fetchManifest(url: string): Promise<{ text: string; manifest: SceneManifest } | null> {
   const r = await fetch(url, { cache: "no-store" });
-  if (!r.ok || !(r.headers.get("content-type") ?? "").includes("json")) return null;
+  // Only a clean miss falls back to a plain PLY: a server or proxy error says nothing about the scene.
+  if (r.status === 404) return null;
+  if (!r.ok) throw new Error(`${url}: ${r.status}`);
+  if (!(r.headers.get("content-type") ?? "").includes("json")) return null;
   const text = await r.text();
   const manifest = JSON.parse(text) as SceneManifest;
   if (pristine) {
@@ -165,7 +168,11 @@ async function start(): Promise<void> {
 
   const view = new SceneView(sceneBase);
   view.meshOptions = ctx.meshOptions;
-  view.onLoadError = (ply, err) => status(`failed to load ${ply}: ${String(err)}`);
+  view.loadObserver = ctx.loadObserver;
+  view.onLoadError = (ply, err) => {
+    status(`failed to load ${ply}: ${String(err)}`);
+    ctx.onLoadError?.(ply);
+  };
   scene.add(view.root);
   view.apply(first.manifest);
   ctx.runManifest(first.manifest, view);

@@ -56,6 +56,7 @@ MAX_SOCKETS = 150  # of modal_jobs/demo.py's 200 inputs, so requests always have
 MAX_ADDRESS_SOCKETS = 8
 MAX_VOICE_S = float(os.environ.get("MR_MAX_VOICE_S", "15"))
 COOKIE = "mr_session"
+SPLAT_SUFFIXES = (".rad", ".ply", ".glb")
 
 
 def _load_usage() -> dict[str, int]:
@@ -266,6 +267,12 @@ async def session_cookie(request: Request, call_next):
     if HOSTED and int(request.headers.get("content-length") or 0) > MAX_BODY_BYTES:
         return JSONResponse({"detail": "request too large"}, status_code=413)
     response = await call_next(request)
+    if request.url.path.endswith(SPLAT_SUFFIXES):
+        # no-cache: a republish keeps the names, so repeat visits ask first (a 304) instead of
+        # trusting a guessed lifetime. no-transform: these are already packed, so compressing them
+        # gains nothing and drops Content-Length. Modal's proxy ignores it (4 Nov); the viewer gets
+        # sizes from a Range request (web/src/ui/loadProgress.ts).
+        response.headers["Cache-Control"] = "no-cache, no-transform"
     if HOSTED:
         https = "https" in (request.url.scheme, request.headers.get("x-forwarded-proto"))
         if not _session(request.cookies):

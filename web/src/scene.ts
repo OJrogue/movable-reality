@@ -151,13 +151,21 @@ export function shownPly(o: SceneObject, style: ObjectStyle = "auto"): string {
 
 export interface ObjectNode {
   pivot: THREE.Group; // world position of the bbox centre, carries the edit
-  mesh?: SplatMesh; // none for a library object, which library/index.ts draws as a mesh
-  ply: string; // the PLY `mesh` shows: obj.ply, or obj.completed_ply in the completed style
+  mesh?: SplatMesh; // none for a library object (library/index.ts draws it) or one not yet shown
+  ply: string; // the PLY `mesh` shows: obj.ply, or obj.completed_ply; "" until first shown
 }
 
 /** Show or hide a splat mesh through its recon group (Spark skips hidden subtrees). */
 function setShown(mesh: SplatMesh, shown: boolean): void {
   if (mesh.parent) mesh.parent.visible = shown;
+}
+
+export interface LoadObserver {
+  start(url: string): void;
+  /** `total` is 0 when the response carried no Content-Length. */
+  progress(url: string, loaded: number, total: number): void;
+  /** The file has loaded or failed. */
+  end(url: string): void;
 }
 
 /** Splat meshes whose load failed (404, corrupt file); they never initialise. */
@@ -193,6 +201,9 @@ export class SceneView {
    * SplatMesh options; the url is filled in unless the hook sets it.
    */
   meshOptions?: (ply: string, objectId: string | null, m: SceneManifest) => Partial<SplatMeshOptions>;
+
+  /** Told about every splat file this view loads (the loading card's bar, ui/chrome.ts). */
+  loadObserver?: LoadObserver;
 
   constructor(private readonly baseUrl: string) {}
 
@@ -247,7 +258,8 @@ export class SceneView {
       node.pivot.rotation.set(0, THREE.MathUtils.degToRad(t.yaw_deg), 0);
       node.pivot.scale.setScalar(t.scale);
       node.pivot.visible = obj.visible;
-      if (shownPly(obj, this.style) !== node.ply) this.swap(node, obj, worldFromRecon, m);
+      // A hidden object loads when it is first shown: a scene can carry many merged copies.
+      if (obj.visible && shownPly(obj, this.style) !== node.ply) this.swap(node, obj, worldFromRecon, m);
     }
   }
 
@@ -306,9 +318,10 @@ export class SceneView {
     this.root.add(pivot);
     this.variants.set(obj.id, new Map());
     this.objects.set(obj.id, obj);
-    // swap() fills in mesh and ply straight away (it creates the first variant).
+    // swap() fills in mesh and ply (it creates the first variant); apply() does it when a
+    // hidden object is first shown.
     const node = { pivot, ply: "" } as ObjectNode;
-    this.swap(node, obj, worldFromRecon, m);
+    if (obj.visible) this.swap(node, obj, worldFromRecon, m);
     this.nodes.set(obj.id, node);
     return node;
   }
@@ -325,11 +338,22 @@ export class SceneView {
     recon.matrix.copy(worldFromRecon);
     recon.matrixWorldNeedsUpdate = true;
     const extra = this.meshOptions?.(ply, objectId, m) ?? {};
-    const mesh = new SplatMesh({ url: `${this.baseUrl}/${ply}`, ...extra });
-    mesh.initialized.catch((err: unknown) => {
-      failedMeshes.add(mesh);
-      this.onLoadError?.(ply, err);
+    const url = extra.url ?? `${this.baseUrl}/${ply}`;
+    const observer = this.loadObserver;
+    observer?.start(url);
+    const mesh = new SplatMesh({
+      ...extra,
+      url,
+      onProgress: (e) => observer?.progress(url, e.loaded, e.total),
     });
+    mesh.initialized.then(
+      () => observer?.end(url),
+      (err: unknown) => {
+        failedMeshes.add(mesh);
+        observer?.end(url);
+        this.onLoadError?.(ply, err);
+      },
+    );
     recon.add(mesh);
     parent.add(recon);
     return mesh;

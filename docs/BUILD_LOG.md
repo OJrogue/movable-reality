@@ -1630,6 +1630,13 @@ verifier. Each fix below came from a command that went wrong:
   removed parent give 400, and after a reload the items return with no request for the bare scene
   folder. Limit, not fixed: an item stands on the top of the object's box, so on the bed it floats
   at the headboard's 1.32 m. No flat surface was aimed at by hand in the viewer.
+- Deployed to the hosted demo (merged main): `publish_demo.py blender06` (library, scene.json; the
+  blender06 files were already current), then `modal deploy`. On the live URL: catalogue of 29, all
+  licensed; ottoman added and undone; agent command "Put a ceramic vase on the dresser and remove
+  the ukulele" did both, vase at 1.07 m, verifier yes. Live blender07 is the older copy (38 objects,
+  with LOD) and was not republished: the local one has 50 objects and no LOD. It opens with the new
+  viewer, loading card gone at about 35 s, furniture in within about a minute. Next: `build_lod.py
+  blender07`, then publish, once its rework is done. A phone was not tried against the live URL.
 
 ## 3 Nov: hosted demo on Modal and security pass (lane core, renderer)
 
@@ -1744,3 +1751,84 @@ a copy of the scene with identical output, before the last changes. `flat` never
 scene (the rug spans y -0.14 to 0.69).
 
 Next: PR by OJ, `publish_demo.py` if blender07 goes in the demo.
+
+- Meeting room, real-capture retrain and lift:
+  - `reconstruct.py --real-capture` (`--pose_opt`, bilateral grid, not in the PLY), passed on
+    by `run_pipeline.py`: PSNR 18.1 dB, SSIM 0.70, LPIPS 0.41, 1.36M Gaussians, 23 min. In the
+    viewer the pillars, trusses and chairs no longer ghost from a training pose; held-out near
+    chairs still smear. `--scale 1.564` (Sim3 to the scan's frame) gives a room of about
+    16.6 x 16.7 m, against the benchmark's crop of about 17 x 13 m.
+  - `lift_ids.py --group "table=banquet chair,..."` and `lift.group_with_nearest` give each
+    chair to its nearest table within 0.4 m (unit tested). On this scene it merged nothing.
+  - The lift labelled only 5% of the Gaussians and kept 10 objects, most of them fragments.
+    SAM returned at most 16 objects per noun over the whole 482-frame clip (`table`: 300
+    masks, `banquet chair`: 560), so most chairs and tables have no label. Whether pose
+    fine-tuning also hurts the vote is not checked. Stopped at `complete`.
+  - Prototype, not in the repo: a top-down occupancy map at 0.15-1.1 m shows the table blocks.
+    The two upper blocks separate at every setting tried (2.7 x 3.0 m and 2.5 x 3.2 m), the
+    buffet at most (1.4 x 4.3 m). The lower blocks stay joined to each other, and at some
+    settings to the noise along the wall.
+
+## 4 Nov: first splat of the private test video (lane core)
+
+- `testroom` (private, never publish), splat only: 357 frames at 4 fps (sharpest of 4),
+  self-calibrated, `reconstruct.py --real-capture`, 31 min. No code changed.
+- Not usable: PSNR 13.3 dB, SSIM 0.73, LPIPS 0.61 on every 8th frame held out, 1.93M Gaussians.
+  Held-out renders and the trajectory video along the training cameras are smears.
+- Cause is the cameras: SfM registered 32 of 357 frames, so the job fell back to MapAnything's
+  poses (camera steps up to 3.4 m between frames 0.25 s apart; fx spread 27.7%). The frames are
+  blurred: median sharpness 158 against 830 for the Meeting room video, which registered 482 of
+  482. Cause not separated further; no sharper capture was tried.
+- Sharpest frames only (`testroom_sharp`): 191 frames, the best of about 7 candidates per 0.25 s
+  at sharpness >= 150 (largest gap 7.7 s), same settings, 28 min. Worse: PSNR 10.1 dB, SSIM 0.59,
+  LPIPS 0.71, 2.54M Gaussians. SfM registered 35 of 191, so MapAnything's poses again (fx spread
+  29.4%, steps up to 2.5 m). Denser candidates barely raised sharpness (median 167 against 158).
+  Filtered with a throwaway script, not in the repo; this scene has no `sam_input.mp4`.
+- Decision (OJ): drop this video, no reshoot; the submission uses only the Blender videos.
+
+## 4 Nov: loading of the demo rooms, real progress bar (lane ui, core)
+
+- **Measured on the live URL:** Modal's proxy zstd-compresses full `.rad` responses, which saves
+  nothing (bed: 8.75 MB either way) and drops Content-Length, so Spark's workers report total 0. A
+  `bytes=0-0` Range answer is not compressed and gives the size. Live Living room: 85.2 MB visible
+  (79.5 MB of objects, 5.7 MB of background) plus 9.7 MB for 5 hidden objects, which were downloaded
+  too. Card gone at 22 s in the browser pane. Timings in this entry are by hand, with no committed log.
+- **Progress bar:** `ui/loadProgress.ts` sums the bytes Spark reports per file against sizes probed
+  up front, because only 4 workers load at a time and a running total would make the bar fall. The
+  card shows `38% · 11 of 27 MB`, and files instead of MB if a size cannot be had. `SceneView.loadObserver`
+  reports each file.
+- **Fixes:** the card waits for the first LOD cut (`splatsReady`, 8 s limit), since it lifted on an
+  empty room with the furniture appearing later. Hidden objects load when first shown. A 60 s stall
+  replaces the fixed 120 s limit, which lifted the card during slow downloads. A 5xx on `scene.json`
+  says the room could not be loaded, with Try again, instead of "still being processed".
+  Splat files send `Cache-Control: no-cache, no-transform`.
+- **Checked on the dev server** through a throttled proxy (5 MB/s, Content-Length removed):
+  blender06 ran 0 to 95% steadily, never falling, with all 11 meshes drawn about 0.5 s after the
+  files settled (frames forced by screenshots, the pane was hidden). blender07 showed 143 MB over 39
+  files, checked to 36% only. Forced 500s: `scene.json` and the background give the error card, an
+  object gives a usable room without it.
+- **Deployed and checked live** (viewer and server only, scenes not republished): Living room 0 to
+  94% against 85 MB, never falling, about 27 s to "Setting up the room"; 1.25M splats drawn with no
+  empty mesh once frames ran. Bedroom reached the same point at about 12 s for 27 MB. Modal ignores
+  `no-transform` and still sends zstd, so the bar relies on the Range probe. A repeat request with
+  its ETag gets a 304.
+- **Open:** one load started while another room was still downloading in the same tab took about
+  17 s to show the card (first byte 6.8 s, the 2 kB entry script 7.2 s), on a black page with the
+  `loading…` pill. Not explained. It does not look like server load: latency stayed flat with 4
+  downloads running and after 12 abandoned ones. Seen once, in a hidden pane, so it may be the
+  browser tearing down the old page; a clean load shows the card at once. Switching rooms mid-load
+  may hit it.
+- **Not checked:** the 60 s stall was not triggered. No phone. Frame rate during load was not
+  measured (hidden pane), and neither was whether a browser's repeat visit is faster. The cold
+  start's blank page is not addressed.
+- `tests/test_blender_bedroom.py::test_obstacles_hold_the_built_furniture` fails (sweater#8 outside
+  the chair's obstacle); this work touched no Blender code and it was left alone.
+- Next: try switching rooms mid-load in a visible window; the deploy needs `PYTHONUTF8=1` when its
+  output is piped on Windows.
+- **Reviewer pass before the PR, verdict merge, fixed anyway:** the verifier could judge a restored
+  object before its file arrived, so a capture now waits for visible files still loading (up to 6 s;
+  by reading, the agent's restore was not run). A splat file failing after the card has gone now
+  tells the user. Only a 404 falls back to a plain PLY, other errors show the error card. A bug in the
+  card's loop lifts the card. The header test now uses real files on 200 and 206. Restoring a hidden
+  object in the viewer (`trash can#1`, blender06, dev server) loads and draws it. These fixes are after
+  the deploy, so the live URL does not have them yet.
