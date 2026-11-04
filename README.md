@@ -1,25 +1,42 @@
 # Movable Reality
 
-Walk around a room once with your phone. What comes back is a 3D copy of it, true to
-scale, in which the sofa, the lamp and every chair are separate objects you can move.
-Drag them around in the browser, or say what should go where. The parts the phone did not
-see are filled in, by a short top-up video or by Meta's generative models, and everything
-generated stays tagged.
+One video of a room goes in. A 3D room comes out, and you can move the furniture.
 
-Under the hood it is a metric 3D Gaussian Splatting scene with one splat per object,
-built by a pipeline of eight Meta models, and a three.js + Spark viewer that runs on a
-laptop or a phone.
+This is a working demo, not a finished product. It turns one walk of video into a 3D Gaussian
+Splatting scene in which each object is separate, so you can drag it in the browser or tell an
+agent to move it. It works on two rooms rendered in Blender, not yet on real footage, and it
+looks like what it is: one walk's worth of data. The pipeline runs end to end on eight Meta
+models, and the code is open, so it is a reasonable starting point for work on object-level
+splats, room editing or agents that act on 3D scenes.
 
 > Entry for the **Meta Global AI Developer Hackathon** (Indie Developer track, Push the
-> Frontier) by team **Gaussian Movers**. Everything in this repository was built during
+> Frontier) by team **Larracat**. Everything in this repository was built during
 > the event (26 Oct to 4 Nov 2026). See [`docs/BUILD_LOG.md`](docs/BUILD_LOG.md) for what
 > was built when. Third-party components are listed below.
 
-**Status (3 Nov):** the pipeline runs end to end on the synthetic rooms. The demo has a
-landing page and three rooms: the living room `blender07`, the bedroom `blender06`, and a
-real phone capture (`room01`, not filmed yet). The viewer was checked in desktop Chromium
-and its phone emulation. A WebXR path exists in the code but was not tested on a headset,
-so the project makes no VR or headset frame-rate claims.
+## What went in, what came out
+
+| | Bedroom (`blender06`) | Living room (`blender07`) |
+|---|---|---|
+| Video in | 54 s | 122 s + 10 s top-up |
+| Frames used | 200 | 528 |
+| Also given | focal length, ceiling height | focal length, ceiling height |
+| Splats trained | 1.24 M | 3.37 M |
+| Movable objects | 10 | 39 |
+| Pipeline run | about 1 hour | about 3.5 hours |
+| Image quality | 36.9 dB on held-out frames of the same walk | 28.4 dB, SSIM 0.94, LPIPS 0.14 on a separate test walk (90 views) |
+| Room size against Blender | about 5% too large | about 12% too large |
+
+## What does not work yet
+
+- **Real footage.** Both rooms are Blender renders, and real video is not supported yet. The
+  instructions below are what the pipeline expects, not a promise that your video will work.
+- **Looks.** Walls go blotchy, curtains smear and object edges are fuzzy up close. Moving
+  furniture can leave a visible patch on the floor.
+- **Gap repair** with Muse Image only ran on small test scenes. Neither demo room has been through it.
+- **Testing.** Checked in desktop Chromium and its phone emulation. Never on a real phone, and
+  voice never with a live microphone. A WebXR path exists in the code but was not tested on a
+  headset, so the project makes no VR or headset frame-rate claims.
 
 ## Try the demo
 
@@ -28,41 +45,43 @@ cd web && npm install && npm run dev       # http://localhost:5173/
 uv run python -m movable_reality.server    # optional: the agent behind typed and spoken commands
 ```
 
-`/` is the landing page: a showcase video, what the project does, the pipeline, the Meta
-models, the input video of each room, and **Open the demo**, which lets you pick a room.
-In the viewer:
+`/` is the landing page: the two rooms, what works, what does not, the pipeline and the Meta
+models. Clicking a room opens its room card, with the videos the pipeline was given and how the
+room was made, and from there **Open the room** starts the viewer. In the viewer:
 
-- **Desktop:** drag to look, W A S D to walk, click an object to select it, drag to move
-  it, Q/E to rotate, Delete to hide, Ctrl+Z to undo, Alt+click twice to measure.
+- **Desktop:** drag or middle drag to orbit, Shift+middle drag to pan, the wheel to move forward,
+  W A S D to walk. Click an object to select it, drag the selected object to move it, right drag
+  it to turn it, Q/E turns it 15 degrees, Delete hides it, Ctrl+Z undoes, Alt+click two points to measure.
 - **Phone:** one finger looks, two fingers pan and pinch, tap selects, drag moves.
 - **Commands:** type in the bar at the bottom and press Enter, or hold Space (or the
   microphone button) to talk. Commands need the server; without it the bar says
   "Agent offline" and direct editing still works.
-- **Top bar:** back to the landing page, switch room, help, and ⋮ for coverage gaps,
-  generated splats and how objects are drawn (scanned splats, SAM 3D splats, SAM 3D meshes).
+- **Top bar:** back to the landing page, switch room, help, and ⋮ for the markers on spots the
+  video barely saw and how objects are drawn (scanned splats, SAM 3D splats, SAM 3D meshes). A room
+  with generated splats also gets a switch to hide them, so you can see what was really filmed.
 - **Developer info** (frame-time HUD, save log, detail slider, object style label) is off
   by default. Turn it on with the last switch in ⋮, the backtick key, or `?debug=1`.
 
 The demo media live in `web/public/media/`: card images (`thumb_<scene>.jpg`, committed),
-the hero video `showcase.mp4` and the input videos `capture_<scene>.mp4`. Videos are
-gitignored like every `.mp4`, so copy them next to the build when hosting. Without them the
-page shows stills and "Capture coming soon".
+the hero video `showcase.mp4` and the input videos `capture_<scene>.mp4` (the living room also
+has `capture_blender07_topup.mp4`). Videos are gitignored like every `.mp4`, so copy them next to
+the build when hosting. Without them the page shows stills and "Video not uploaded".
 
 ## How it works
 
-1. **Capture:** one phone video walking around the room; the sharpest frames (4 per
-   second) are kept automatically.
-2. **Reconstruct:** MapAnything predicts metric cameras and geometry; gsplat trains the
-   Gaussian splat scene (GPU jobs on Modal).
+1. **Capture:** one video walking through the room (a Blender render so far); the sharpest
+   frames (4 per second) are kept automatically.
+2. **Reconstruct:** MapAnything predicts cameras and geometry, COLMAP refines them, and gsplat
+   trains the Gaussian splat scene (GPU jobs on Modal).
 3. **Understand:** Muse Wonder watches the video and lists the objects; SAM 3.1 tracks
    each one through the video; masks are lifted onto individual Gaussians, so every object
    becomes its own splat.
 4. **Edit:** a Muse Wonder agent turns spoken commands (Muse Voice Transcribe) into scene
    edits with real dimensions; Muse Spark Open checks every edit on a rendered view;
    Muse Image creates new furniture to insert.
-5. **Fill gaps:** coverage is scored per region; large gaps prompt a 10 s top-up video,
-   small gaps and object backs are repaired with Muse Image and SAM 3D Objects, and every
-   generated splat is tagged.
+5. **Thin spots:** coverage is scored per region. A large gap can take a 10 s top-up video
+   (the living room got one). SAM 3D Objects guesses the hidden side of objects. Repair with
+   Muse Image tags every splat it paints, but it has only run on small test scenes.
 6. **View:** a three.js + Spark viewer in the browser on a laptop or a phone. Walls, floor
    and ceiling become baked textured planes, every object gets its own LOD tree, and a
    frame-time budget controller picks the detail each device can hold.
@@ -106,7 +125,8 @@ uv run python scripts/edit_scene.py demo remove "table#1"   # viewer updates liv
 
 ### Your own room, in one command
 
-Film the room first. Hold the phone level and walk the perimeter slowly, facing inwards,
+Real footage is not supported yet, so expect this to need work. If you try it, a steady camera
+and a well-lit room give it the best chance. Film the room first. Hold the phone level and walk the perimeter slowly, facing inwards,
 for 30 to 60 s. Then do one loop at knee height and one loop tilted slightly up, so the
 ceiling and the upper walls are covered. Lock exposure and focus if the camera app allows
 it, keep the lights on, and leave out mirrors, people and pets.

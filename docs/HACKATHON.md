@@ -7,7 +7,7 @@ official pages disagree, the official pages win.
 ## Key facts
 
 - Event: Meta Global AI Developer Hackathon, Indie Developer track, theme Push the Frontier.
-- Team: Gaussian Movers (solo, OJ is the Representative who submits).
+- Team: Larracat (solo, OJ is the Representative who submits).
 - Building window: 26 Oct to 4 Nov 2026.
 - Submission deadline: Wed 4 Nov 21:00 ET = **Thu 5 Nov 03:00 Prague**. No late entries.
 - Judging 5 to 8 Nov. Closing ceremony Mon 9 Nov 18:00 Prague (top 5 per track, live final

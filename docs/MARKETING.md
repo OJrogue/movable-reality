@@ -4,74 +4,72 @@ Working copy for the submission page, the demo video script and the pitch. Claim
 "measured" have a log or benchmark behind them. Claims marked "planned" are not built yet and
 must not appear in the submission as finished features.
 
+## Positioning (4 Nov, OJ)
+
+The product is done for this event, and it is a working demo, not a finished product. Sell it
+as that. Both demo rooms are synthetic and the visuals are limited by how little data goes in,
+so the pitch has two parts: how little it takes (one walk of video) and what you can build on
+(a pipeline that runs end to end, open source). Show the input before the result. Say the
+weak points before anyone finds them. Plain words, no superlatives. Team name: **Larracat**.
+
+Who it is for: researchers and developers working on object-level splats, room editing or
+agents that act on 3D scenes, who want a working baseline instead of starting from nothing.
+
 ## One line
 
-Walk around your room once with your phone. Then move anything in it and try out changes
-before you spend money on them, right in the browser, on a laptop or a phone.
+One video of a room goes in. A 3D room comes out, and you can move the furniture. A working
+demo on two synthetic rooms, open source.
 
-Landing page hook (3 Nov): "Try the new layout before you lift the sofa." No VR claims
-anywhere (D21): VR was not tested on a headset.
+Landing page hook: "Film a room. Move the furniture." No VR claims anywhere (D21).
 
-## Taglines
+## Short version, for the submission page
 
-- See it before you build it.
-- Your room, editable.
-- Every mistake you catch on screen is one you do not pay a builder to undo.
-- Move the sofa without lifting it.
-- One video in. A room you can rearrange out.
+Movable Reality turns one video of a room into a 3D Gaussian Splatting scene where each piece
+of furniture is a separate object. You can drag things around in the browser or tell an agent
+what to do, and a second model checks the result in a screenshot. It runs on eight Meta models
+and takes one command, end to end. It is a ten-day build tested on two rooms rendered in
+Blender. Those rooms came from 54 s and 132 s of video, and it shows: walls are blotchy and
+curtains smear. Real footage is not supported yet.
+What it does give you is an open pipeline with separate object splats, one JSON scene file,
+and Blender rooms with ground truth to measure your own changes against.
 
-## The problem
+## X post
 
-People decide on renovations, furniture and layouts from floor plans, catalogue photos and
-imagination. Most of them cannot read a floor plan in 3D. The mistakes show up after the money
-is spent. A sofa that blocks a door, a kitchen island that leaves 70 cm to walk past, a wardrobe
-that does not fit under the slope of an attic. Returning furniture costs delivery fees.
-Moving a wall socket or a radiator after the plaster is up costs hundreds. Professional 3D
-visualisation exists, but it is priced for architects and takes days.
+One walk of video in, a room with movable furniture out. Ten days, eight Meta models, open
+source. It only works on synthetic rooms so far and it looks rough, but the whole pipeline runs.
+Try it, then tell me what to fix first. [link]
+
+## Longer-term idea (not today's pitch)
+
+Trying a layout before you buy or build is where this could go one day. Do not present it as
+something the demo does today: it needs real footage to work first and better than 5 to 12%
+on room sizes.
 
 ## What Movable Reality does
 
-1. The user films the room with a phone, one slow walk around it (under a minute for a
-   bedroom, about two for a large living room).
-2. The pipeline turns the video into a photoreal 3D Gaussian Splatting scene at real scale
-   (metres, set by one tape measurement), in which every piece of furniture is a separate object.
-3. The user walks through the room and changes it, by voice or by typing. "Move the sofa
-   half a metre towards the window." "Does the armchair fit next to the bookshelf?" "Add a
-   reading lamp in the corner." "Undo that."
-4. An agent built on Meta's Muse models carries out the request, checks the result in a
-   rendered view and corrects itself when the edit went wrong.
-5. The room opens from a link in a laptop or phone browser.
+1. A video of one slow walk through a room goes in. Today that is a Blender render (54 s for
+   the bedroom, 122 s plus a 10 s top-up for the living room), along with the focal length
+   and the ceiling height.
+2. The pipeline turns it into a 3D Gaussian Splatting scene in metres, with every piece of
+   furniture as a separate object.
+3. You change the room by dragging, or by typing or saying a command. "Delete the ukulele."
+   "Put a ceramic vase on the dresser." "Undo that."
+4. An agent built on Muse Wonder carries out the request, and Muse Spark Open checks the result
+   in a screenshot.
+5. The room opens from a link in a laptop browser, or in a phone browser (checked in emulation only).
 
-## Visualisation before it is built
+What is true today.
 
-This is the use case with the largest market and the clearest value per user.
-
-- Renovation and fit-out: capture the bare room or the building site, then try layouts.
-  Check clearances, door swings and walking paths with real dimensions before ordering
-  anything.
-- Furniture buying: insert the piece you are about to buy and see it in your own room, at
-  its real size, next to your own furniture. Measure the gap to the wall instead of
-  guessing.
-- Moving house: capture the new flat on viewing day and plan where everything goes before the
-  van arrives.
-- Interior designers and kitchen studios: send the client a link to their own room with the
-  proposal in it. The client opens it on a phone or a laptop with no installation.
-- Estate agents and landlords: show a property staged in two or three layouts from one
-  capture.
-
-Message for this section. A change on screen costs nothing. The same change after the
-builders have finished costs real money. Movable Reality moves the decision to the cheap
-side.
-
-What is true today and what is not.
-
-- Built: capture of an existing space, separation into movable objects, moving, rotating,
-  removing and restoring objects, fit and clearance checks in metres (after the one-measurement scale step), generated furniture
-  inserted on the floor, undo of every edit.
-- Built: the "show generated" switch, which hides everything the models invented so the
-  user can see what was really filmed.
-- Planned: starting from a floor plan or a CAD model instead of a video. Today the room has
-  to exist, even if it is empty.
+- Built and run on both demo rooms: separation into objects, moving, rotating, removing and
+  restoring, agent commands with a visual check, furniture from a premade library, measuring,
+  undo of every edit, coverage scoring.
+- Built, but only run on small test scenes: repairing thin spots with Muse Image and re-scoring.
+  Neither demo room has generated splats, so the switch that hides them only appears when a
+  room has some.
+- Voice: the server path ran on a recorded clip. It was never tried with a live microphone.
+- Not supported yet: real footage.
+- Sizes: with the ceiling height given, the bedroom is about 5% too large and the living room
+  about 12%, compared with the Blender models.
 
 ## Any device, best quality on each
 
@@ -182,32 +180,43 @@ Every model the product calls at runtime is a Meta model.
 - Muse Voice Transcribe hears voice commands.
 - Muse Spark Open checks each edit in a rendered view and triggers a retry when it fails.
 
-## Demo video outline (3 minutes)
+## Demo video script (3 minutes)
 
-1. 0:00 Hook. A person stands in a half-furnished room with a tape measure and a furniture
-   catalogue. Cut to the same room on a laptop, then on a phone.
-   "See it before you build it."
-2. 0:20 Capture. The walk, sped up, with the filming guide in the corner.
-3. 0:40 The room appears. Orbit on the laptop, every object outlined once.
-4. 1:00 Voice edits. Move the sofa, ask whether the armchair fits, add a lamp. Show the
-   verifier's check mark after each edit.
-5. 1:40 Self-correction. Gap overlay on, next-best viewpoint shown, 10-second top-up,
-   gaps close. Then the generated toggle, showing what was invented.
-6. 2:10 Any device. The same room on a phone with touch, from the same link.
-7. 2:40 Before and after. The original layout next to the new one. Closing line and the
-   list of Meta models.
+Screen recording of the hosted demo, with one voice over it. Show the viewer as it really
+looks, and do not speed up or hide the rough parts. Every number below is from the pipeline's own
+output for these rooms.
+
+| Time | On screen | Voice |
+|---|---|---|
+| 0:00 | Landing page, then cut to the bed being dragged in the viewer | "This is Movable Reality. One video of a room goes in. A 3D room comes out, and you can move the furniture." |
+| 0:12 | Landing page, "Two rooms to try" | "This is a working demo, not a product. I built it in ten days, and both rooms you will see were rendered in Blender. Real footage is the next problem to solve, and I will come back to that." |
+| 0:27 | Click Bedroom. The room card opens, with the video playing | "Here is everything the pipeline got for this bedroom. A 54 second walk, the camera's focal length and the ceiling height. That is it. No depth, no floor plan, nobody labelling objects." |
+| 0:47 | Click Open the room. Orbit slowly | "About an hour later, this comes out. It looks rough. The walls are blotchy and the curtains smear. That is what one walk gets you." |
+| 1:02 | Drag empty space to orbit. Click the bed, drag it, right drag to turn it, Ctrl+Z | "But the bed is its own object. I can move it, turn it, and undo that. Every splat was sorted into the object it belongs to, using Muse Wonder to name things and SAM 3.1 to follow them through the video." |
+| 1:25 | Type: "Delete the ukulele, add a potted plant by the window, and put a ceramic vase on the dresser". Wait for the reply | "I can also just ask. A Muse Wonder agent makes the edits with tool calls, then Muse Spark Open looks at a screenshot and checks them. If it disagrees, the agent tries again." |
+| 1:50 | Alt+click both ends of the bed. The label shows about 2.2 m | "It works in metres. The bed measures about 2.2 metres with its frame. The whole room came out about five percent too big, so this is good for a rough idea and not for ordering a kitchen." |
+| 2:05 | Switch to Living room. Show the card's two clips, then the room. Press G to show the thin spots | "The living room is bigger: two clips, 132 seconds, 39 objects. On views it never trained on, it scores 28 dB. These markers are the spots the video barely saw. The pipeline knows what it missed." |
+| 2:25 | Landing page, pipeline section, then the models section | "One command runs twelve stages. MapAnything and COLMAP find the cameras, gsplat trains the splats, SAM 3D Objects guesses the hidden sides. Eight Meta models in total, and every model called at runtime is Meta's." |
+| 2:42 | Landing page, "Where it falls short" | "What does not work yet: real footage. So treat this as a starting point. It is MIT licensed, each stage is a plain script you can swap, and the Blender rooms are included so you can measure your change." |
+| 2:56 | Landing page with the link on screen | "Movable Reality, by team Larracat. Try it at the link." |
+
+Before recording: start from a fresh room (`publish_demo.py` undoes test edits), and close the
+help card if it covers the bed.
 
 ## Audiences and channels
 
-- Homeowners planning a renovation. Short vertical videos, before and after on a phone.
-- Furniture retailers. Embed "see it in your room" with the customer's own capture.
-- Interior designers and kitchen studios. A shareable link per client proposal.
+- Researchers working on splats, scene understanding and 3D editing. The repo, the numbers and
+  the Blender rooms matter here.
+- Developers building agents that act on 3D scenes. The scene file and the agent's tools matter.
+- Hackathon judges and the X audience: the short video, and "this is all it got" next to the result.
 
 ## Claims to avoid until measured
 
-- Accuracy figures in centimetres for real rooms. The metric scale on blender01 came out
-  1.8x too small before the ceiling-height correction, and real-room accuracy is not yet
-  measured.
-- "Works on every phone". Only devices with a measured frame-time log count.
+- Accuracy figures in centimetres, or the word "accurate". The rooms are 5 to 12% too large.
+- Anything that implies it works on real footage today.
+- "Photoreal", "seamless", "production-ready".
+- "Works on every phone". It was checked in phone emulation only.
+- "Voice works". It only ran from a recorded clip.
+- "Gaps are filled in the demo". Repair only ran on test scenes.
 - "Design from a floor plan". Planned, not built.
 - Anything about VR or headsets (D21). Untested.
