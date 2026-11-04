@@ -1695,3 +1695,32 @@ used to find duplicates (about 25 min of GPU).
 
 Next: reviewer, PR by OJ, publish blender07 if it goes in the demo.
 
+## 4 Nov, core: moving an object leaves no mark, the soundbar is one object
+
+Lane: core. `scripts/clean_background.py` and `src/movable_reality/bgclean.py` are new; the
+`--room-splats` pipeline runs them as stage `clean`. No learned model: geometry and frame colours
+on the CPU, with scipy as a new dependency (BSD).
+
+What it does to the background, before LOD: splats that frames hardly show outside object masks
+take the colour of a seen splat, mirrored across the edge of what covers them; empty covered cells
+get new opaque splats; junk past a covered wall goes, while what matches the frames stays (the
+garden through the window). Wall splats that show a hung object join it, so a picture is unchanged
+until it moves and the wall is filled behind it. Splats near an object that match under 10% of the
+frames showing them are removed (the leather-coloured clump at the floor lamp's foot, behind the
+armchair). Wall-coloured splats of an object standing by a wall go back to the background (a slab
+of wall moved with the soundbar). Object merging also joins two pieces end to end when the
+inventory counts one of that noun: `soundbar#2` into `soundbar#1`, `basket#2` into `basket#1`.
+
+Measured on blender07 (45 test views, viewer against GT, 4:3): PSNR mean 27.90 dB, median 27.32,
+min 20.58, against 27.83 dB with lifted objects and no clean-up and 22.16 dB for the first viewer
+capture this morning (better in 44 of 45 views). The clean-up costs nothing unmoved. Captures in
+`data/scenes/blender07/eval/viewer/` (gitignored). Moves were checked by eye only, armchair, TV
+and soundbar from two viewpoints; there is no ground truth for a moved object.
+
+Still wrong: a faint tint where the TV hung, behind where the soundbar stood; a shred on the
+console top (only floor and walls are repainted, not the tops of objects); a soft shadow on the
+floor where the chair stood; a black stray at the soundbar's left end, which moves with it; the
+moved chair itself carries rough patches. Only blender07 was run. Thresholds were tuned on it.
+
+Next: reviewer, PR by OJ, `publish_demo.py` if blender07 goes in the demo.
+
