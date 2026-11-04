@@ -121,7 +121,6 @@ const PAGE = `
         <div><b>8</b>Meta models</div>
         <div><b>49</b>movable objects</div>
         <div><b>0</b>hand labels</div>
-        <div><b>28 dB</b>on views it never saw</div>
       </div>
       <p class="lp-hero-note">Background: the input video.</p>
     </div>
