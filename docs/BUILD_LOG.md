@@ -1721,9 +1721,21 @@ verifier. Each fix below came from a command that went wrong:
   files settled (frames forced by screenshots, the pane was hidden). blender07 showed 143 MB over 39
   files, checked to 36% only. Forced 500s: `scene.json` and the background give the error card, an
   object gives a usable room without it.
-- **Not checked:** not deployed, so nothing here ran on the live URL, and whether Modal honours
-  `no-transform` is unknown (the bar works either way). The 60 s stall was not triggered. No phone.
-  Frame rate during load was not measured (hidden pane). The cold start's blank page is not addressed.
+- **Deployed and checked live** (viewer and server only, scenes not republished): Living room 0 to
+  94% against 85 MB, never falling, about 27 s to "Setting up the room"; 1.25M splats drawn with no
+  empty mesh once frames ran. Bedroom reached the same point at about 12 s for 27 MB. Modal ignores
+  `no-transform` and still sends zstd, so the bar relies on the Range probe. A repeat request with
+  its ETag gets a 304.
+- **Open:** one load started while another room was still downloading in the same tab took about
+  17 s to show the card (first byte 6.8 s, the 2 kB entry script 7.2 s), on a black page with the
+  `loading…` pill. Not explained. It does not look like server load: latency stayed flat with 4
+  downloads running and after 12 abandoned ones. Seen once, in a hidden pane, so it may be the
+  browser tearing down the old page; a clean load shows the card at once. Switching rooms mid-load
+  may hit it.
+- **Not checked:** the 60 s stall was not triggered. No phone. Frame rate during load was not
+  measured (hidden pane), and neither was whether a browser's repeat visit is faster. The cold
+  start's blank page is not addressed.
 - `tests/test_blender_bedroom.py::test_obstacles_hold_the_built_furniture` fails (sweater#8 outside
   the chair's obstacle); this work touched no Blender code and it was left alone.
-- Next: commit, `npm run build`, `modal deploy modal_jobs/demo.py`, then check the bar on the live URL.
+- Next: try switching rooms mid-load in a visible window; the deploy needs `PYTHONUTF8=1` when its
+  output is piped on Windows.
