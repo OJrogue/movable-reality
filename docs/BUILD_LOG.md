@@ -1745,5 +1745,10 @@ verifier. Each fix below came from a command that went wrong:
   by reading, the agent's restore was not run). A splat file failing after the card has gone now
   tells the user. Only a 404 falls back to a plain PLY, other errors show the error card. A bug in the
   card's loop lifts the card. The header test now uses real files on 200 and 206. Restoring a hidden
-  object in the viewer (`trash can#1`, blender06, dev server) loads and draws it. These fixes are after
-  the deploy, so the live URL does not have them yet.
+  object in the viewer (`trash can#1`, blender06, dev server) loads and draws it.
+- **Redeployed after the merge (PR 33, commit c8caad9) and checked live:** Bedroom has 11 meshes, all
+  drawing, with both hidden objects not downloaded. Living room reached "Setting up the room" at about
+  20 s without the bar falling. Agent command restoring `potted plant#7` (4.8 MB, hidden): reply "I've
+  brought back the potted plant", verified on the first verdict, 72,344 splats drawn, 31 s. No console
+  errors on Bedroom; the console was not read on Living room. Scenes not republished, so live Living
+  room is still the older copy. Times by hand, in a hidden pane, on files the browser had seen before.
