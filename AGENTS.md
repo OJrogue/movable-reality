@@ -160,6 +160,7 @@ uv run python scripts/make_demo_scene.py       # synthetic scene "demo" for agen
 uv run python scripts/edit_scene.py demo move "chair#1" 0.5 0 0   # manual edit (agent tools do the same)
 uv run python scripts/run_pipeline.py data/raw/room01.mp4 --scene room01 --focal35 26   # every stage, resumable (--from, --only, --dry-run)
 # core run_pipeline.py --room-splats: no floor quad or surface removal, shell not drawn; walls, floor and ceiling stay trained splats (sharper on blender07, windows and doors as filmed)
+uv run python scripts/blender_viewer_psnr.py --scene blender07 --run <run> --base <other>   # eval: PSNR of a viewer capture against GT -> eval/viewer/<run>/score.json
 uv run python scripts/clean_background.py --scene blender07   # core: repaint what objects cover, so moving one leaves no mark (--room-splats runs it); then build_lod.py
 uv run python scripts/extract_frames.py data/raw/room01.mp4 --scene room01
 uv run modal run modal_jobs/reconstruct.py --scene room01

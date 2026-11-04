@@ -1708,19 +1708,39 @@ garden through the window). Wall splats that show a hung object join it, so a pi
 until it moves and the wall is filled behind it. Splats near an object that match under 10% of the
 frames showing them are removed (the leather-coloured clump at the floor lamp's foot, behind the
 armchair). Wall-coloured splats of an object standing by a wall go back to the background (a slab
-of wall moved with the soundbar). Object merging also joins two pieces end to end when the
-inventory counts one of that noun: `soundbar#2` into `soundbar#1`, `basket#2` into `basket#1`.
+of wall moved with the soundbar). Merging also joins two low bars lying end to end when the
+inventory counts one of that noun: `soundbar#2` into `soundbar#1`.
 
-Measured on blender07 (45 test views, viewer against GT, 4:3): PSNR mean 27.90 dB, median 27.32,
-min 20.58, against 27.83 dB with lifted objects and no clean-up and 22.16 dB for the first viewer
-capture this morning (better in 44 of 45 views). The clean-up costs nothing unmoved. Captures in
-`data/scenes/blender07/eval/viewer/` (gitignored). Moves were checked by eye only, armchair, TV
-and soundbar from two viewpoints; there is no ground truth for a moved object.
+The reviewer found that lifted objects had lost what the trainer moved out of the background into
+them (bookshelf#1: 142,499 splats), which explains the streaky books. `install` now takes those
+back, keeping only trained splats inside the object's box that match at least 25% of the frames
+with them in view; without those filters they brought coloured specks and a dark lump on the
+soundbar. By eye the books and the armchair are much sharper.
 
-Still wrong: a faint tint where the TV hung, behind where the soundbar stood; a shred on the
-console top (only floor and walls are repainted, not the tops of objects); a soft shadow on the
-floor where the chair stood; a black stray at the soundbar's left end, which moves with it; the
-moved chair itself carries rough patches. Only blender07 was run. Thresholds were tuned on it.
+**Correction.** The 22.16, 27.83 and 27.90 dB I wrote earlier today came from a scratch script
+that scored five 960x540 captures of the baseline against a 4:3 crop. `scripts/blender_viewer_psnr.py`
+now scores each capture at its own aspect and size and writes `score.json`. Earlier figures from the
+scratch script, including the 22.16 and 27.83 in the entry above, are not comparable with these.
 
-Next: reviewer, PR by OJ, `publish_demo.py` if blender07 goes in the demo.
+Measured on blender07, 45 test views, viewer against GT, same scorer:
 
+| capture | mean dB | median | min |
+|---|---:|---:|---:|
+| `fix1` (this morning) | 22.69 | 23.32 | 18.01 |
+| `lifted` (no clean-up) | 27.36 | 26.95 | 20.53 |
+| `clean` (this entry) | 27.49 | 26.61 | 21.09 |
+
+`clean` beats `fix1` in 44 of 45 views but `lifted` in only 18: a slightly higher mean and minimum,
+a lower median. So the clean-up is about neutral unmoved, not an improvement. Captures are in
+`data/scenes/blender07/eval/viewer/` (gitignored). Moves were checked by eye only, armchair, TV and
+soundbar from two viewpoints; there is no ground truth for a moved object.
+
+Still wrong: a faint tint where the TV hung, behind where the soundbar stood; a shred on the console
+top (only floor and walls are repainted, not the tops of objects); a soft shadow on the floor where
+the chair stood; a small dark lump at the soundbar's left end, which moves with it. Baskets stay
+two objects: the stricter merge rule no longer joins them. Only blender07 was run, and the
+thresholds were tuned on it. `bgclean.run()` itself has no unit test; the reviewer ran it twice on
+a copy of the scene with identical output, before the last changes. `flat` never fires on this
+scene (the rug spans y -0.14 to 0.69).
+
+Next: PR by OJ, `publish_demo.py` if blender07 goes in the demo.
