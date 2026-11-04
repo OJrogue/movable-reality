@@ -795,11 +795,18 @@ def main() -> None:
     print(json.dumps({k: v for k, v in report.items() if k != "objects"}), flush=True)
 
 
-def install(root: Path) -> dict:
-    """CPU side, after the Modal run: objects/ -> objects_lifted/ (once), the trained PLYs into
-    objects/, and fresh bboxes in scene.json. LOD trees and baked planes were built from the
-    old PLYs, so their fields are cleared and the viewer reads the PLYs until
-    build_lod.py and bake_planes.py run again (coverage/ stays stale as well)."""
+def install(root: Path, objects_from: str = "lifted") -> dict:
+    """CPU side, after the Modal run: objects/ -> objects_lifted/ (once), each object's splats
+    into objects/, the trained background, and fresh bboxes in scene.json. LOD trees, baked
+    planes and the room shell were built on the old background, so their fields are cleared and
+    the viewer reads the PLYs until build_lod.py runs again (coverage/ stays stale as well).
+
+    objects_from "lifted" (default) keeps the reconstruction's own splats and uses the trained
+    copies only to find duplicates; "trained" installs the fine-tuned object splats. Fine-tuning
+    frayed the objects: rendered alone on black against frame * mask, a dark splat outside the
+    mask costs no colour error, which grew dark halos, and splats lost the views that held them
+    down (blender07, 45 GT views in the viewer: 28.1 dB lifted, 22.2 dB trained with the shell;
+    the scene with nothing separated gives 29.0 dB)."""
     import shutil  # noqa: PLC0415
 
     from .scene import Scene  # noqa: PLC0415
@@ -825,14 +832,20 @@ def install(root: Path) -> dict:
     }
     labels = {o.id: o.label for o in scene.objects}
     merged = merge_duplicates({o: world(v) for o, v in verts.items()}, labels=labels)
+    if objects_from == "lifted":  # the lift gives each splat one object: nothing is duplicated
+        lifted = root / "objects_lifted"
+        verts = {o: read_vertices(lifted / Path(o_ply).name) for o, o_ply in
+                 ((o.id, o.ply) for o in scene.objects if o.id in verts)}  # fmt: skip
     report["merged"] = merged
     if trained.exists():
         (trained / "report.json").write_text(json.dumps(report, indent=2))
     # The kept object takes the absorbed copy's splats that are not on its own surface
     # already (the parts of a plant only the second SAM track saw).
     for small, big in merged.items():
-        own = ~near_share(world(verts[small]), world(verts[big]), 0.01)
-        verts[big] = np.concatenate([verts[big], verts[small][own]])
+        v = verts[small]
+        if objects_from != "lifted":
+            v = v[~near_share(world(v), world(verts[big]), 0.01)]
+        verts[big] = np.concatenate([verts[big], v])
     removed = {e.object_id for e in scene.history if e.op == "remove"}
     counts = {}
     for obj in scene.objects:
@@ -856,6 +869,7 @@ def install(root: Path) -> dict:
         scene.background_lod = None
         scene.background_ply = "objects/background.ply"
         scene.planes, scene.plane_bake = [], None
+        scene.room_planes = []  # room_shell.py sets them again; they would hide the splat walls
         print("planes cleared: run bake_planes.py --force (and build_lod.py) again")
         counts["background"] = len(read_vertices(objects / "background.ply"))
     scene.save(root / "scene.json")

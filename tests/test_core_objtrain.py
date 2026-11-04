@@ -35,7 +35,7 @@ def test_install_replaces_plys_keeps_the_lift_and_refits_boxes(tmp_path):
                              lod="lod/x.rad", bbox_min=(0, 0, 0), bbox_max=(5, 5, 5))],
     ).save(tmp_path / "scene.json")  # fmt: skip
 
-    counts = install(tmp_path)
+    counts = install(tmp_path, objects_from="trained")
 
     assert counts == {"chair#1": 201, "background": 2}
     assert len(read_vertices(tmp_path / "objects_lifted" / "obj_chair_1.ply")) == 2
@@ -114,7 +114,7 @@ def test_install_joins_a_copy_and_shows_objects_an_old_merge_hid(tmp_path):
         tmp_path / "scene.json"
     )
 
-    counts = install(tmp_path)
+    counts = install(tmp_path, objects_from="trained")
 
     shown = {
         o["id"]: o["visible"] for o in json.loads((tmp_path / "scene.json").read_text())["objects"]
@@ -169,3 +169,26 @@ def test_merge_duplicates_joins_pieces_of_one_thing_only_under_one_noun():
     labels = {o: o.split("#")[0] for o in xyz}
     assert merge_duplicates(xyz) == {}
     assert merge_duplicates(xyz, labels=labels) == {"curtain#1": "curtain#0"}
+
+
+def test_install_default_keeps_lifted_splats_and_clears_the_shell(tmp_path):
+    rng = np.random.default_rng(4)
+    plant = _surface(rng, (0, 0.7, 0), (0.6, 1.4, 0.6), 4000)
+    for name, pts in (("obj_plant_1.ply", plant[:50]), ("obj_plant_2.ply", plant[50:90])):
+        _ply(tmp_path / "objects" / name, pts)
+    _ply(tmp_path / "objects_trained" / "obj_plant_1.ply", plant)
+    _ply(tmp_path / "objects_trained" / "obj_plant_2.ply", plant[:2000])  # a copy when trained
+    _ply(tmp_path / "objects_trained" / "background.ply", [[0, 0, 0]] * 2)
+    objs = [SceneObject(id=f"plant#{i}", label="plant", ply=f"objects/obj_plant_{i}.ply",
+                        bbox_min=(0, 0, 0), bbox_max=(1, 1, 1)) for i in (1, 2)]  # fmt: skip
+    Scene(scene_id="t", world_from_recon=np.eye(4).tolist(), objects=objs,
+          room_planes=["room/shell_wall_0.glb"]).save(tmp_path / "scene.json")  # fmt: skip
+
+    counts = install(tmp_path)
+
+    scene = json.loads((tmp_path / "scene.json").read_text())
+    # The duplicate is found on the trained splats, the output is the lifted ones, all of them.
+    assert counts["plant#1"] == 90
+    assert [o["visible"] for o in scene["objects"]] == [True, False]
+    assert scene["room_planes"] == []
+    assert scene["background_ply"] == "objects/background.ply"

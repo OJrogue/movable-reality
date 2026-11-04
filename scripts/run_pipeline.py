@@ -115,6 +115,7 @@ def stages(a: argparse.Namespace) -> list[Stage]:
     ]  # fmt: skip
 
 
+ROOM_SHELL = ("shell", "bake", "surfaces")  # what --room-splats leaves out
 NAMES = [st.name for st in stages(argparse.Namespace(
     scene="x", video=None, focal35=None, preset="quality", ceiling_height=None, scale=None,
     skip="", real_capture=False, group="",
@@ -281,6 +282,12 @@ def main() -> int:
         action="store_true",
         help="camera footage: gsplat pose fine-tuning and per-image colour correction",
     )
+    ap.add_argument(
+        "--room-splats",
+        action="store_true",
+        help="keep the trained walls, floor and ceiling as splats: no shell, floor quad or "
+        "surface removal (blender07: sharper, windows and doors stay as filmed)",
+    )
     ap.add_argument("--from", dest="start", choices=NAMES, help="rerun from this stage on")
     ap.add_argument("--to", dest="stop", choices=NAMES, help="stop after this stage")
     ap.add_argument("--only", choices=NAMES,
@@ -299,6 +306,8 @@ def main() -> int:
 
     print(f"scene {a.scene} ({root})")
     verdicts = decide(root, plan, lo, hi, forced)
+    if a.room_splats:
+        verdicts.update(dict.fromkeys(ROOM_SHELL, "off (--room-splats)"))
     todo = [st for st in plan if verdicts[st.name].startswith("run")]
     for st in plan:
         print(f"  {st.name:<12} {verdicts[st.name]:<20} {st.what}")
