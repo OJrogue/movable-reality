@@ -35,7 +35,7 @@ def test_install_replaces_plys_keeps_the_lift_and_refits_boxes(tmp_path):
                              lod="lod/x.rad", bbox_min=(0, 0, 0), bbox_max=(5, 5, 5))],
     ).save(tmp_path / "scene.json")  # fmt: skip
 
-    counts = install(tmp_path)
+    counts = install(tmp_path, objects_from="trained")
 
     assert counts == {"chair#1": 201, "background": 2}
     assert len(read_vertices(tmp_path / "objects_lifted" / "obj_chair_1.ply")) == 2
@@ -114,7 +114,7 @@ def test_install_joins_a_copy_and_shows_objects_an_old_merge_hid(tmp_path):
         tmp_path / "scene.json"
     )
 
-    counts = install(tmp_path)
+    counts = install(tmp_path, objects_from="trained")
 
     shown = {
         o["id"]: o["visible"] for o in json.loads((tmp_path / "scene.json").read_text())["objects"]
@@ -154,3 +154,98 @@ def test_tame_splats_drops_haze_and_shortens_needles():
     np.testing.assert_allclose(got[0], [0.02, 0.02, 0.005], rtol=1e-5)  # a normal splat stays
     np.testing.assert_allclose(got[1], [0.03, 0.01, 0.01], rtol=1e-5)  # needle: 3 x middle
     np.testing.assert_allclose(got[2], [0.08, 0.08, 0.01], rtol=1e-5)  # flat, capped at 8 cm
+
+
+def test_merge_duplicates_joins_pieces_of_one_thing_only_under_one_noun():
+    from movable_reality.objtrain import merge_duplicates
+
+    rng = np.random.default_rng(3)
+    # Upper and lower piece of a curtain: their boxes overlap, their surfaces do not touch.
+    lower = _surface(rng, (0, 1.0, 0), (0.5, 2.0, 0.4), 8000)
+    upper = _surface(rng, (0.05, 1.8, 0), (0.5, 1.6, 0.46), 4000)
+    lamp = _surface(rng, (0.05, 1.4, 0), (0.3, 0.4, 0.3), 1000)  # a different noun inside
+    far = _surface(rng, (3, 1.0, 0), (0.5, 2.0, 0.4), 6000)
+    xyz = {"curtain#0": lower, "curtain#1": upper, "lamp#0": lamp, "curtain#2": far}
+    labels = {o: o.split("#")[0] for o in xyz}
+    assert merge_duplicates(xyz) == {}
+    assert merge_duplicates(xyz, labels=labels) == {"curtain#1": "curtain#0"}
+
+
+def test_install_default_keeps_lifted_splats_and_clears_the_shell(tmp_path):
+    rng = np.random.default_rng(4)
+    plant = _surface(rng, (0, 0.7, 0), (0.6, 1.4, 0.6), 4000)
+    for name, pts in (("obj_plant_1.ply", plant[:50]), ("obj_plant_2.ply", plant[50:90])):
+        _ply(tmp_path / "objects" / name, pts)
+    _ply(tmp_path / "objects_trained" / "obj_plant_1.ply", plant)
+    _ply(tmp_path / "objects_trained" / "obj_plant_2.ply", plant[:2000])  # a copy when trained
+    _ply(tmp_path / "objects_trained" / "background.ply", [[0, 0, 0]] * 2)
+    objs = [SceneObject(id=f"plant#{i}", label="plant", ply=f"objects/obj_plant_{i}.ply",
+                        bbox_min=(0, 0, 0), bbox_max=(1, 1, 1)) for i in (1, 2)]  # fmt: skip
+    Scene(scene_id="t", world_from_recon=np.eye(4).tolist(), objects=objs,
+          room_planes=["room/shell_wall_0.glb"]).save(tmp_path / "scene.json")  # fmt: skip
+
+    counts = install(tmp_path)
+
+    scene = json.loads((tmp_path / "scene.json").read_text())
+    # The duplicate is found on the trained splats, the output is the lifted ones, all of them.
+    assert counts["plant#1"] == 90
+    assert [o["visible"] for o in scene["objects"]] == [True, False]
+    assert scene["room_planes"] == []
+    assert scene["background_ply"] == "objects/background.ply"
+
+
+def test_merge_duplicates_joins_end_to_end_pieces_only_for_a_noun_counted_once():
+    from movable_reality.objtrain import merge_duplicates
+
+    rng = np.random.default_rng(5)
+    xyz = {
+        "soundbar#1": _surface(rng, (0.5, 0.6, 0), (0.9, 0.15, 0.1), 3000),
+        "soundbar#2": _surface(rng, (-0.2, 0.6, 0), (0.4, 0.15, 0.1), 1500),
+        "pillow#1": _surface(rng, (3.0, 0.7, 0), (0.5, 0.5, 0.2), 2000),
+        "pillow#2": _surface(rng, (3.6, 0.7, 0), (0.5, 0.5, 0.2), 2000),
+        "vase#1": _surface(rng, (6.0, 0.8, 0), (0.2, 0.4, 0.2), 2000),
+        "vase#2": _surface(rng, (6.3, 0.72, 0), (0.2, 0.24, 0.2), 1000),  # shorter: not one vase
+    }
+    labels = {o: o.split("#")[0] for o in xyz}
+    got = merge_duplicates(xyz, labels=labels, single={"soundbar", "vase"})
+    assert got == {"soundbar#2": "soundbar#1"}
+    frames = {
+        "picture frame#1": _surface(rng, (0.5, 1.5, 0), (0.8, 0.6, 0.05), 2000),
+        "picture frame#2": _surface(rng, (1.5, 1.5, 0), (0.8, 0.6, 0.05), 2000),
+    }
+    labels = {o: "picture frame" for o in frames}  # side by side, as long as they are tall: two
+    assert merge_duplicates(frames, labels=labels, single={"picture frame"}) == {}
+
+
+def test_moved_items_are_the_background_splats_the_trainer_gave_the_object():
+    from movable_reality.objtrain import moved_items
+
+    fields = [("x", "f4"), ("y", "f4"), ("z", "f4"), ("opacity", "f4")]
+
+    def verts(points):
+        v = np.zeros(len(points), dtype=fields)
+        v["x"], v["y"], v["z"] = np.asarray(points, "f4").T
+        return v
+
+    world = lambda v: np.stack([v["x"], v["y"], v["z"]], 1).astype(np.float64)  # noqa: E731
+    own, far = [0.0, 0.0, 0.0], [2.0, 0.0, 0.0]
+    book, halo, lump = [1.0, 0.0, 0.0], [1.5, 0.0, 0.0], [3.0, 0.0, 0.0]
+    trained = verts([own, book, halo, lump])
+    trained["opacity"] = [1, 2, 3, 4]
+
+    got = moved_items(trained, verts([own, far]), np.array([book, lump]), world)
+
+    # The halo is on no background splat; the lump is on one, but outside the object's box.
+    assert got["x"].tolist() == [1.0] and got["opacity"].tolist() == [2.0]
+    assert got.dtype.names == tuple(n for n, _ in fields)
+
+
+def test_end_to_end_joins_the_real_soundbar_boxes():
+    from movable_reality.objtrain import end_to_end
+
+    # blender07's trained boxes (5th to 95th percentile): stray splats inflate the second's depth.
+    bar1 = np.array([[1.128, 0.564, -4.707], [1.929, 0.645, -4.338]])
+    bar2 = np.array([[0.684, 0.575, -4.559], [1.008, 0.669, -4.163]])
+    assert end_to_end(bar1, bar2, 0.25)
+    basket = np.array([[-0.688, 0.142, -0.772], [-0.485, 0.752, -0.566]])
+    assert not end_to_end(basket, basket + 0.3, 0.25)

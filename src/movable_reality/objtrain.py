@@ -254,6 +254,23 @@ def box_overlap(a: np.ndarray, b: np.ndarray) -> float:
     return float(inter / small) if small > 0 else 0.0
 
 
+BAR_HEIGHT = 0.2  # m, a piece of a low bar is no taller than this...
+BAR_RATIO = 2.5  # ...and at least this many times as long as it is tall
+
+
+def end_to_end(a: np.ndarray, b: np.ndarray, reach: float) -> bool:
+    """Boxes [2, 3] that are two lengths of one low bar (y is up), within reach of each other and
+    level: a soundbar. Only height is tested across the box, since stray splats inflate its depth
+    (blender07: 0.32 x 0.09 x 0.40 m for one piece). Side-by-side pictures are as tall as they are
+    long, so they do not join."""
+    sa, sb = a[1] - a[0], b[1] - b[0]
+    for s in (sa, sb):
+        if s[1] > BAR_HEIGHT or max(s[0], s[2]) < BAR_RATIO * s[1]:
+            return False
+    gap = np.clip(np.maximum(a[0], b[0]) - np.minimum(a[1], b[1]), 0, None)
+    return bool(gap[1] <= 0 and np.hypot(gap[0], gap[2]) <= reach)
+
+
 def near_share(a: np.ndarray, b: np.ndarray, r: float) -> np.ndarray:
     """Per point of a [n, 3]: True when a point of b lies in its voxel of size r or one of
     the 26 around it (about r to 2r away at most)."""
@@ -272,7 +289,14 @@ def near_share(a: np.ndarray, b: np.ndarray, r: float) -> np.ndarray:
 
 
 def merge_duplicates(
-    xyz: dict[str, np.ndarray], r: float = 0.01, share: float = 0.3, box: float = 0.15
+    xyz: dict[str, np.ndarray],
+    r: float = 0.01,
+    share: float = 0.3,
+    box: float = 0.15,
+    labels: dict[str, str] | None = None,
+    same_noun: float = 0.25,
+    single: set[str] | None = None,
+    reach: float = 0.25,
 ) -> dict[str, str]:
     """Scene objects that are one thing trained twice: two nouns for it (blender01: the
     armchair is both sofa#1 and armchair#0), a SAM track that lost the object and picked it
@@ -282,15 +306,30 @@ def merge_duplicates(
     larger within `r` (metres in world, xyz [n, 3]). Items that merely sit in or on another
     object do not: blender07's books on the bookshelf share 5-8% at 1 cm, the cushion of
     the armchair 68%, the plant pieces 31-52%. Boxes (5th to 95th percentile) must overlap
-    by `box` of the smaller first. Chains resolve to the largest: {absorbed: kept}."""
+    by `box` of the smaller first. Two pieces of one thing share no surface but do share a
+    box: objects with the same noun (`labels`) whose boxes overlap by `same_noun` join too
+    (blender07: upper and lower pieces of a curtain 0.33-0.43). A noun the inventory counts once
+    (`single`; those counts can be low) joins pieces of a low bar, end_to_end within `reach` m
+    (blender07: the soundbar in two). Chains resolve to the largest: {absorbed: kept}."""
     boxes = {o: np.percentile(p, [5, 95], axis=0) for o, p in xyz.items() if len(p) >= 50}
     order = sorted(boxes, key=lambda o: -len(xyz[o]))
     out: dict[str, str] = {}
     for i, big in enumerate(order):
         for small in order[i + 1 :]:
-            if small in out or box_overlap(boxes[big], boxes[small]) <= box:
+            overlap = box_overlap(boxes[big], boxes[small])
+            if (
+                small not in out
+                and single
+                and labels is not None
+                and labels[big] == labels[small]
+                and labels[big] in single
+                and end_to_end(boxes[big], boxes[small], reach)
+            ):
+                out[small] = big
+            if small in out or overlap <= box:
                 continue
-            if near_share(xyz[small], xyz[big], r).mean() >= share:
+            pieces = labels is not None and labels[big] == labels[small] and overlap >= same_noun
+            if pieces or near_share(xyz[small], xyz[big], r).mean() >= share:
                 out[small] = big
     root = lambda o: root(out[o]) if o in out else o  # noqa: E731
     return {s: root(k) for s, k in out.items()}
@@ -785,11 +824,64 @@ def main() -> None:
     print(json.dumps({k: v for k, v in report.items() if k != "objects"}), flush=True)
 
 
-def install(root: Path) -> dict:
-    """CPU side, after the Modal run: objects/ -> objects_lifted/ (once), the trained PLYs into
-    objects/, and fresh bboxes in scene.json. LOD trees and baked planes were built from the
-    old PLYs, so their fields are cleared and the viewer reads the PLYs until
-    build_lod.py and bake_planes.py run again (coverage/ stays stale as well)."""
+MOVED_MARGIN = 0.05  # m, an item the trainer moved into an object lies in its box, grown by this
+MOVED_AGREE = 0.25  # and matches this share of the frames that have it in view
+
+
+def moved_items(
+    trained: np.ndarray, lifted: np.ndarray, background: np.ndarray, world
+) -> np.ndarray:
+    """What the trainer moved from the background into an object: its trained splats away from the
+    lifted object's, on lifted background splats (world [n, 3]), inside the lifted object's box, as
+    `lifted`'s fields. Fine-tuning grew other splats away from the object too, the dark halos, and
+    those lie on neither; a junk-inflated box took a dark lump into the soundbar (blender07)."""
+    xyz = world(trained)
+    if not len(xyz) or not len(lifted):
+        return lifted[:0]
+    lo, hi = np.percentile(world(lifted), [2, 98], axis=0)
+    box = np.all((xyz >= lo - MOVED_MARGIN) & (xyz <= hi + MOVED_MARGIN), axis=1)
+    bg_box = np.all((background >= lo - 0.1) & (background <= hi + 0.1), axis=1)
+    keep = trained[
+        box & ~near_share(xyz, world(lifted), 0.01) & near_share(xyz, background[bg_box], 0.01)
+    ]
+    out = np.zeros(len(keep), dtype=lifted.dtype)
+    for name in out.dtype.names:
+        if name in keep.dtype.names:
+            out[name] = keep[name]
+    return out
+
+
+def matching_frames(v: np.ndarray, root: Path) -> np.ndarray:
+    """Per splat of v [n] (reconstruction frame): whether its colour matches enough frames that have
+    it in view, masks or not; all True when the scene has no frames to ask. Fine-tuning on black
+    left coloured specks that no frame shows (blender07)."""
+    from .bgclean import SH_C0, frame_agreement  # noqa: PLC0415
+    from .coverage.colmap import read_model  # noqa: PLC0415
+
+    if not len(v) or not (root / "recon_full").exists():
+        return np.ones(len(v), bool)
+    xyz = np.stack([v["x"], v["y"], v["z"]], 1).astype(np.float64)
+    rgb = np.clip(np.stack([v[f"f_dc_{i}"] for i in range(3)], 1) * SH_C0 + 0.5, 0, 1)
+    cams = read_model(root / "recon_full")
+    return (
+        frame_agreement(xyz, rgb, cams, root / "ids" / "masks", root / "frames", set())
+        >= MOVED_AGREE
+    )
+
+
+def install(root: Path, objects_from: str = "lifted") -> dict:
+    """CPU side, after the Modal run: objects/ -> objects_lifted/ (once), each object's splats
+    into objects/, the trained background, and fresh bboxes in scene.json. LOD trees, baked
+    planes and the room shell were built on the old background, so their fields are cleared and
+    the viewer reads the PLYs until build_lod.py runs again (coverage/ stays stale as well).
+
+    objects_from "lifted" (default) keeps the reconstruction's own splats and uses the trained
+    copies only to find duplicates; "trained" installs the fine-tuned object splats. Fine-tuning
+    frayed the objects: rendered alone on black against frame * mask, a dark splat outside the
+    mask costs no colour error, which grew dark halos, and splats lost the views that held them
+    down (blender07, 45 GT views in the viewer: 27.4 dB lifted, 22.7 dB trained with the shell).
+    The trainer took splats no noun named out of the
+    background and gave them to objects (a shelf's books), so a lifted object takes those back."""
     import shutil  # noqa: PLC0415
 
     from .scene import Scene  # noqa: PLC0415
@@ -813,15 +905,37 @@ def install(root: Path) -> dict:
         for o in scene.objects
         if o.source == "scan" and (trained / Path(o.ply).name).exists()
     }
-    merged = merge_duplicates({o: world(v) for o, v in verts.items()})
-    report["merged"] = merged
-    if trained.exists():
+    labels = {o.id: o.label for o in scene.objects}
+    single = None
+    if (root / "inventory.json").exists():
+        nouns = json.loads((root / "inventory.json").read_text()).get("objects", [])
+        single = {n["noun"] for n in nouns if n.get("count") == 1}
+    merged = merge_duplicates({o: world(v) for o, v in verts.items()}, labels=labels, single=single)
+    if objects_from == "lifted":  # the lift gives each splat one object: nothing is duplicated
+        lifted = root / "objects_lifted"
+        bg_file = lifted / "background.ply"
+        lifted_bg = world(read_vertices(bg_file)) if bg_file.exists() else np.zeros((0, 3))
+        files = {o.id: Path(o.ply).name for o in scene.objects if o.id in verts}
+        items: dict[str, np.ndarray] = {}
+        for oid, name in files.items():
+            v = read_vertices(lifted / name)
+            items[oid] = moved_items(verts[oid], v, lifted_bg, world)
+            verts[oid] = v
+        if items:  # at once: every frame is read for this
+            good = matching_frames(np.concatenate(list(items.values())), root)
+            ends = np.cumsum([len(x) for x in items.values()])
+            for (oid, item), ok in zip(items.items(), np.split(good, ends[:-1]), strict=True):
+                verts[oid] = np.concatenate([verts[oid], item[ok]])
+    if report.get("merged") != merged and trained.exists():  # later stages read this file's date
+        report["merged"] = merged
         (trained / "report.json").write_text(json.dumps(report, indent=2))
     # The kept object takes the absorbed copy's splats that are not on its own surface
     # already (the parts of a plant only the second SAM track saw).
     for small, big in merged.items():
-        own = ~near_share(world(verts[small]), world(verts[big]), 0.01)
-        verts[big] = np.concatenate([verts[big], verts[small][own]])
+        v = verts[small]
+        if objects_from != "lifted":
+            v = v[~near_share(world(v), world(verts[big]), 0.01)]
+        verts[big] = np.concatenate([verts[big], v])
     removed = {e.object_id for e in scene.history if e.op == "remove"}
     counts = {}
     for obj in scene.objects:
@@ -845,6 +959,7 @@ def install(root: Path) -> dict:
         scene.background_lod = None
         scene.background_ply = "objects/background.ply"
         scene.planes, scene.plane_bake = [], None
+        scene.room_planes = []  # room_shell.py sets them again; they would hide the splat walls
         print("planes cleared: run bake_planes.py --force (and build_lod.py) again")
         counts["background"] = len(read_vertices(objects / "background.ply"))
     scene.save(root / "scene.json")

@@ -1667,6 +1667,7 @@ verifier. Each fix below came from a command that went wrong:
 - Next: blender07 has no LOD locally (34 meshes), so the live copy is older than the local scene.
   Rebuild, publish and redeploy once its rework is done. The library route was only checked for the
   403; library panel not tested on the live URL.
+
 - Meeting room, real-capture retrain and lift:
   - `reconstruct.py --real-capture` (`--pose_opt`, bilateral grid, not in the PLY), passed on
     by `run_pipeline.py`: PSNR 18.1 dB, SSIM 0.70, LPIPS 0.41, 1.36M Gaussians, 23 min. In the
@@ -1683,6 +1684,99 @@ verifier. Each fix below came from a command that went wrong:
     The two upper blocks separate at every setting tried (2.7 x 3.0 m and 2.5 x 3.2 m), the
     buffet at most (1.4 x 4.3 m). The lower blocks stay joined to each other, and at some
     settings to the noise along the wall.
+
+## 4 Nov, core: blender07 objects keep their lifted splats, walls stay splats
+
+Compared the viewer with ground truth on blender07's 45 test views, next to the full-scene
+render at the same cameras. The full scene was nearly clean, so the smearing came from after
+reconstruction. Two causes:
+
+- Per-object fine-tuning frayed the objects. Each trains alone on black against frame * mask,
+  so a dark splat outside the mask costs no colour error (dark halos on paintings and the TV),
+  and there was rainbow speckle on curtains and walls.
+- The room shell whitewashed the windows, painted wall texture over a door and left a jagged
+  skirting.
+
+`objtrain.install` now keeps the lifted object splats by default (`objects_from="trained"` is
+the old way; trained copies still find the duplicates) and clears `room_planes`. New
+`run_pipeline.py --room-splats` leaves out the shell, floor quad and surface removal. New merge
+rule: same noun and boxes overlapping by 25% or more join (upper and lower curtain pieces 0.33
+to 0.43, every other same-noun pair under 0.02). Added the nouns rug, pendant lamp, curtain and
+radiator on blender07: 40 visible objects, 4 curtains, 2 radiators.
+
+Viewer PSNR against GT, 45 views, 1024x768 with GT centre-cropped to 4:3, whole frame:
+22.16 dB before, 27.83 dB after (median 22.93 to 27.47, minimum 13.90 to 20.63, better in 44
+of 45). Rendered with LOD off and nothing merged, not separating out of the training result
+(43 views) gives 29.03 dB, and with lifted objects 28.07 dB. The captures are in
+`data/scenes/blender07/eval/viewer/` (gitignored). Only blender07 was measured; the pipeline
+default still builds the shell, and scenes already installed change only on a rerun.
+
+Still wrong: moving an object leaves marks (ghost of the TV on the wall, smeared floor under
+the chair, a green smear on the wall above the plant); the bookshelf's books are streaky and
+some picture frames keep dark edges; the soundbar is two pieces, end to end, so the rule does
+not join it. Object training still runs for the background, and its object half is now only
+used to find duplicates (about 25 min of GPU).
+
+Next: reviewer, PR by OJ, publish blender07 if it goes in the demo.
+
+## 4 Nov, core: moving an object leaves fewer marks, the soundbar is one object
+
+Lane: core. `scripts/clean_background.py` and `src/movable_reality/bgclean.py` are new; the
+`--room-splats` pipeline runs them as stage `clean`. No learned model: geometry and frame colours
+on the CPU, with scipy as a new dependency (BSD).
+
+What it does to the background, before LOD: splats that frames hardly show outside object masks
+take the colour of a seen splat, mirrored across the edge of what covers them; empty covered cells
+get new opaque splats; junk past a covered wall goes, while what matches the frames stays (the
+garden through the window). Wall splats that show a hung object join it, so a picture is unchanged
+until it moves and the wall is filled behind it. Splats near an object that match under 10% of the
+frames showing them are removed (the leather-coloured clump at the floor lamp's foot, behind the
+armchair). Wall-coloured splats of an object standing by a wall go back to the background (a slab
+of wall moved with the soundbar). Merging also joins two low bars lying end to end when the
+inventory counts one of that noun: `soundbar#2` into `soundbar#1`.
+
+The reviewer found that lifted objects had lost what the trainer moved out of the background into
+them (bookshelf#1: 142,499 splats), which explains the streaky books. `install` now takes those
+back, keeping only trained splats inside the object's box that match at least 25% of the frames
+with them in view; without those filters they brought coloured specks and a dark lump on the
+soundbar. By eye the books and the armchair are much sharper.
+
+**Correction.** The 22.16 and 27.83 dB I wrote earlier today came from a scratch script
+that scored five 960x540 captures of the baseline against a 4:3 crop. `scripts/blender_viewer_psnr.py`
+now scores each capture at its own aspect and size and writes `score.json`. Earlier figures from the
+scratch script, including the 22.16 and 27.83 in the entry above, are not comparable with these.
+
+Measured on blender07, 45 test views, viewer against GT, same scorer:
+
+| capture | mean dB | median | min |
+|---|---:|---:|---:|
+| `fix1` (this morning) | 22.69 | 23.32 | 18.01 |
+| `lifted` (no clean-up) | 27.36 | 26.95 | 20.53 |
+| `clean` (this entry) | 27.49 | 26.61 | 21.09 |
+
+`clean` beats `fix1` in 44 of 45 views but `lifted` in only 18: a slightly higher mean and minimum,
+a lower median. So the clean-up is about neutral unmoved, not an improvement. Captures are in
+`data/scenes/blender07/eval/viewer/` (gitignored). Moves were checked by eye only, armchair, TV and
+soundbar from two viewpoints; there is no ground truth for a moved object.
+
+Still wrong: a faint tint where the TV hung, behind where the soundbar stood; a shred on the console
+top (only floor and walls are repainted, not the tops of objects); a soft shadow on the floor where
+the chair stood; a small dark lump at the soundbar's left end, which moves with it. Baskets stay
+two objects: the stricter merge rule no longer joins them. Only blender07 was run, and the
+thresholds were tuned on it. `bgclean.run()` itself has no unit test; the reviewer ran it twice on
+a copy of the scene with identical output, before the last changes. `flat` never fires on this
+scene (the rug spans y -0.14 to 0.69).
+
+Reviewer pass on code and text before the merge (no splats regenerated), verdict merge. Fixed: a
+resume without `--room-splats` of a scene that used it would have removed its wall splats, so the
+flag now turns itself on when the background is `objects/background_clean.ply`. Left open: L-shaped
+rooms are only partly handled (`bgclean.py:366`, the centroid points the normal out of the room on
+re-entrant walls, and `wall_tinted` measures to the infinite wall line); the same-noun overlap merge
+has no inventory guard; off stages show as `todo`; `run()` may not be idempotent for an object with
+no trained PLY. These affect a rerun only. `install` now defaults to lifted objects and clears
+`room_planes` on any scene's next objects install, and only blender07 was measured.
+
+Next: `publish_demo.py`, then the video.
 
 ## 4 Nov: first splat of the private test video (lane core)
 

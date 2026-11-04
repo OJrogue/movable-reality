@@ -18,6 +18,7 @@ Stages, in order (SAM runs next to the GPU reconstruction, since it needs only t
     bake        bake_planes.py --labels floor    floor as an opaque textured quad
     surfaces    room_surfaces.py          the shell replaces the wall, floor and ceiling
                                           splats (blur, haze, furniture smears)
+    clean       clean_background.py       background behind objects (only with --room-splats)
     lod         build_lod.py              Spark LOD tree per object (after the bake, which
                                           changes the background)
     coverage    score_coverage.py         gap map and next-best views
@@ -107,14 +108,19 @@ def stages(a: argparse.Namespace) -> list[Stage]:
         Stage("surfaces", "shell replaces wall, floor, ceiling splats",
               [*PY, "scripts/room_surfaces.py", "--scene", s], ["room/shell.json", "planes"],
               ["objects/background_room.ply"], force_flag=False, optional=True),
+        Stage("clean", "background behind objects (--room-splats only)",
+              [*PY, "scripts/clean_background.py", "--scene", s], ["room/shell.json"],
+              ["objects/background_clean.ply"], force_flag=False, optional=True),
         Stage("lod", "LOD trees", [*PY, "scripts/build_lod.py", s],
               ["objects_trained/report.json", "completion.json", "planes",
-               "objects/background_room.ply"], ["lod"], optional=True),
+               "objects/background_room.ply", "objects/background_clean.ply"], ["lod"],
+              optional=True),
         Stage("coverage", "gap map", [*PY, "scripts/score_coverage.py", "--scene", s],
               ["objects_trained/report.json"], ["coverage"], optional=True),
     ]  # fmt: skip
 
 
+ROOM_SHELL = ("bake", "surfaces")  # what --room-splats leaves out
 NAMES = [st.name for st in stages(argparse.Namespace(
     scene="x", video=None, focal35=None, preset="quality", ceiling_height=None, scale=None,
     skip="", real_capture=False, group="",
@@ -203,6 +209,15 @@ def _run_once(root: Path, st: Stage, force: bool, report: Report) -> bool:
     return ok
 
 
+def uses_room_splats(root: Path) -> bool:
+    """A resume must not bake or remove wall splats: clean has already emptied room_planes."""
+    try:
+        manifest = json.loads((root / "scene.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return False
+    return manifest.get("background_ply") == "objects/background_clean.ply"
+
+
 def preflight(a: argparse.Namespace, root: Path) -> list[str]:
     problems = []
     if not (root / "frames.json").exists() and not a.video:
@@ -234,12 +249,23 @@ def sam3d_deployed() -> bool:
     )
 
 
-def decide(root: Path, plan: list[Stage], lo: int, hi: int, forced: set[str]) -> dict[str, str]:
-    """Verdict per stage ("run (...)", "skip (up to date)", "out of range"). A stage that runs
-    forces every later stage in range, since each depends on the ones before; `forced` grows."""
+def decide(
+    root: Path,
+    plan: list[Stage],
+    lo: int,
+    hi: int,
+    forced: set[str],
+    off: tuple[str, ...] = (),
+) -> dict[str, str]:
+    """Verdict per stage ("run (...)", "skip (up to date)", "out of range", "off"). A stage that
+    runs forces every later stage in range, since each depends on the ones before; `forced` grows.
+    A stage in `off` never runs, so it forces nothing."""
     names = [st.name for st in plan]
     out: dict[str, str] = {}
     for i, st in enumerate(plan):
+        if st.name in off:
+            out[st.name] = "off"
+            continue
         fresh = freshness(root, st)
         if i < lo or i > hi:
             verdict = "out of range"
@@ -281,6 +307,13 @@ def main() -> int:
         action="store_true",
         help="camera footage: gsplat pose fine-tuning and per-image colour correction",
     )
+    ap.add_argument(
+        "--room-splats",
+        action="store_true",
+        help="keep the trained walls, floor and ceiling as splats: no floor quad or surface "
+        "removal, shell not drawn; clean_background.py repaints what objects cover "
+        "(blender07: sharper, windows and doors stay as filmed)",
+    )
     ap.add_argument("--from", dest="start", choices=NAMES, help="rerun from this stage on")
     ap.add_argument("--to", dest="stop", choices=NAMES, help="stop after this stage")
     ap.add_argument("--only", choices=NAMES,
@@ -290,6 +323,9 @@ def main() -> int:
     a = ap.parse_args()
 
     root = scene_dir(a.scene)
+    if not a.room_splats and uses_room_splats(root):
+        print("this scene's background came from --room-splats; keeping it on")
+        a.room_splats = True
     plan = stages(a)
     lo = NAMES.index(a.only or a.start) if (a.only or a.start) else 0
     hi = NAMES.index(a.only or a.stop) if (a.only or a.stop) else len(NAMES) - 1
@@ -298,7 +334,7 @@ def main() -> int:
         forced.add("frames")
 
     print(f"scene {a.scene} ({root})")
-    verdicts = decide(root, plan, lo, hi, forced)
+    verdicts = decide(root, plan, lo, hi, forced, ROOM_SHELL if a.room_splats else ("clean",))
     todo = [st for st in plan if verdicts[st.name].startswith("run")]
     for st in plan:
         print(f"  {st.name:<12} {verdicts[st.name]:<20} {st.what}")

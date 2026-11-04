@@ -110,3 +110,23 @@ def test_real_capture_reaches_only_the_reconstruction():
 def test_group_reaches_only_the_lift():
     a = argparse.Namespace(**{**vars(ARGS), "group": "table=chair"})
     assert [st.name for st in rp.stages(a) if "--group" in st.cmd] == ["lift"]
+
+
+def test_a_stage_that_is_off_forces_nothing(tmp_path):
+    (tmp_path / "in.txt").write_text("x")
+    plan = [
+        rp.Stage("a", "", ["x"], ["in.txt"], ["a.txt"]),
+        rp.Stage("b", "", ["x"], ["in.txt"], ["b.txt"]),
+    ]
+    (tmp_path / "b.txt").write_text("x")
+    v = rp.decide(tmp_path, plan, 0, 1, set(), off=("a",))
+    assert v == {"a": "off", "b": "skip (up to date)"}
+
+
+def test_a_resume_keeps_room_splats_when_the_background_came_from_it(tmp_path):
+    assert not rp.uses_room_splats(tmp_path)  # no scene.json
+    scene = tmp_path / "scene.json"
+    scene.write_text('{"background_ply": "objects/background.ply"}', encoding="utf-8")
+    assert not rp.uses_room_splats(tmp_path)
+    scene.write_text('{"background_ply": "objects/background_clean.ply"}', encoding="utf-8")
+    assert rp.uses_room_splats(tmp_path)
