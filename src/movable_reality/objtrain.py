@@ -272,7 +272,12 @@ def near_share(a: np.ndarray, b: np.ndarray, r: float) -> np.ndarray:
 
 
 def merge_duplicates(
-    xyz: dict[str, np.ndarray], r: float = 0.01, share: float = 0.3, box: float = 0.15
+    xyz: dict[str, np.ndarray],
+    r: float = 0.01,
+    share: float = 0.3,
+    box: float = 0.15,
+    labels: dict[str, str] | None = None,
+    same_noun: float = 0.25,
 ) -> dict[str, str]:
     """Scene objects that are one thing trained twice: two nouns for it (blender01: the
     armchair is both sofa#1 and armchair#0), a SAM track that lost the object and picked it
@@ -282,15 +287,20 @@ def merge_duplicates(
     larger within `r` (metres in world, xyz [n, 3]). Items that merely sit in or on another
     object do not: blender07's books on the bookshelf share 5-8% at 1 cm, the cushion of
     the armchair 68%, the plant pieces 31-52%. Boxes (5th to 95th percentile) must overlap
-    by `box` of the smaller first. Chains resolve to the largest: {absorbed: kept}."""
+    by `box` of the smaller first. Two pieces of one thing share no surface but do share a
+    box: objects with the same noun (`labels`) whose boxes overlap by `same_noun` join too
+    (blender07: upper and lower pieces of a curtain 0.33-0.43, every other same-noun pair
+    under 0.02). Chains resolve to the largest: {absorbed: kept}."""
     boxes = {o: np.percentile(p, [5, 95], axis=0) for o, p in xyz.items() if len(p) >= 50}
     order = sorted(boxes, key=lambda o: -len(xyz[o]))
     out: dict[str, str] = {}
     for i, big in enumerate(order):
         for small in order[i + 1 :]:
-            if small in out or box_overlap(boxes[big], boxes[small]) <= box:
+            overlap = box_overlap(boxes[big], boxes[small])
+            if small in out or overlap <= box:
                 continue
-            if near_share(xyz[small], xyz[big], r).mean() >= share:
+            pieces = labels is not None and labels[big] == labels[small] and overlap >= same_noun
+            if pieces or near_share(xyz[small], xyz[big], r).mean() >= share:
                 out[small] = big
     root = lambda o: root(out[o]) if o in out else o  # noqa: E731
     return {s: root(k) for s, k in out.items()}
@@ -813,7 +823,8 @@ def install(root: Path) -> dict:
         for o in scene.objects
         if o.source == "scan" and (trained / Path(o.ply).name).exists()
     }
-    merged = merge_duplicates({o: world(v) for o, v in verts.items()})
+    labels = {o.id: o.label for o in scene.objects}
+    merged = merge_duplicates({o: world(v) for o, v in verts.items()}, labels=labels)
     report["merged"] = merged
     if trained.exists():
         (trained / "report.json").write_text(json.dumps(report, indent=2))

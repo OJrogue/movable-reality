@@ -154,3 +154,18 @@ def test_tame_splats_drops_haze_and_shortens_needles():
     np.testing.assert_allclose(got[0], [0.02, 0.02, 0.005], rtol=1e-5)  # a normal splat stays
     np.testing.assert_allclose(got[1], [0.03, 0.01, 0.01], rtol=1e-5)  # needle: 3 x middle
     np.testing.assert_allclose(got[2], [0.08, 0.08, 0.01], rtol=1e-5)  # flat, capped at 8 cm
+
+
+def test_merge_duplicates_joins_pieces_of_one_thing_only_under_one_noun():
+    from movable_reality.objtrain import merge_duplicates
+
+    rng = np.random.default_rng(3)
+    # Upper and lower piece of a curtain: their boxes overlap, their surfaces do not touch.
+    lower = _surface(rng, (0, 1.0, 0), (0.5, 2.0, 0.4), 8000)
+    upper = _surface(rng, (0.05, 1.8, 0), (0.5, 1.6, 0.46), 4000)
+    lamp = _surface(rng, (0.05, 1.4, 0), (0.3, 0.4, 0.3), 1000)  # a different noun inside
+    far = _surface(rng, (3, 1.0, 0), (0.5, 2.0, 0.4), 6000)
+    xyz = {"curtain#0": lower, "curtain#1": upper, "lamp#0": lamp, "curtain#2": far}
+    labels = {o: o.split("#")[0] for o in xyz}
+    assert merge_duplicates(xyz) == {}
+    assert merge_duplicates(xyz, labels=labels) == {"curtain#1": "curtain#0"}
