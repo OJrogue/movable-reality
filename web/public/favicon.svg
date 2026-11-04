@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- A box lifted off the floor: one object taken out of the room. -->
+  <rect width="32" height="32" rx="7" fill="#15162a"/>
+  <path d="M16 18.5 28 24.5 16 30.5 4 24.5z" fill="#33418a"/>
+  <path d="M16 2.5 25 7 16 11.5 7 7z" fill="#ffc2a8"/>
+  <path d="M7 7l9 4.5V22l-9-4.5z" fill="#b9c3ff"/>
+  <path d="M25 7l-9 4.5V22l9-4.5z" fill="#8e9bff"/>
+</svg>
