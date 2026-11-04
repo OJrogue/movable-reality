@@ -9,8 +9,9 @@ from movable_reality.bgclean import (
     clean,
     covered_grid,
     frame_agreement,
+    in_grid,
+    in_outline,
     mirror,
-    mirror_donors,
     repaint,
     unseen_splats,
     wall_coords,
@@ -18,27 +19,74 @@ from movable_reality.bgclean import (
 )
 
 
-def test_mirror_donors_takes_seen_splats_from_across_the_edge():
+def test_mirror_takes_seen_splats_from_across_the_edge():
     x, y = np.meshgrid(np.arange(0, 2, 0.02), np.arange(0, 2, 0.02))
     uv = np.stack([x.ravel(), y.ravel()], 1)
     inside = (np.abs(uv[:, 0] - 1) < 0.2) & (np.abs(uv[:, 1] - 1) < 0.2)
+    lo, grid = covered_grid(uv, uv[inside], grow=0.03)
+    hidden = np.flatnonzero(in_grid(uv, lo, grid))
+    seen = np.setdiff1d(np.arange(len(uv)), hidden)
 
-    hidden, donor = mirror_donors(uv, uv[inside], grow=0.03)
+    donor = mirror(uv[hidden], uv, seen, lo, grid)
 
-    assert inside[hidden].sum() == inside.sum()  # all of the covered area
-    assert len(hidden) < 1.5 * inside.sum()  # and only a rim beyond it
+    assert inside[hidden].sum() == inside.sum() and len(hidden) < 1.5 * inside.sum()
     assert not np.isin(donor, hidden).any()
     # A mirror image lies at most the area's half width outside it: nothing from far away.
     assert np.linalg.norm(uv[hidden] - uv[donor], axis=1).max() < 0.6
 
 
-def test_mirror_donors_with_nothing_covered_or_nearly_everything_covered():
+def test_covered_grid_with_nothing_covering():
     uv = np.random.default_rng(0).uniform(0, 1, (100, 2))
-    assert len(mirror_donors(uv, np.zeros((0, 2)))[0]) == 0
-    x, y = np.meshgrid(np.linspace(0, 1, 60), np.linspace(0, 1, 60))
-    dense = np.stack([x.ravel(), y.ravel()], 1)
-    hidden, donor = mirror_donors(uv, dense)  # nearly all covered: a donor is never covered
-    assert len(hidden) > 90 and not np.isin(donor, hidden).any()
+    assert covered_grid(uv, np.zeros((0, 2))) is None
+
+
+def test_in_outline_handles_an_l_shaped_room():
+    room = [[0, 0], [4, 0], [4, 2], [2, 2], [2, 4], [0, 4]]
+    pts = np.array([[1.0, 1.0], [3.0, 1.0], [1.0, 3.0], [3.0, 3.0], [5.0, 1.0]])
+    assert in_outline(pts, room).tolist() == [True, True, True, False, False]
+
+
+def test_a_wall_of_an_l_room_does_not_reach_past_its_end():
+    rng = np.random.default_rng(9)
+    room = [[0, 0], [4, 0], [4, 2], [2, 2], [2, 4], [0, 4]]
+    # In the room, on the far side of the line through the wall at z = 2 from x = 2 to 4.
+    far = np.stack(
+        [rng.uniform(0.2, 1.8, 3000), rng.uniform(0.5, 2.6, 3000), np.full(3000, 3.0)], 1
+    )
+    wall = np.stack([rng.uniform(2, 4, 6000), rng.uniform(0.1, 2.6, 6000), np.full(6000, 2.0)], 1)
+    xyz = np.concatenate([far, wall])
+    v = np.zeros(len(xyz), dtype=[(n, "f4") for n in ("f_dc_0", "f_rest_0", "opacity")])
+    tv = np.stack([rng.uniform(0.5, 1.5, 500), rng.uniform(1, 1.6, 500), np.full(500, 3.3)], 1)
+    unseen = np.ones(len(xyz), bool)
+
+    done = clean(v, xyz, {"tv#0": tv}, room, 2.7, 1.0, unseen)
+
+    assert not np.isin(done.drop, np.arange(3000)).any()
+
+
+def test_a_splat_joined_at_a_corner_is_not_repainted_or_dropped_by_the_next_wall():
+    rng = np.random.default_rng(10)
+    a = np.stack([rng.uniform(0, 4, 20000), rng.uniform(0.1, 2.6, 20000), np.zeros(20000)], 1)
+    b = np.stack([np.zeros(20000), rng.uniform(0.1, 2.6, 20000), rng.uniform(0, 4, 20000)], 1)
+    xyz = np.concatenate([a, b])
+    v = np.zeros(len(xyz), dtype=[(n, "f4") for n in ("f_dc_0", "f_rest_0", "opacity")])
+    v["f_dc_0"] = 1.0
+    corner = (xyz[:, 0] < 0.5) & (xyz[:, 2] < 0.05) & (np.abs(xyz[:, 1] - 1.4) < 0.3)
+    v["f_dc_0"][corner] = -2.0  # the canvas
+    before = v["f_dc_0"].copy()
+    picture = np.stack(
+        [rng.uniform(0, 0.5, 500), rng.uniform(1.1, 1.7, 500), np.full(500, 0.02)], 1
+    )
+
+    done = clean(
+        v, xyz, {"picture#0": picture}, [[0, 0], [4, 0], [4, 4], [0, 4]], 2.7, 1.0,
+        np.zeros(len(xyz), bool),
+    )  # fmt: skip
+
+    joined = done.joins["picture#0"]
+    assert len(np.unique(joined)) == len(joined) and corner[joined].sum() > 0.9 * corner.sum()
+    np.testing.assert_array_equal(v["f_dc_0"][joined], before[joined])
+    assert not np.isin(done.drop, joined).any() and not np.isin(done.new_donor, joined).any()
 
 
 def test_repaint_copies_colour_and_opacity_and_clears_view_dependence():
@@ -204,7 +252,8 @@ def test_frame_agreement_finds_a_colour_no_frame_shows(tmp_path):
     pts = np.array([[0.5, 0, 1], [0.5, 0, 1], [-0.5, 0, 1]])  # right, wrong, masked
     rgb = np.array([[0.5, 0.5, 0.5], [0.1, 0.1, 0.1], [0.1, 0.1, 0.1]])
 
-    out = frame_agreement(pts, rgb, [cam], masks, frames, {5}, step=1)
+    assert frame_agreement(pts, rgb, [cam], masks, frames, {5}, step=1).tolist() == [1, 1, 1]
+    out = frame_agreement(pts, rgb, [cam] * 3, masks, frames, {5}, step=1)
     assert out.tolist() == [1.0, 0.0, 1.0]  # nothing shows the masked one: no evidence against it
 
 
@@ -240,8 +289,8 @@ def test_clean_keeps_a_window_view_and_drops_junk_near_an_object():
     got = clean(v2, xyz, {"curtain#0": curtain}, outline, 2.7, 1.0, unseen, agreement=again)
     assert n in got.drop and n + 1 not in got.drop
     assert (n + 2) in done.drop and (n + 3) not in done.drop and done.stats["junk"] == 1
-    if len(done.new_xyz):  # no wall painted over the view
-        assert np.linalg.norm(done.new_xyz[:, :2] - [2.0, 1.4], axis=1).min() > 0.05
+    assert len(done.new_xyz) > 0  # the covered wall's holes are filled, but not over the view
+    assert np.linalg.norm(done.new_xyz[:, :2] - [2.0, 1.4], axis=1).min() > 0.05
 
 
 def test_mirror_on_a_plain_surface_ignores_a_dirty_rim():

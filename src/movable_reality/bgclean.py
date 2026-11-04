@@ -42,6 +42,7 @@ MAX_SIGMA = 0.03  # m, largest size of a repainted splat; a new splat on an empt
 JUNK_AGREE = 0.1  # a splat near an object matching fewer of the frames that show it is junk
 AGREE_COLOUR = 0.12  # rgb, largest difference from a frame's pixel that still counts as a match
 AGREE_STEP = 3  # use every this many frames for that
+AGREE_MIN_FRAMES = 3  # fewer frames than this showing a splat say nothing about it
 ON_OBJECT = 0.5  # m, an off-surface background splat this close to an object may join it...
 WALL_TINT = 0.1  # rgb, a splat of an object by a wall this close to the wall's colour is wall
 WALL_NEAR = 0.5  # m, an object's median splat this close to a wall stands by it
@@ -112,23 +113,6 @@ def mirror(
     return seen[near[np.arange(len(p)), best]]
 
 
-def mirror_donors(
-    uv: np.ndarray, cover: np.ndarray, cell: float = CELL, grow: float = GROW
-) -> tuple[np.ndarray, np.ndarray]:
-    """uv [n, 2]: a surface's splats. cover [m, 2]: what lies over it. Returns the indices of the
-    covered splats and, for each, the seen splat nearest its mirror image across the edge."""
-    none = np.zeros(0, dtype=np.int64)
-    got = covered_grid(uv, cover, cell, grow)
-    if got is None:
-        return none, none
-    lo, grid = got
-    hidden = in_grid(uv, lo, grid, cell)
-    if not hidden.any() or hidden.all():
-        return none, none
-    h = np.flatnonzero(hidden)
-    return h, mirror(uv[h], uv, np.flatnonzero(~hidden), lo, grid, cell)
-
-
 def empty_cells(uv: np.ndarray, lo: np.ndarray, grid: np.ndarray, cell: float = CELL) -> np.ndarray:
     """Centres [k, 2] of the covered cells that hold no splat: holes a moved object would show."""
     full = np.zeros(grid.shape, bool)
@@ -150,6 +134,19 @@ def repaint(
             v[name][hidden] = 0
         elif name.startswith("scale_") and max_log is not None:
             v[name][hidden] = np.minimum(v[name][hidden], max_log)
+
+
+def in_outline(xz: np.ndarray, outline: list) -> np.ndarray:
+    """Per point xz [n, 2]: inside the room's outline polygon (even-odd rule; any shape)."""
+    out = np.zeros(len(xz), bool)
+    corners = np.asarray(outline, float)
+    for a, b in zip(corners, np.roll(corners, -1, axis=0), strict=True):
+        if a[1] == b[1]:
+            continue
+        cross = (a[1] > xz[:, 1]) != (b[1] > xz[:, 1])
+        at = a[0] + (xz[:, 1] - a[1]) * (b[0] - a[0]) / (b[1] - a[1])
+        out ^= cross & (xz[:, 0] < at)
+    return out
 
 
 def wall_coords(xyz: np.ndarray, a, b) -> tuple[np.ndarray, np.ndarray]:
@@ -206,7 +203,7 @@ def frame_agreement(
     step: int = AGREE_STEP,
 ) -> np.ndarray:
     """Per splat, points [n, 3] in the cameras' frame with rgb [n, 3] in 0..1: the share of frames
-    showing it outside every object's mask whose pixel has its colour; 1 when none shows it. A real
+    showing it outside every object's mask whose pixel has its colour; 1 when too few do. A real
     surface matches. A clump left behind an object does not, however often it is in view: an
     occluded lamp leg and the leather-coloured fog around it are seen equally often (blender07)."""
     from PIL import Image  # noqa: PLC0415
@@ -234,7 +231,7 @@ def frame_agreement(
         px = image[(v * image.shape[0]).astype(int), (u * image.shape[1]).astype(int)]
         seen[front] += 1
         agree[front] += np.abs(px - rgb[front]).max(1) < AGREE_COLOUR
-    return np.where(seen > 0, agree / np.maximum(seen, 1), 1.0)
+    return np.where(seen >= AGREE_MIN_FRAMES, agree / np.maximum(seen, 1), 1.0)
 
 
 def wall_tinted(points: np.ndarray, rgb: np.ndarray, walls: list) -> np.ndarray:
@@ -293,7 +290,7 @@ def clean(
     drops, new_xyz, new_donor = [], [], []
     taken = np.zeros(len(bg), bool)  # wall splats that joined a hung object
     wall_joins: dict[str, list[np.ndarray]] = {}
-    outside = np.zeros(len(bg), bool)  # past a wall: a garden through a window
+    outside = ~in_outline(bg_xyz[:, [0, 2]], outline_xz)  # a garden through a window, junk
 
     dc = [n for n in bg.dtype.names if n.startswith("f_dc_")]
     colours = np.stack([bg[n] for n in dc], 1) if dc else None
@@ -306,7 +303,7 @@ def clean(
             return
         lo, grid = got
         uv = uv_all[idx]
-        joined = np.zeros(len(idx), bool)
+        joined = taken[idx].copy()  # a wall at a corner: a splat joined there stays joined
         rim = np.zeros(len(idx), bool)
         tint = colours[idx] if plain and colours is not None else None
         for oid, huv, thin in hung:
@@ -320,7 +317,7 @@ def clean(
             if tint is not None:
                 far = np.linalg.norm(tint - np.median(tint, axis=0), axis=1) > HUNG_COLOUR
                 mine |= far & by_it
-            mine &= ~joined & ~taken[idx]
+            mine &= ~joined
             if mine.any():
                 joined |= mine
                 taken[idx[mine]] = True
@@ -374,12 +371,12 @@ def clean(
         n = n if (centre - a_) @ n > 0 else -n  # towards the room
         uv, _ = wall_coords(bg_xyz, a, b)
         signed = (bg_xyz[:, [0, 2]] - a_) @ n
-        near = np.abs(signed) < ON_SURFACE
+        span = (uv[:, 0] > -ON_SURFACE) & (uv[:, 0] < np.linalg.norm(b_ - a_) + ON_SURFACE)
+        near = (np.abs(signed) < ON_SURFACE) & span  # a wall ends: not its line across an L-room
         on_surface |= near
         wall = np.flatnonzero(near & (bg_xyz[:, 1] > ON_SURFACE))
         if not len(wall):
             continue
-        outside |= signed <= -ON_SURFACE
         off = float(np.median(signed[wall]))
         cuv, cdist = wall_coords(covers, a, b)
         hung = []  # a television, a picture: flat on this wall and not floor to ceiling (a curtain)
@@ -399,7 +396,7 @@ def clean(
             wall,
             uv,
             cuv[cdist < WALL_REACH],
-            np.flatnonzero(signed <= -ON_SURFACE),
+            np.flatnonzero((signed <= -ON_SURFACE) & outside & span),
             place,
             "walls",
             plain=True,
@@ -407,6 +404,7 @@ def clean(
         )
 
     drop = np.unique(np.concatenate(drops)) if drops else np.zeros(0, dtype=np.int64)
+    drop = drop[~taken[drop]]
     joins: dict[str, np.ndarray] = {o: np.concatenate(g) for o, g in wall_joins.items()}
     stats["wall_joined"] = int(taken.sum())
     left = np.flatnonzero(~on_surface)
@@ -461,6 +459,10 @@ def run(root: Path) -> dict:
     from .scene import Scene  # noqa: PLC0415
     from .splat_ops import read_vertices, tame_splats, write_vertices  # noqa: PLC0415
 
+    needs = ["room/shell.json", "ids/masks/labels.json", "recon_full", "objects_trained"]
+    missing = [n for n in needs if not (root / n).exists()]
+    if missing:  # install() restores the objects from objects_trained/: nothing to redo without it
+        raise FileNotFoundError(f"{root}: missing {missing}")
     install(root)
     shell = json.loads((root / "room" / "shell.json").read_text())
     scene = Scene.load(root / "scene.json")
