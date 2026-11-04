@@ -1,6 +1,19 @@
 import * as THREE from "three";
 import { describe, expect, it } from "vitest";
-import { formatMeasurement, measureBetween } from "./measure";
+import { formatMeasurement, measureBetween, surfaceDepth } from "./measure";
+
+describe("surfaceDepth", () => {
+  it("takes the nearest place where enough splats agree", () => {
+    expect(surfaceDepth([3.0, 3.01, 3.02, 3.03, 3.2, 3.21])).toBeCloseTo(3.02);
+  });
+  it("skips lone floaters in front of the surface", () => {
+    expect(surfaceDepth([0.4, 1.1, 2.0, 2.01, 2.02, 2.03])).toBeCloseTo(2.02);
+  });
+  it("is null with too few splats", () => {
+    expect(surfaceDepth([])).toBeNull();
+    expect(surfaceDepth([1, 2, 3, 4])).toBeNull();
+  });
+});
 
 describe("tape measure", () => {
   it("splits a slanted line into across and up", () => {

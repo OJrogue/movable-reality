@@ -1,8 +1,13 @@
 // Lane ui, U1: desktop editing with mouse and keyboard. Click an object to select it (ray
-// against the manifest boxes with lane lod's rayBoxDistance), drag it across a horizontal plane through
-// the grab point (height unchanged), Q/E rotate by 15 degrees, Delete or Backspace removes,
-// R restores the newest hidden object, Ctrl/Cmd+Z undoes, Escape clears the selection.
-// Drags on empty space reach SparkControls as before. Nothing here runs during an XR session.
+// against the manifest boxes with lane lod's rayBoxDistance), drag the selected object across a
+// horizontal plane through the grab point (height unchanged), Q/E rotate by 15 degrees, Delete or
+// Backspace removes, R restores the newest hidden object, Ctrl/Cmd+Z undoes, Escape clears the
+// selection. Nothing here runs during an XR session.
+// View, as in Blender: a left or middle drag orbits about the selected object or the spot under
+// the mouse, also when the press lands on an object that is not selected (furniture fills most of
+// the view, so grabbing on press left almost nowhere to orbit from). Shift+middle pans, the wheel
+// and a right drag stay with SparkControls. A right drag on the selected object turns it. The
+// camera stays inside the room's outline (room/shell.json), since outside it is only loose splats.
 // The selected object also gets a move and rotate gizmo (gizmo.ts, T switches the mode); a
 // press on one of its handles goes to the gizmo before anything else.
 // Touch (lane devices): a tap selects the object under the finger (or clears the selection
@@ -15,6 +20,8 @@ import { halfSize, rayBoxDistance, type Pickable } from "../lod/pick";
 import { isTap, TAP_SLOP_PX } from "../devices/gestures";
 import { lastHidden, type EditRequest } from "./edits";
 import { Gizmo } from "./gizmo";
+import { meshDistance } from "./measure";
+import { clampToOutline, isConvex, ORBIT_RAD_PER_PX, orbitRig, type Outline, panRig } from "./orbit";
 
 export const ROTATE_STEP_DEG = 15;
 const CLICK_SLOP_PX = 4;
@@ -37,12 +44,44 @@ interface Drag {
   moved: boolean;
 }
 
+/** A mouse drag that moves the view; a left press without movement stays a click. */
+interface ViewDrag {
+  pointerId: number;
+  mode: "orbit" | "pan";
+  x: number;
+  y: number;
+  x0: number;
+  y0: number;
+  moved: boolean;
+  /** Left press: what a click here selects (null clears). Undefined for a middle press. */
+  click?: string | null;
+  pivot: THREE.Vector3;
+  distance: number;
+}
+
+/** Turning the selected object with a right drag. */
+interface Turn {
+  id: string;
+  pointerId: number;
+  x0: number;
+  startYaw: number;
+}
+
+/** Orbit no wider than this, or a click on the far wall swings the camera through the room. */
+const MAX_PIVOT_M = 3;
+/** How close the camera may get to a wall, floor or ceiling; beyond them is only loose splats. */
+const WALL_INSET_M = 0.15;
+
 export const isTyping = (t: EventTarget | null): boolean =>
   t instanceof HTMLElement && (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable);
 
 export class Editor {
   selected: string | null = null;
   private drag: Drag | null = null;
+  private viewDrag: ViewDrag | null = null;
+  private turn: Turn | null = null;
+  /** room/shell.json: keeps the camera in the room, whichever control moved it. */
+  private room: { outline: Outline; height: number } | null = null;
   /** A press that may become a click: on empty space (id null) or, by touch, on an object. */
   private emptyDown: {
     pointerId: number;
@@ -83,15 +122,40 @@ export class Editor {
     window.addEventListener("pointercancel", (e) => this.onPointerUp(e, true));
     window.addEventListener("keydown", (e) => this.onKey(e), { capture: true });
 
+    let outlineAsked = false;
     ctx.onManifest((m) => {
+      if (!outlineAsked && !ctx.params.has("bench")) {
+        outlineAsked = true;
+        this.loadRoomOutline();
+      }
       const o = this.selected ? m.objects.find((x) => x.id === this.selected) : undefined;
       if (this.selected && (!o || !o.visible)) this.select(null);
       else if (o) this.attachOutline(o);
     });
     ctx.onFrame(() => {
+      this.keepCameraInRoom();
       this.updateLabel();
       this.gizmo.controls.getHelper().visible = !this.xr && this.selected !== null;
     });
+  }
+
+  private loadRoomOutline(): void {
+    fetch(`${this.ctx.sceneBase}/room/shell.json`, { cache: "no-store" })
+      .then((r) => (r.ok ? (r.json() as Promise<{ outline_xz?: Outline; height_m?: number }>) : null))
+      .then((r) => {
+        if (r?.outline_xz && r.height_m && isConvex(r.outline_xz)) this.room = { outline: r.outline_xz, height: r.height_m };
+      })
+      .catch(() => undefined); // no outline: the camera is free, as before
+  }
+
+  private keepCameraInRoom(): void {
+    if (!this.room || this.xr || !this.ctx.controlsEnabled) return;
+    const eye = this.ctx.camera.getWorldPosition(new THREE.Vector3());
+    const [x, z] = clampToOutline(eye.x, eye.z, this.room.outline, WALL_INSET_M);
+    const y = THREE.MathUtils.clamp(eye.y, WALL_INSET_M, this.room.height - WALL_INSET_M);
+    this.ctx.rig.position.x += x - eye.x;
+    this.ctx.rig.position.y += y - eye.y;
+    this.ctx.rig.position.z += z - eye.z;
   }
 
   private get xr(): boolean {
@@ -172,7 +236,7 @@ export class Editor {
     if (this.outline.parent !== node.pivot) node.pivot.add(this.outline);
     this.gizmo.attach(o.id, node.pivot);
     this.label.textContent = `${o.label}  ${o.id}`;
-    this.label.title = "drag or use the gizmo to move · T move/rotate · Q/E rotate · Delete remove · Ctrl+Z undo";
+    this.label.title = "drag to move · right drag to turn · T gizmo move/rotate · Q/E turn 15° · Delete remove · Ctrl+Z undo";
   }
 
   private updateLabel(): void {
@@ -197,10 +261,58 @@ export class Editor {
 
   // ------------------------------------------------------------ pointer
 
+  /** The point a view drag turns about: selection first, then what is under the mouse. */
+  private viewPivot(ray: THREE.Ray, hit: { point: THREE.Vector3 } | null): THREE.Vector3 {
+    const node = this.selected ? this.ctx.view?.objectNode(this.selected) : undefined;
+    if (node) return node.pivot.getWorldPosition(new THREE.Vector3());
+    const mesh = meshDistance(this.ctx, this.raycaster);
+    const box = hit ? hit.point.distanceTo(ray.origin) : null;
+    const d = box !== null && (mesh === null || box < mesh) ? box : mesh;
+    return ray.at(Math.min(d ?? MAX_PIVOT_M, MAX_PIVOT_M), new THREE.Vector3());
+  }
+
+  private startViewDrag(e: PointerEvent, ray: THREE.Ray, hit: { id: string; point: THREE.Vector3 } | null, mode: ViewDrag["mode"]): void {
+    if (!this.ctx.controlsEnabled) return; // bench walks and scripted views own the rig
+    e.stopPropagation(); // SparkControls would turn the camera about itself as well
+    e.preventDefault(); // a middle press would start the browser's autoscroll
+    this.emptyDown = null;
+    const pivot = this.viewPivot(ray, hit);
+    this.viewDrag = {
+      pointerId: e.pointerId,
+      mode,
+      x: e.clientX,
+      y: e.clientY,
+      x0: e.clientX,
+      y0: e.clientY,
+      moved: false,
+      click: e.button === 0 ? (hit?.id ?? null) : undefined,
+      pivot,
+      distance: pivot.distanceTo(ray.origin),
+    };
+    this.canvas.setPointerCapture(e.pointerId);
+  }
+
   private onPointerDown(e: PointerEvent): void {
     // Alt+click belongs to the tape measure (measure.ts).
-    if (this.xr || e.target !== this.canvas || e.button !== 0 || this.drag || e.altKey) return;
+    if (this.xr || e.target !== this.canvas || this.drag || this.viewDrag || this.turn || e.altKey) return;
     const touch = e.pointerType === "touch";
+    if (!touch && e.button === 1) {
+      const ray = this.rayAt(e.clientX, e.clientY);
+      this.startViewDrag(e, ray, this.pick(ray), e.shiftKey ? "pan" : "orbit");
+      return;
+    }
+    if (!touch && e.button === 2) {
+      const hit = this.pick(this.rayAt(e.clientX, e.clientY));
+      const node = hit && hit.id === this.selected ? this.ctx.view?.objectNode(hit.id) : undefined;
+      if (!hit || !node) return; // SparkControls slides the view
+      e.stopPropagation();
+      e.preventDefault();
+      this.turn = { id: hit.id, pointerId: e.pointerId, x0: e.clientX, startYaw: node.pivot.rotation.y };
+      this.canvas.setPointerCapture(e.pointerId);
+      this.canvas.style.cursor = "ew-resize";
+      return;
+    }
+    if (e.button !== 0) return;
     if (touch && !e.isPrimary) {
       // A second finger makes this a pan or pinch (devices/touch.ts), never a tap.
       this.emptyDown = null;
@@ -219,6 +331,10 @@ export class Editor {
       return;
     }
     const hit = this.pick(ray);
+    if (!touch && (!hit || hit.id !== this.selected)) {
+      this.startViewDrag(e, ray, hit, "orbit");
+      return;
+    }
     if (!hit || (touch && hit.id !== this.selected)) {
       const slop = touch ? TAP_SLOP_PX : CLICK_SLOP_PX;
       this.emptyDown = { pointerId: e.pointerId, x: e.clientX, y: e.clientY, id: hit?.id ?? null, slop };
@@ -252,12 +368,37 @@ export class Editor {
       this.gizmo.move(this.ndc, e.shiftKey);
       return;
     }
+    const view = this.viewDrag;
+    if (view) {
+      if (e.pointerId !== view.pointerId) return;
+      if (!view.moved && Math.hypot(e.clientX - view.x0, e.clientY - view.y0) < CLICK_SLOP_PX) return;
+      view.moved = true;
+      const dx = e.clientX - view.x;
+      const dy = e.clientY - view.y;
+      view.x = e.clientX;
+      view.y = e.clientY;
+      if (view.mode === "orbit") orbitRig(this.ctx.rig, view.pivot, dx, dy);
+      else panRig(this.ctx.rig, dx, dy, view.distance, this.ctx.camera.fov, this.canvas.clientHeight);
+      this.canvas.style.cursor = view.mode === "orbit" ? "move" : "grabbing";
+      return;
+    }
+    const turn = this.turn;
+    if (turn) {
+      if (e.pointerId !== turn.pointerId) return;
+      const node = this.ctx.view?.objectNode(turn.id);
+      if (node) node.pivot.rotation.y = turn.startYaw + (e.clientX - turn.x0) * ORBIT_RAD_PER_PX * 2;
+      return;
+    }
     const d = this.drag;
     if (!d) {
       if (!this.xr && e.target === this.canvas && e.buttons === 0) {
         const ray = this.rayAt(e.clientX, e.clientY);
         if (this.gizmo.hover(this.ndc)) this.canvas.style.cursor = "pointer";
-        else this.canvas.style.cursor = this.pick(ray) ? "grab" : "";
+        else {
+          const hit = this.pick(ray);
+          // Only the selected object can be dragged; any other object is a click away.
+          this.canvas.style.cursor = !hit ? "" : hit.id === this.selected ? "grab" : "pointer";
+        }
       }
       return;
     }
@@ -276,6 +417,28 @@ export class Editor {
       this.gizmoPointer = null;
       if (this.canvas.hasPointerCapture(e.pointerId)) this.canvas.releasePointerCapture(e.pointerId);
       this.gizmo.up(cancelled);
+      return;
+    }
+    const view = this.viewDrag;
+    if (view) {
+      if (e.pointerId !== view.pointerId) return;
+      this.viewDrag = null;
+      this.canvas.style.cursor = "";
+      if (this.canvas.hasPointerCapture(e.pointerId)) this.canvas.releasePointerCapture(e.pointerId);
+      if (!view.moved && !cancelled && view.click !== undefined) this.select(view.click);
+      return;
+    }
+    const turn = this.turn;
+    if (turn) {
+      if (e.pointerId !== turn.pointerId) return;
+      this.turn = null;
+      this.canvas.style.cursor = "";
+      if (this.canvas.hasPointerCapture(e.pointerId)) this.canvas.releasePointerCapture(e.pointerId);
+      const node = this.ctx.view?.objectNode(turn.id);
+      if (!node) return;
+      const deg = Math.round(THREE.MathUtils.radToDeg(node.pivot.rotation.y - turn.startYaw) * 10) / 10;
+      node.pivot.rotation.y = turn.startYaw;
+      if (!cancelled && Math.abs(deg) >= 0.5) void this.deps.edit({ op: "rotate", object_id: turn.id, args: { yaw_deg: deg } });
       return;
     }
     const empty = this.emptyDown?.pointerId === e.pointerId ? this.emptyDown : null;
@@ -349,7 +512,7 @@ export class Editor {
     if (!req) return;
     e.preventDefault();
     e.stopPropagation();
-    if (e.repeat || this.drag || this.gizmo.dragging) return;
+    if (e.repeat || this.drag || this.turn || this.gizmo.dragging) return;
     void this.deps.edit(req);
   }
 }
