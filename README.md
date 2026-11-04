@@ -26,7 +26,7 @@ act on 3D scenes.
 | Image quality | 36.9 dB on held-out frames of the same walk | 28.4 dB, SSIM 0.94, LPIPS 0.14 on a separate test walk (90 views) |
 | Room size against Blender | about 5% too large | about 12% too large |
 
-## What's next
+## Known limits
 
 - **Real footage.** Both rooms are Blender renders, and real video is not supported yet. The
   instructions below are what the pipeline expects, not a promise that your video will work.
@@ -43,8 +43,8 @@ cd web && npm install && npm run dev       # http://localhost:5173/
 uv run python -m movable_reality.server    # optional: the agent behind typed and spoken commands
 ```
 
-`/` is the landing page: the two rooms, what they can do, the pipeline, the Meta models and what
-comes next. Clicking a room opens its room card, with the videos the pipeline was given and how the
+`/` is the landing page: the two rooms, what they can do, the pipeline, the Meta models and how
+to build on it. Clicking a room opens its room card, with the videos the pipeline was given and how the
 room was made, and from there **Open the room** starts the viewer. In the viewer:
 
 - **Desktop:** drag or middle drag to orbit, Shift+middle drag to pan, the wheel to move forward,

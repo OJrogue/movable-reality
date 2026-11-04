@@ -1,8 +1,8 @@
 // Landing page at / (entry.ts loads it when the URL names no scene). A showcase video behind
-// the hero, the demo rooms, what it does, how it is built and what comes next. Clicking a room
+// the hero, the demo rooms, what it does, how it is built and how to build on it. Clicking a room
 // opens its room card first: the videos the pipeline was given and how the room was made, then
 // a button into the viewer, so people see how little went in before they see what came out.
-// Copy: say what it does; state the limits once, in the "What's next" section.
+// Copy: say what it does, and that it is a working demo on synthetic rooms, once each.
 // The video is web/public/media/showcase.mp4 (gitignored like every .mp4: copy it next to the
 // build when hosting); without it the hero shows a still.
 import { DEMO_SCENES, type DemoScene, sceneAvailability, type SourceVideo, viewerUrl } from "./scenes";
@@ -31,13 +31,7 @@ const FEATURES: [string, string, string][] = [
   [I.mic, "Say what you want", "Type “move the sofa under the window”. A Muse Wonder agent edits the scene, then Muse Spark Open checks a screenshot and sends it back if the edit is wrong."],
   [I.sparkle, "It knows what it missed", "No walk sees everything. Coverage scoring marks the spots the camera barely saw, and SAM 3D Objects builds the side of each object it never saw."],
   [I.devices, "Opens in a browser", "Nothing to install. Mouse and keyboard on a laptop, touch on a phone. Each object has its own level of detail, so a weaker machine gets a lighter version of the same room."],
-  [I.ruler, "Measure in metres", "Alt+click two points to read the distance. See how much space a sofa takes, move it, and undo any edit you don’t like."],
-];
-
-const LIMITS: [string, string][] = [
-  ["Real footage", "Both rooms are Blender renders, with clean images and fixed lighting. Real video is not supported yet, and it is the next thing to solve."],
-  ["Image quality", "The result follows the input. What the walk saw well holds up, what it barely saw goes soft, and the floor under a moved object is repainted from its surroundings."],
-  ["Room size", "Scale comes from the ceiling height. Against the Blender models the bedroom is about 5% too large and the living room about 12%, so treat measurements as a guide."],
+  [I.ruler, "Measure", "Alt+click two points to read the distance. See how much space a sofa takes, move it, and undo any edit you don’t like."],
 ];
 
 interface Step {
@@ -64,7 +58,7 @@ const STEPS: Step[] = [
   },
   {
     title: "Hidden sides and thin spots",
-    text: "SAM 3D Objects rebuilds each object from its best view, including the side the camera never saw. A coverage map scores what the video barely saw. A repair path paints thin spots with Muse Image and tags what it painted; so far it has run on test scenes.",
+    text: "SAM 3D Objects rebuilds each object from its best view, including the side the camera never saw. A coverage map scores what the video barely saw. A repair path paints thin spots with Muse Image and tags what it painted. So far it has run on test scenes.",
     flow: ["*SAM 3D Objects", "coverage map", "*Muse Image"],
   },
   {
@@ -80,11 +74,11 @@ const STEPS: Step[] = [
 ];
 
 const MODELS: [string, string, string][] = [
-  ["Muse Wonder", "muse-wonder-1.0", "The agent that edits the scene; lists the objects in the video"],
+  ["Muse Wonder", "muse-wonder-1.0", "Lists the objects in the video and edits the scene"],
   ["SAM 3.1", "sam-3.1", "Finds and follows every object through the video"],
   ["MapAnything", "facebook/map-anything-apache", "Cameras and geometry from the frames"],
   ["SAM 3D Objects", "open weights", "Builds the hidden side of each object"],
-  ["Muse Image", "muse-image-1.0", "New furniture to insert; repairing thin spots"],
+  ["Muse Image", "muse-image-1.0", "New furniture to insert, and repairs to thin spots"],
   ["Muse Spark Open", "muse-spark-open-1026", "Looks at a screenshot after every edit"],
   ["Muse Voice Transcribe", "muse-voice-transcribe-1.0", "Voice commands"],
   ["Muse Spark", "muse-spark-1.3", "Short helper calls"],
@@ -104,10 +98,9 @@ const PAGE = `
       <a href="#what">What it does</a>
       <a href="#pipeline">Pipeline</a>
       <a href="#models">Models</a>
-      <a href="#next">What’s next</a>
       <a href="${REPO}" target="_blank" rel="noopener">GitHub</a>
     </nav>
-    <a class="lp-btn lp-btn-filled lp-btn-small" href="#try">Try a room</a>
+    <a class="lp-btn lp-btn-filled lp-btn-small" href="#try">Open the demo</a>
   </div>
 </header>
 
@@ -119,17 +112,16 @@ const PAGE = `
       <h1>Film a room. <em>Move the furniture.</em></h1>
       <p class="lp-lede">Movable Reality turns one walk through a room into a 3D scene where every
       piece of furniture is its own object. Drag the sofa across the room, or just ask for it. No depth
-      sensor, no floor plan, no hand labelling. Built in ten days, open source, and running today on two
-      rooms rendered in Blender.</p>
+      sensor, no floor plan, no hand labelling. Open source, and running today on two rooms rendered in
+      Blender.</p>
       <div class="lp-ctas">
-        <a class="lp-btn lp-btn-filled" href="#try">${I.play}Try a room</a>
-        <a class="lp-btn lp-btn-tonal" href="${REPO}" target="_blank" rel="noopener">Read the code</a>
+        <a class="lp-btn lp-btn-filled" href="#try">${I.play}Open the demo</a>
       </div>
       <div class="lp-stats">
-        <div><b>54 s</b>of video for the bedroom</div>
-        <div><b>39</b>movable objects in the living room</div>
         <div><b>8</b>Meta models</div>
-        <div><b>1 command</b>twelve stages</div>
+        <div><b>49</b>movable objects</div>
+        <div><b>0</b>hand labels</div>
+        <div><b>28 dB</b>on views it never saw</div>
       </div>
       <p class="lp-hero-note">Background: the input video.</p>
     </div>
@@ -138,11 +130,9 @@ const PAGE = `
 
   <section class="lp-section" id="try">
     <div class="lp-wrap">
-      <p class="lp-kicker">Try it</p>
-      <h2 class="lp-h2">Two rooms to try.</h2>
-      <p class="lp-sub">Both were rendered in Blender, so every result can be scored against the true
-      room. Pick one to see what the pipeline was given, then open what it made. The pictures here are
-      frames from the input video.</p>
+      <p class="lp-kicker">The demo</p>
+      <h2 class="lp-h2">Two rooms, ready to open.</h2>
+      <p class="lp-sub">See the video each room was built from, then open it and start moving the furniture.</p>
       <div class="lp-scenes" data-scenes></div>
     </div>
   </section>
@@ -151,7 +141,6 @@ const PAGE = `
     <div class="lp-wrap">
       <p class="lp-kicker">What it does</p>
       <h2 class="lp-h2">A room you can edit.</h2>
-      <p class="lp-sub">All of this runs end to end on both rooms.</p>
       <div class="lp-grid">
         ${FEATURES.map(([ic, h, p]) => `<article class="lp-card"><div class="lp-icon">${ic}</div><h3>${h}</h3><p>${p}</p></article>`).join("")}
       </div>
@@ -161,9 +150,9 @@ const PAGE = `
   <section class="lp-section" id="captures">
     <div class="lp-wrap">
       <p class="lp-kicker">The input</p>
-      <h2 class="lp-h2">This is all it got.</h2>
-      <p class="lp-sub">Each room was built from these videos, plus the camera’s focal length and the
-      ceiling height. No depth, no floor plan, no hand labels. Blender’s own depth and masks were only
+      <h2 class="lp-h2">Built from these videos.</h2>
+      <p class="lp-sub">The videos, the camera’s focal length and the ceiling height are the whole
+      input. No depth, no floor plan, no hand labels. Blender’s own depth and masks were only
       used afterwards, to score the result.</p>
       <div class="lp-captures" data-captures></div>
     </div>
@@ -174,7 +163,7 @@ const PAGE = `
       <p class="lp-kicker">How it is done</p>
       <h2 class="lp-h2">From video to movable room.</h2>
       <p class="lp-sub">One command runs all of it, picks up where it stopped and skips what is already
-      done. Highlighted steps call a Meta model; the rest is geometry and rendering code.</p>
+      done. Highlighted steps call a Meta model, and the rest is geometry and rendering code.</p>
       <ol class="lp-steps">
         ${STEPS.map((s) => `<li class="lp-step"><div class="lp-step-n"></div><div><h3>${s.title}</h3><p>${s.text}</p><div class="lp-flow">${flowHtml(s.flow)}</div></div></li>`).join("")}
       </ol>
@@ -185,7 +174,7 @@ const PAGE = `
     <div class="lp-wrap">
       <p class="lp-kicker">Meta models</p>
       <h2 class="lp-h2">Every model it calls at runtime is from Meta.</h2>
-      <p class="lp-sub">Hosted models run through the Meta Model API; open weights run on Modal and Baseten.
+      <p class="lp-sub">Hosted models run through the Meta Model API, and open weights run on Modal and Baseten.
       Rendering is open-source code with no learned weights: gsplat, Spark and three.js.</p>
       <div class="lp-models">
         ${MODELS.map(([n, id, job]) => `<div class="lp-model-card"><b>${n}</b><small>${id}</small><span>${job}</span></div>`).join("")}
@@ -193,22 +182,13 @@ const PAGE = `
     </div>
   </section>
 
-  <section class="lp-section" id="next">
-    <div class="lp-wrap">
-      <p class="lp-kicker">What’s next</p>
-      <h2 class="lp-h2">Where the work is now.</h2>
-      <div class="lp-limits">
-        ${LIMITS.map(([h, p]) => `<article class="lp-limit"><h3>${h}</h3><p>${p}</p></article>`).join("")}
-      </div>
-    </div>
-  </section>
-
   <section class="lp-section" id="build">
     <div class="lp-wrap">
       <p class="lp-kicker">Build on it</p>
-      <h2 class="lp-h2">Start from a pipeline that already runs.</h2>
-      <p class="lp-sub">If you work on object-level splats, room editing or agents that act on 3D scenes,
-      you don’t have to rebuild all of this first. It is MIT licensed. Each stage is a plain script
+      <h2 class="lp-h2">A working demo, and a good place to start.</h2>
+      <p class="lp-sub">It runs end to end on two synthetic rooms. If your research or project touches
+      object-level splats, room editing or agents that act on 3D scenes, you can start here instead of
+      rebuilding all of this. It is MIT licensed. Each stage is a plain script
       you can rerun alone or swap out. Objects come out as separate splat files with one JSON scene file,
       and the Blender rooms and scoring tools are included, so you can measure every change.</p>
       <a class="lp-btn lp-btn-tonal" href="${REPO}" target="_blank" rel="noopener">Source on GitHub</a>

@@ -8,10 +8,11 @@ must not appear in the submission as finished features.
 
 Do not claim it is finished or the best, and do not undersell it either. Lead with what it does:
 one walk of video in, a room with separately movable furniture out, on one command and eight Meta
-models. Show the input before the result and let that make the point. Say the limits once, plainly
-and without apologising: on the page that is the "What's next" section, in the video the closing
-beat. Do not repeat "rough", "not a product" or "not real footage" anywhere else. Plain words, no
-superlatives. Team name: **Larracat**.
+models. Show the input before the result and let that make the point. Say once, without
+apologising, that it is a working demo on two synthetic rooms and a good place to start for research
+or a project: on the page that is the "Build on it" section, in the video the closing beat. Do not
+repeat "rough" or "not a product" anywhere else. No claim about what is being worked on next. Plain
+words, no superlatives. Team name: **Larracat**.
 
 Who it is for: researchers and developers working on object-level splats, room editing or
 agents that act on 3D scenes, who can start from a pipeline that already runs.
@@ -30,12 +31,12 @@ what to do, and a second model checks the result in a screenshot. It runs on eig
 and takes one command, end to end. The two demo rooms were rendered in Blender and built from
 54 s and 132 s of video, with no depth, floor plan or hand labels. The code is open: separate
 object splats, one JSON scene file, and Blender rooms with ground truth to measure your changes
-against. Next up is real footage, which is not supported yet.
+against. It is a working demo on synthetic rooms and a good place to start for research or a
+project.
 
 ## X post
 
-One walk of video in, a room with movable furniture out. Ten days, eight Meta models, one
-command, open source. Try the two demo rooms and move things around. [link]
+One walk of video in, a room with movable furniture out. Eight Meta models, one command, open source. Try the two demo rooms and move things around. [link]
 
 ## Longer-term idea (not today's pitch)
 
@@ -186,7 +187,7 @@ with no speed-ups. Every number below is from the pipeline's own output for thes
 | Time | On screen | Voice |
 |---|---|---|
 | 0:00 | Landing page, then cut to the bed being dragged in the viewer | "This is Movable Reality. One video of a room goes in. A 3D room comes out, and you can move the furniture." |
-| 0:12 | Landing page, "Two rooms to try" | "I built it in ten days, on eight Meta models. Both rooms you will see were rendered in Blender, so every result can be scored against the true room." |
+| 0:12 | Landing page, "Two rooms, ready to open" | "It runs on eight Meta models. Both rooms you will see were rendered in Blender, so every result can be scored against the true room." |
 | 0:27 | Click Bedroom. The room card opens, with the video playing | "Here is everything the pipeline got for this bedroom. A 54 second walk, the camera's focal length and the ceiling height. That is it. No depth, no floor plan, nobody labelling objects." |
 | 0:47 | Click Open the room. Orbit slowly | "About an hour later, this comes out. A room you can walk around, made from nothing but that video." |
 | 1:02 | Drag empty space to orbit. Click the bed, drag it, right drag to turn it, Ctrl+Z | "And the bed is its own object. I can move it, turn it, and undo that. Every splat was sorted into the object it belongs to, using Muse Wonder to name things and SAM 3.1 to follow them through the video." |
@@ -194,7 +195,7 @@ with no speed-ups. Every number below is from the pipeline's own output for thes
 | 1:50 | Alt+click both ends of the bed. The label shows about 2.2 m | "It works in metres. The bed measures about 2.2 metres with its frame." |
 | 2:05 | Switch to Living room. Show the card's two clips, then the room. Press G to show the thin spots | "The living room is bigger: two clips, 132 seconds, 39 objects. On views it never trained on, it scores 28 dB. These markers are the spots the video barely saw. The pipeline knows what it missed." |
 | 2:25 | Landing page, pipeline section, then the models section | "One command runs twelve stages. MapAnything and COLMAP find the cameras, gsplat trains the splats, SAM 3D Objects guesses the hidden sides. Eight Meta models in total, and every model called at runtime is Meta's." |
-| 2:42 | Landing page, "What's next", then "Build on it" | "What comes next: real footage, sharper results, and room sizes, which are five to twelve percent off today. It is MIT licensed, each stage is a plain script you can swap, and the Blender rooms are included so you can measure your change." |
+| 2:42 | Landing page, "Build on it" | "This is a working demo on two synthetic rooms, and a good place to start for research or a project. It is MIT licensed, each stage is a plain script you can swap, and the Blender rooms are included so you can measure your change." |
 | 2:56 | Landing page with the link on screen | "Movable Reality, by team Larracat. Try it at the link." |
 
 Before recording: start from a fresh room (`publish_demo.py` undoes test edits), and close the
@@ -205,7 +206,7 @@ help card if it covers the bed.
 - Researchers working on splats, scene understanding and 3D editing. The repo, the numbers and
   the Blender rooms matter here.
 - Developers building agents that act on 3D scenes. The scene file and the agent's tools matter.
-- Hackathon judges and the X audience: the short video, and "this is all it got" next to the result.
+- Hackathon judges and the X audience: the short video, with the input shown next to the result.
 
 ## Claims to avoid until measured
 

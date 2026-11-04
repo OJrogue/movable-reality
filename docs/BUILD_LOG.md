@@ -1792,3 +1792,11 @@ once, in a three-card "What's next" section near the end of the page (real foota
 room size), plus one line on gap repair in the pipeline step. The per-room "What to expect" block
 is gone from the room card. README, submission text, X post and video script follow the same rule.
 Next: OJ's go-ahead to push, publish both rooms and deploy.
+
+## 4 Nov, ui: landing copy, OJ's review
+
+Lane: ui, docs. Button back to "Open the demo", no "Read the code" button, new hero numbers (8 Meta
+models, 49 movable objects, 0 hand labels, 28 dB on views it never saw), new room section text, no
+semicolons in the copy, model tiles 4 x 2 so no tile is empty. The "What's next" section is gone:
+the closing section now says it is a working demo on two synthetic rooms and a good place to start.
+The README keeps its limits under "Known limits". Next: OJ's go-ahead to push, publish and deploy.

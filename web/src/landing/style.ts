@@ -107,12 +107,9 @@ html.lp #hud { display: none; }
 .lp-h2 { margin: 0 0 16px; font-size: clamp(32px, 4.4vw, 52px); line-height: 1.08; font-weight: 700; letter-spacing: -0.028em; max-width: 22ch; text-wrap: balance; }
 .lp-sub { margin: 0 0 48px; max-width: 64ch; color: var(--lp-on-surface-variant); font-size: 19px; text-wrap: pretty; }
 
-.lp-grid, .lp-limits { display: grid; gap: 16px; grid-template-columns: repeat(3, 1fr); }
-@media (max-width: 920px) { .lp-grid, .lp-limits { grid-template-columns: repeat(2, 1fr); } }
-@media (max-width: 560px) { .lp-grid, .lp-limits { grid-template-columns: 1fr; } }
-.lp-limit { padding: 24px; border-radius: 20px; border: 1px solid rgba(255, 255, 255, 0.1); }
-.lp-limit h3 { margin: 0 0 8px; font-size: 18px; font-weight: 650; letter-spacing: -0.012em; }
-.lp-limit p { margin: 0; color: var(--lp-on-surface-variant); font-size: 15px; }
+.lp-grid { display: grid; gap: 16px; grid-template-columns: repeat(3, 1fr); }
+@media (max-width: 920px) { .lp-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 560px) { .lp-grid { grid-template-columns: 1fr; } }
 .lp-card {
   padding: 28px; border-radius: 24px; background: var(--lp-surface-1);
   border: 1px solid rgba(255, 255, 255, 0.05);
@@ -151,7 +148,9 @@ html.lp #hud { display: none; }
 }
 
 /* ---- models */
-.lp-models { display: grid; gap: 1px; border-radius: 24px; overflow: hidden; background: rgba(255, 255, 255, 0.06); grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+.lp-models { display: grid; gap: 1px; border-radius: 24px; overflow: hidden; background: rgba(255, 255, 255, 0.06); grid-template-columns: repeat(4, 1fr); }
+@media (max-width: 1000px) { .lp-models { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 560px) { .lp-models { grid-template-columns: 1fr; } }
 .lp-model-card { padding: 22px 24px; background: var(--lp-surface-1); }
 .lp-model-card b { display: block; font-size: 17px; font-weight: 650; }
 .lp-model-card small { display: block; margin: 2px 0 8px; font: 12px/1.4 ui-monospace, "SF Mono", Consolas, monospace; color: var(--lp-primary); }
