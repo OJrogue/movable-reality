@@ -1,0 +1,170 @@
+{
+  "background_ply": "objects/background.ply",
+  "floor_frames": 152,
+  "outline_xz": [
+    [
+      -2.11,
+      -4.362
+    ],
+    [
+      2.114,
+      -4.268
+    ],
+    [
+      1.997,
+      0.981
+    ],
+    [
+      -2.227,
+      0.887
+    ]
+  ],
+  "wall_lengths_m": [
+    4.225,
+    5.251,
+    4.225,
+    5.251
+  ],
+  "height_m": 2.5,
+  "height_from": "typical; ceiling not seen, pass --height",
+  "frames": 152,
+  "texel_m": 0.006,
+  "surfaces": [
+    {
+      "glb": "room/shell_floor_0.glb",
+      "kind": "floor",
+      "size_m": [
+        4.341,
+        5.344
+      ],
+      "texture_px": [
+        724,
+        891
+      ],
+      "seen_share": 0.909,
+      "generated_share": 0.338,
+      "normal": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "bytes": 847348
+    },
+    {
+      "glb": "room/shell_ceiling_0.glb",
+      "kind": "ceiling",
+      "size_m": [
+        4.341,
+        5.344
+      ],
+      "texture_px": [
+        724,
+        891
+      ],
+      "seen_share": 0.0,
+      "generated_share": 0.0,
+      "normal": [
+        -0.0,
+        -1.0,
+        -0.0
+      ],
+      "bytes": 5456
+    },
+    {
+      "glb": "room/shell_wall_0.glb",
+      "kind": "wall",
+      "size_m": [
+        4.225,
+        2.5
+      ],
+      "texture_px": [
+        704,
+        417
+      ],
+      "seen_share": 0.591,
+      "generated_share": 0.559,
+      "normal": [
+        -0.0223,
+        0.0,
+        0.9998
+      ],
+      "bytes": 15504
+    },
+    {
+      "glb": "room/shell_wall_1.glb",
+      "kind": "wall",
+      "size_m": [
+        5.251,
+        2.5
+      ],
+      "texture_px": [
+        875,
+        417
+      ],
+      "seen_share": 0.675,
+      "generated_share": 0.463,
+      "normal": [
+        -0.9998,
+        0.0,
+        -0.0223
+      ],
+      "bytes": 19872
+    },
+    {
+      "glb": "room/shell_wall_2.glb",
+      "kind": "wall",
+      "size_m": [
+        4.225,
+        2.5
+      ],
+      "texture_px": [
+        704,
+        417
+      ],
+      "seen_share": 0.477,
+      "generated_share": 0.67,
+      "normal": [
+        0.0223,
+        0.0,
+        -0.9998
+      ],
+      "bytes": 14316
+    },
+    {
+      "glb": "room/shell_wall_3.glb",
+      "kind": "wall",
+      "size_m": [
+        5.251,
+        2.5
+      ],
+      "texture_px": [
+        875,
+        417
+      ],
+      "seen_share": 0.639,
+      "generated_share": 0.46,
+      "normal": [
+        0.9998,
+        0.0,
+        0.0223
+      ],
+      "bytes": 19736
+    }
+  ],
+  "seconds": 113.1,
+  "replaces_splats": true,
+  "surfaces_source_ply": "objects/background.ply",
+  "surfaces_gap_m": 0.06,
+  "surfaces_removed": 263357,
+  "surfaces_kept": 163,
+  "surfaces_reach_sigma": 2.0,
+  "surfaces_haze_removed": 3599,
+  "surfaces_floaters_removed": 324,
+  "surfaces_needles_removed": 8278,
+  "surfaces_in_objects_removed": 49848,
+  "surfaces_previous_background": {
+    "ply": "objects/background_baked.ply",
+    "lod": "lod/background_baked.rad"
+  },
+  "surfaces_ghosts_removed": 2480
+}

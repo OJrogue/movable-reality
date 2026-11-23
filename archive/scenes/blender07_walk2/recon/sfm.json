@@ -1,0 +1,34 @@
+{
+  "frames": 488,
+  "fixed_intrinsics": true,
+  "registered": 488,
+  "mean_reprojection_px": 0.6941823413703899,
+  "fit_to_mapanything": {
+    "shared": 488,
+    "trimmed": 0,
+    "scale": 0.31263066895717256,
+    "residual_rms": 0.4839836635750591,
+    "residual_max": 1.1931203884566006
+  },
+  "dropped": [],
+  "used": "sfm",
+  "K_full_res": [
+    [
+      1386.6420152530618,
+      0.0,
+      960.0
+    ],
+    [
+      0.0,
+      1386.6420152530618,
+      540.0
+    ],
+    [
+      0.0,
+      0.0,
+      1.0
+    ]
+  ],
+  "points": 87222,
+  "sfm_s": 650.3
+}

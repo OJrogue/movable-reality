@@ -1,0 +1,120 @@
+{
+  "frames": 172,
+  "folded": {
+    "chair#2": [
+      4,
+      5,
+      7,
+      8
+    ]
+  },
+  "objects": {
+    "bed#1": {
+      "gaussians_in": 7684,
+      "gaussians_out": 20477,
+      "frames": 37,
+      "steps": 4000,
+      "seconds": 15.4,
+      "from_background": 6509
+    },
+    "nightstand#0": {
+      "gaussians_in": 5751,
+      "gaussians_out": 4849,
+      "frames": 41,
+      "steps": 4000,
+      "seconds": 14.5,
+      "from_background": 424
+    },
+    "desk#0": {
+      "gaussians_in": 49743,
+      "gaussians_out": 41797,
+      "frames": 57,
+      "steps": 4000,
+      "seconds": 18.4,
+      "from_background": 1433
+    },
+    "chair#2": {
+      "gaussians_in": 29297,
+      "gaussians_out": 24590,
+      "frames": 78,
+      "steps": 4000,
+      "seconds": 16.9,
+      "from_background": 947
+    },
+    "floor lamp#0": {
+      "gaussians_in": 25284,
+      "gaussians_out": 16161,
+      "frames": 57,
+      "steps": 4000,
+      "seconds": 17.1,
+      "from_background": 6129
+    },
+    "potted plant#0": {
+      "gaussians_in": 51217,
+      "gaussians_out": 40312,
+      "frames": 67,
+      "steps": 4000,
+      "seconds": 17.9,
+      "from_background": 2947
+    },
+    "pillow#0": {
+      "gaussians_in": 16397,
+      "gaussians_out": 14774,
+      "frames": 59,
+      "steps": 4000,
+      "seconds": 15.8,
+      "from_background": 919
+    },
+    "pillow#2": {
+      "gaussians_in": 3596,
+      "gaussians_out": 3411,
+      "frames": 41,
+      "steps": 4000,
+      "seconds": 13.9,
+      "from_background": 663
+    },
+    "pillow#3": {
+      "gaussians_in": 22618,
+      "gaussians_out": 31129,
+      "frames": 32,
+      "steps": 4000,
+      "seconds": 16.2,
+      "from_background": 9872
+    }
+  },
+  "items_joined": {
+    "pillow#3": 184,
+    "pillow#0": 5,
+    "bed#1": 188,
+    "pillow#2": 211,
+    "floor lamp#0": 1482,
+    "nightstand#0": 195,
+    "chair#2": 8,
+    "potted plant#0": 731,
+    "desk#0": 315
+  },
+  "junk_removed": 24086,
+  "moved_from_background": {
+    "bed#1": 6509,
+    "nightstand#0": 424,
+    "desk#0": 1433,
+    "chair#2": 947,
+    "floor lamp#0": 6129,
+    "potted plant#0": 2947,
+    "pillow#0": 919,
+    "pillow#2": 663,
+    "pillow#3": 9872
+  },
+  "hidden_kept": 1307,
+  "in_front_removed": 3130,
+  "high_needles_removed": 44,
+  "background": {
+    "gaussians_in": 666551,
+    "gaussians_out": 558057,
+    "frames": 172,
+    "steps": 8000,
+    "seconds": 112.5,
+    "fill_seconds": 30.8
+  },
+  "merged": {}
+}

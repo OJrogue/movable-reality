@@ -1,0 +1,127 @@
+{
+  "frames": 450,
+  "folded": {
+    "chafing dish#0": [
+      98
+    ]
+  },
+  "objects": {
+    "table#1": {
+      "gaussians_in": 4130,
+      "gaussians_out": 4221,
+      "frames": 30,
+      "steps": 4000,
+      "seconds": 13.8,
+      "from_background": 1276
+    },
+    "table#5": {
+      "gaussians_in": 1887,
+      "gaussians_out": 2494,
+      "frames": 26,
+      "steps": 4000,
+      "seconds": 13.3,
+      "from_background": 1157
+    },
+    "table#6": {
+      "gaussians_in": 5139,
+      "gaussians_out": 6292,
+      "frames": 30,
+      "steps": 4000,
+      "seconds": 13.6,
+      "from_background": 1352
+    },
+    "table#8": {
+      "gaussians_in": 572,
+      "gaussians_out": 2096,
+      "frames": 44,
+      "steps": 4000,
+      "seconds": 12.6,
+      "from_background": 154
+    },
+    "wooden chair#9": {
+      "gaussians_in": 7141,
+      "gaussians_out": 5112,
+      "frames": 43,
+      "steps": 4000,
+      "seconds": 13.9,
+      "from_background": 2815
+    },
+    "wooden chair#11": {
+      "gaussians_in": 6231,
+      "gaussians_out": 4498,
+      "frames": 46,
+      "steps": 4000,
+      "seconds": 13.8,
+      "from_background": 1647
+    },
+    "wooden chair#12": {
+      "gaussians_in": 1558,
+      "gaussians_out": 1952,
+      "frames": 44,
+      "steps": 4000,
+      "seconds": 13.1,
+      "from_background": 783
+    },
+    "potted plant#0": {
+      "gaussians_in": 8747,
+      "gaussians_out": 8503,
+      "frames": 81,
+      "steps": 4000,
+      "seconds": 13.6,
+      "from_background": 4798
+    },
+    "potted plant#6": {
+      "gaussians_in": 15485,
+      "gaussians_out": 13220,
+      "frames": 89,
+      "steps": 4000,
+      "seconds": 14.1,
+      "from_background": 5912
+    },
+    "chafing dish#0": {
+      "gaussians_in": 7388,
+      "gaussians_out": 5814,
+      "frames": 192,
+      "steps": 4000,
+      "seconds": 14.5,
+      "from_background": 2988
+    }
+  },
+  "items_joined": {
+    "table#8": 108,
+    "wooden chair#12": 43,
+    "table#5": 435,
+    "table#1": 573,
+    "chafing dish#0": 193,
+    "wooden chair#11": 1158,
+    "wooden chair#9": 1856,
+    "potted plant#0": 305,
+    "table#6": 82,
+    "potted plant#6": 780
+  },
+  "junk_removed": 12349,
+  "moved_from_background": {
+    "table#1": 1276,
+    "table#5": 1157,
+    "table#6": 1352,
+    "table#8": 154,
+    "wooden chair#9": 2815,
+    "wooden chair#11": 1647,
+    "wooden chair#12": 783,
+    "potted plant#0": 4798,
+    "potted plant#6": 5912,
+    "chafing dish#0": 2988
+  },
+  "hidden_kept": 0,
+  "in_front_removed": 270256,
+  "high_needles_removed": 13013,
+  "background": {
+    "gaussians_in": 1020387,
+    "gaussians_out": 969790,
+    "frames": 450,
+    "steps": 8000,
+    "seconds": 155.5,
+    "fill_seconds": 36.8
+  },
+  "merged": {}
+}

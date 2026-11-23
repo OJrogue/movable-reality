@@ -1,0 +1,125 @@
+{
+  "scene": "blender06",
+  "stages": {
+    "frames": {
+      "state": "done",
+      "started": "23:24:14",
+      "log": "logs/frames.log",
+      "cmd": "uv run python scripts/extract_frames.py data/raw/blender06.mp4 --scene blender06 --focal35 25.0 --force",
+      "seconds": 25.7,
+      "last_line": "intrinsics.json: fx = fy = 1386.6 px (25.0 mm equivalent)"
+    },
+    "inventory": {
+      "state": "done",
+      "started": "23:24:40",
+      "log": "logs/inventory.log",
+      "cmd": "uv run python scripts/inventory.py --scene blender06 --force",
+      "seconds": 72.6,
+      "last_line": "wrote D:\\Projects\\MetaHackathon\\movable-reality\\data\\scenes\\blender06\\inventory.json: 26 nouns"
+    },
+    "sam": {
+      "state": "done",
+      "started": "23:26:01",
+      "log": "logs/sam.log",
+      "cmd": "uv run python scripts/lift_ids.py --scene blender06 --sam-only",
+      "seconds": 1910.4,
+      "last_line": "SAM cache filled for 26 nouns"
+    },
+    "reconstruct": {
+      "state": "done",
+      "started": "23:26:01",
+      "log": "logs/reconstruct.log",
+      "cmd": "uv run modal run modal_jobs/reconstruct.py --scene blender06 --preset quality",
+      "seconds": 1203.9,
+      "last_line": "https://modal.com/apps/ojytcanal/main/ap-cTz9N7c9ZpnxxKTmSf0aNd"
+    },
+    "lift": {
+      "state": "done",
+      "started": "00:17:19",
+      "log": "logs/lift.log",
+      "cmd": "uv run python scripts/lift_ids.py --scene blender06 --ceiling-height 2.6 --join framed picture#1=framed picture#3,framed picture#2=framed picture#0,framed picture#5=framed picture#0,framed picture#4=shelf#0,laptop#0=desk#2,laptop#1=desk#2,desk lamp#0=desk#2,potted plant#1=desk#2,pillow#0=bed#1 --force",
+      "seconds": 228.4,
+      "last_line": "wrote 14 objects to D:\\Projects\\MetaHackathon\\movable-reality\\data\\scenes\\blender06\\scene.json"
+    },
+    "objects": {
+      "state": "done",
+      "started": "00:21:07",
+      "log": "logs/objects.log",
+      "cmd": "uv run modal run modal_jobs/reconstruct.py --scene blender06 --objects",
+      "seconds": 1028.0,
+      "last_line": "https://modal.com/apps/ojytcanal/main/ap-kkkyefWTPksX8K9PXyJ9VD"
+    },
+    "complete": {
+      "state": "done",
+      "started": "00:38:15",
+      "log": "logs/complete.log",
+      "cmd": "uv run python scripts/complete_objects.py --scene blender06 --mesh --force",
+      "seconds": 511.0,
+      "last_line": "framed picture#3         frame 192 (190189 px) -> objects/obj_framed_picture_3_completed.ply, 26944 splats, ICP RMS 0.921 -> 0.015 m, 34 s"
+    },
+    "shell": {
+      "state": "done",
+      "started": "00:46:46",
+      "log": "logs/shell.log",
+      "cmd": "uv run python scripts/room_shell.py --scene blender06 --height 2.6 --force",
+      "seconds": 356.2,
+      "last_line": "6 surfaces -> scene.json room_planes, 356 s"
+    },
+    "bake": {
+      "state": "stale",
+      "started": "17:36:19",
+      "log": "logs/bake.log",
+      "cmd": "uv run python scripts/bake_planes.py --scene blender06 --labels floor --force",
+      "seconds": 140.3,
+      "last_line": "blender06: baked 1 planes, removed 17860 splats -> objects/background_baked.ply"
+    },
+    "surfaces": {
+      "state": "done",
+      "started": "17:38:39",
+      "log": "logs/surfaces.log",
+      "cmd": "uv run python scripts/room_surfaces.py --scene blender06",
+      "seconds": 46.2,
+      "last_line": "not a box room: 68295 of 596122 background splats off the shell (over --max-kept 0.1); background left at objects/background_baked.ply (--force applies it)"
+    },
+    "lod": {
+      "state": "done",
+      "started": "00:57:05",
+      "log": "logs/lod.log",
+      "cmd": "uv run python scripts/build_lod.py blender06 --force",
+      "seconds": 52.9,
+      "last_line": "blender06: 29/29 meshes have LOD trees (29 built now)"
+    },
+    "coverage": {
+      "state": "done",
+      "started": "00:57:57",
+      "log": "logs/coverage.log",
+      "cmd": "uv run python scripts/score_coverage.py --scene blender06 --force",
+      "seconds": 210.8,
+      "last_line": "}"
+    },
+    "clean": {
+      "state": "done",
+      "started": "00:52:42",
+      "log": "logs/clean.log",
+      "cmd": "uv run python scripts/clean_background.py --scene blender06",
+      "seconds": 262.2,
+      "last_line": "{'floor': 2313, 'walls': 1558, 'wall_joined': 8678, 'junk': 2893, 'joined': 25860, 'behind_removed': 2573, 'new': 9173, 'wall_tinted': 39057}"
+    }
+  },
+  "order": [
+    "frames",
+    "inventory",
+    "sam",
+    "reconstruct",
+    "lift",
+    "objects",
+    "complete",
+    "shell",
+    "bake",
+    "surfaces",
+    "clean",
+    "lod",
+    "coverage"
+  ],
+  "updated": "2026-11-05T01:01:28"
+}

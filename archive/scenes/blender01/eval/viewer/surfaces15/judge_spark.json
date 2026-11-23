@@ -1,0 +1,196 @@
+{
+ "scene": "blender01",
+ "run": "surfaces15",
+ "model": "muse-spark-1.3",
+ "summary": {
+  "frames": 30,
+  "unparsed": 0,
+  "frames_with_artifacts": 4,
+  "artifacts": 4,
+  "severity_sum": 8,
+  "by_surface": {
+   "wall": 1,
+   "floor": 3,
+   "ceiling": 0
+  },
+  "by_kind": {
+   "blotch": 1,
+   "blur or smear": 1,
+   "floater or haze": 2
+  }
+ },
+ "frames": {
+  "000000": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000020": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000040": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000060": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000080": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000100": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000120": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000140": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000160": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000180": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000200": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000220": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000240": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000260": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000280": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000300": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000320": {
+   "artifacts": [
+    {
+     "kind": "blur or smear",
+     "surface": "floor",
+     "severity": 2,
+     "box": [
+      0.21,
+      0.59,
+      0.74,
+      0.71
+     ],
+     "note": "cabinet base smeared onto floor"
+    }
+   ],
+   "raw": null
+  },
+  "000340": {
+   "artifacts": [
+    {
+     "kind": "floater or haze",
+     "surface": "floor",
+     "severity": 2,
+     "box": [
+      0.31,
+      0.465,
+      0.91,
+      0.535
+     ],
+     "note": "cabinet base bleeds onto floor"
+    }
+   ],
+   "raw": null
+  },
+  "000360": {
+   "artifacts": [
+    {
+     "kind": "floater or haze",
+     "surface": "floor",
+     "severity": 2,
+     "box": [
+      0.53,
+      0.25,
+      0.99,
+      0.43
+     ],
+     "note": "gray haze over wood"
+    }
+   ],
+   "raw": null
+  },
+  "000380": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000400": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000420": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000440": {
+   "artifacts": [
+    {
+     "kind": "blotch",
+     "surface": "wall",
+     "severity": 2,
+     "box": [
+      0.11,
+      0.35,
+      0.2,
+      0.45
+     ],
+     "note": "yellowish patch behind side table"
+    }
+   ],
+   "raw": null
+  },
+  "000460": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000480": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000500": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000520": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000540": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000560": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000580": {
+   "artifacts": [],
+   "raw": null
+  }
+ }
+}

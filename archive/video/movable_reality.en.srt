@@ -1,0 +1,175 @@
+1
+00:00:00,300 --> 00:00:01,872
+Movable Reality.
+
+2
+00:00:01,950 --> 00:00:05,038
+Record your room and get a customizable 3D
+room.
+
+3
+00:00:05,500 --> 00:00:09,468
+All it needs is a video walkthrough from
+the room and the ceiling height.
+
+4
+00:00:09,500 --> 00:00:12,352
+No depth sensor, no floor plan,
+
+5
+00:00:12,400 --> 00:00:14,320
+no manual labelling.
+
+6
+00:00:14,550 --> 00:00:17,431
+Muse Wonder watches the video and lists
+the objects.
+
+7
+00:00:17,500 --> 00:00:20,356
+SAM 3.1 tracks each one.
+
+8
+00:00:20,400 --> 00:00:22,247
+MapAnything finds the cameras,
+
+9
+00:00:22,247 --> 00:00:24,798
+and Gaussian splatting builds the room.
+
+10
+00:00:24,900 --> 00:00:28,050
+One command takes it from video to
+finished room.
+
+11
+00:00:28,150 --> 00:00:31,403
+Every object comes out as its own set of
+Gaussian splats.
+
+12
+00:00:32,000 --> 00:00:32,913
+Select any,
+
+13
+00:00:33,150 --> 00:00:34,718
+move it along an axis,
+
+14
+00:00:34,750 --> 00:00:35,650
+or turn it.
+
+15
+00:00:36,700 --> 00:00:37,600
+Measure it.
+
+16
+00:00:38,500 --> 00:00:40,639
+Add furniture from a library.
+
+17
+00:00:40,900 --> 00:00:42,319
+Or just say what you want.
+
+18
+00:00:43,000 --> 00:00:45,318
+Ask it to move the sofa half of a metre,
+
+19
+00:00:45,318 --> 00:00:47,497
+and it moves it thirty centimetres,
+
+20
+00:00:47,500 --> 00:00:49,599
+because the side table is in the way.
+
+21
+00:00:50,720 --> 00:00:52,392
+It answers questions too.
+
+22
+00:00:52,420 --> 00:00:55,570
+Will the armchair fit between the sofa and
+the bookshelf?
+
+23
+00:00:55,570 --> 00:00:55,737
+No.
+
+24
+00:00:55,737 --> 00:00:58,621
+The gap is one metre two, and the chair is
+wider.
+
+25
+00:00:59,340 --> 00:01:02,240
+Ask for a plant, and it picks one and
+places it.
+
+26
+00:01:02,240 --> 00:01:03,200
+After every edit,
+
+27
+00:01:03,200 --> 00:01:06,513
+Muse Spark Open looks at the room and
+checks the result.
+
+28
+00:01:06,740 --> 00:01:08,095
+No walk sees everything.
+
+29
+00:01:08,095 --> 00:01:11,690
+The pipeline scores what the video covered
+and marks the spots
+
+30
+00:01:11,690 --> 00:01:12,840
+it barely saw.
+
+31
+00:01:12,840 --> 00:01:14,740
+The detail you get follows
+
+32
+00:01:14,740 --> 00:01:15,934
+the data you give it.
+
+33
+00:01:16,170 --> 00:01:17,570
+This is a working demo,
+
+34
+00:01:17,570 --> 00:01:19,470
+on two rooms rendered in Blender.
+
+35
+00:01:19,470 --> 00:01:22,666
+It can be a good starting point for a
+project or research.
+
+36
+00:01:22,820 --> 00:01:24,720
+Runs on eight Meta models.
+
+37
+00:01:24,720 --> 00:01:26,520
+It's MIT licensed,
+
+38
+00:01:26,520 --> 00:01:29,620
+each stage is a plain script you can swap,
+
+39
+00:01:29,620 --> 00:01:32,590
+and the test rooms and scoring tools come
+with it,
+
+40
+00:01:32,590 --> 00:01:34,350
+so you can measure your changes.
+
+41
+00:01:34,670 --> 00:01:36,468
+Try the demo at the link below.

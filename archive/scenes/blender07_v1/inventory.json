@@ -1,0 +1,160 @@
+{
+  "model": "muse-wonder-1.0",
+  "objects": [
+    {
+      "noun": "sofa",
+      "count": 1,
+      "on": null
+    },
+    {
+      "noun": "armchair",
+      "count": 1,
+      "on": null
+    },
+    {
+      "noun": "coffee table",
+      "count": 1,
+      "on": null
+    },
+    {
+      "noun": "ottoman",
+      "count": 1,
+      "on": null
+    },
+    {
+      "noun": "tv stand",
+      "count": 1,
+      "on": null
+    },
+    {
+      "noun": "bookshelf",
+      "count": 1,
+      "on": null
+    },
+    {
+      "noun": "side table",
+      "count": 1,
+      "on": null
+    },
+    {
+      "noun": "floor lamp",
+      "count": 1,
+      "on": null
+    },
+    {
+      "noun": "television",
+      "count": 1,
+      "on": null
+    },
+    {
+      "noun": "potted plant",
+      "count": 2,
+      "on": null
+    },
+    {
+      "noun": "vase",
+      "count": 1,
+      "on": null
+    },
+    {
+      "noun": "soundbar",
+      "count": 1,
+      "on": "tv stand"
+    },
+    {
+      "noun": "speaker",
+      "count": 1,
+      "on": "tv stand"
+    },
+    {
+      "noun": "book",
+      "count": 3,
+      "on": "coffee table"
+    },
+    {
+      "noun": "mug",
+      "count": 1,
+      "on": "coffee table"
+    },
+    {
+      "noun": "tray",
+      "count": 1,
+      "on": "coffee table"
+    },
+    {
+      "noun": "candle",
+      "count": 1,
+      "on": "coffee table"
+    },
+    {
+      "noun": "remote control",
+      "count": 1,
+      "on": "coffee table"
+    },
+    {
+      "noun": "bowl",
+      "count": 1,
+      "on": "coffee table"
+    },
+    {
+      "noun": "pillow",
+      "count": 3,
+      "on": "sofa"
+    },
+    {
+      "noun": "blanket",
+      "count": 1,
+      "on": "sofa"
+    },
+    {
+      "noun": "table lamp",
+      "count": 1,
+      "on": "side table"
+    },
+    {
+      "noun": "statue",
+      "count": 1,
+      "on": "bookshelf"
+    },
+    {
+      "noun": "basket",
+      "count": 1,
+      "on": "bookshelf"
+    },
+    {
+      "noun": "picture frame",
+      "count": 1,
+      "on": "bookshelf"
+    }
+  ],
+  "nouns": [
+    "sofa",
+    "armchair",
+    "coffee table",
+    "ottoman",
+    "tv stand",
+    "bookshelf",
+    "side table",
+    "floor lamp",
+    "television",
+    "potted plant",
+    "vase",
+    "soundbar",
+    "speaker",
+    "book",
+    "mug",
+    "tray",
+    "candle",
+    "remote control",
+    "bowl",
+    "pillow",
+    "blanket",
+    "table lamp",
+    "statue",
+    "basket",
+    "picture frame",
+    "floor",
+    "wall",
+    "ceiling"
+  ]
+}

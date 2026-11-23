@@ -1,0 +1,373 @@
+{
+  "frames": 465,
+  "folded": {
+    "armchair#1": [
+      1
+    ],
+    "bookshelf#1": [
+      3,
+      5
+    ],
+    "coffee table#0": [
+      11
+    ],
+    "soundbar#1": [
+      19,
+      21
+    ],
+    "statue#1": [
+      77
+    ]
+  },
+  "objects": {
+    "armchair#1": {
+      "gaussians_in": 130655,
+      "gaussians_out": 107843,
+      "frames": 98,
+      "steps": 4000,
+      "seconds": 20.6,
+      "from_background": 15561
+    },
+    "bookshelf#1": {
+      "gaussians_in": 311499,
+      "gaussians_out": 224360,
+      "frames": 47,
+      "steps": 4000,
+      "seconds": 26.9,
+      "from_background": 194826
+    },
+    "sofa#0": {
+      "gaussians_in": 77282,
+      "gaussians_out": 66356,
+      "frames": 159,
+      "steps": 4000,
+      "seconds": 20.6,
+      "from_background": 10454
+    },
+    "coffee table#0": {
+      "gaussians_in": 87649,
+      "gaussians_out": 61986,
+      "frames": 76,
+      "steps": 4000,
+      "seconds": 19.4,
+      "from_background": 15249
+    },
+    "side table#0": {
+      "gaussians_in": 41285,
+      "gaussians_out": 33605,
+      "frames": 118,
+      "steps": 4000,
+      "seconds": 18.2,
+      "from_background": 3641
+    },
+    "tv stand#0": {
+      "gaussians_in": 434793,
+      "gaussians_out": 204766,
+      "frames": 60,
+      "steps": 4000,
+      "seconds": 31.6,
+      "from_background": 22440
+    },
+    "ottoman#0": {
+      "gaussians_in": 14227,
+      "gaussians_out": 11550,
+      "frames": 19,
+      "steps": 4000,
+      "seconds": 17.9,
+      "from_background": 5414
+    },
+    "ottoman#1": {
+      "gaussians_in": 1691,
+      "gaussians_out": 7048,
+      "frames": 14,
+      "steps": 4000,
+      "seconds": 17.4,
+      "from_background": 1131
+    },
+    "table lamp#0": {
+      "gaussians_in": 21282,
+      "gaussians_out": 18190,
+      "frames": 128,
+      "steps": 4000,
+      "seconds": 17.9,
+      "from_background": 802
+    },
+    "soundbar#1": {
+      "gaussians_in": 86394,
+      "gaussians_out": 75196,
+      "frames": 129,
+      "steps": 4000,
+      "seconds": 20.8,
+      "from_background": 21024
+    },
+    "potted plant#0": {
+      "gaussians_in": 8250,
+      "gaussians_out": 6333,
+      "frames": 35,
+      "steps": 4000,
+      "seconds": 17.2,
+      "from_background": 5347
+    },
+    "potted plant#1": {
+      "gaussians_in": 50477,
+      "gaussians_out": 33618,
+      "frames": 9,
+      "steps": 4000,
+      "seconds": 17.9,
+      "from_background": 44870
+    },
+    "potted plant#2": {
+      "gaussians_in": 97145,
+      "gaussians_out": 70319,
+      "frames": 34,
+      "steps": 4000,
+      "seconds": 19.3,
+      "from_background": 33157
+    },
+    "potted plant#6": {
+      "gaussians_in": 32547,
+      "gaussians_out": 21928,
+      "frames": 20,
+      "steps": 4000,
+      "seconds": 18.4,
+      "from_background": 10104
+    },
+    "potted plant#7": {
+      "gaussians_in": 108874,
+      "gaussians_out": 82586,
+      "frames": 61,
+      "steps": 4000,
+      "seconds": 19.4,
+      "from_background": 26645
+    },
+    "potted plant#8": {
+      "gaussians_in": 880,
+      "gaussians_out": 990,
+      "frames": 12,
+      "steps": 4000,
+      "seconds": 16.9,
+      "from_background": 75
+    },
+    "vase#8": {
+      "gaussians_in": 6500,
+      "gaussians_out": 5780,
+      "frames": 13,
+      "steps": 4000,
+      "seconds": 17.0,
+      "from_background": 882
+    },
+    "vase#9": {
+      "gaussians_in": 14065,
+      "gaussians_out": 9980,
+      "frames": 36,
+      "steps": 4000,
+      "seconds": 17.4,
+      "from_background": 1540
+    },
+    "book#5": {
+      "gaussians_in": 6917,
+      "gaussians_out": 4654,
+      "frames": 40,
+      "steps": 4000,
+      "seconds": 17.2,
+      "from_background": 6355
+    },
+    "book#10": {
+      "gaussians_in": 23236,
+      "gaussians_out": 15945,
+      "frames": 57,
+      "steps": 4000,
+      "seconds": 17.6,
+      "from_background": 9604
+    },
+    "book#12": {
+      "gaussians_in": 4309,
+      "gaussians_out": 2905,
+      "frames": 63,
+      "steps": 4000,
+      "seconds": 17.1,
+      "from_background": 3900
+    },
+    "picture frame#1": {
+      "gaussians_in": 73496,
+      "gaussians_out": 56776,
+      "frames": 47,
+      "steps": 4000,
+      "seconds": 19.4,
+      "from_background": 1263
+    },
+    "picture frame#2": {
+      "gaussians_in": 67468,
+      "gaussians_out": 52849,
+      "frames": 35,
+      "steps": 4000,
+      "seconds": 20.5,
+      "from_background": 7973
+    },
+    "picture frame#7": {
+      "gaussians_in": 37932,
+      "gaussians_out": 31292,
+      "frames": 40,
+      "steps": 4000,
+      "seconds": 17.7,
+      "from_background": 2955
+    },
+    "picture frame#10": {
+      "gaussians_in": 147043,
+      "gaussians_out": 111568,
+      "frames": 30,
+      "steps": 4000,
+      "seconds": 20.3,
+      "from_background": 49854
+    },
+    "statue#1": {
+      "gaussians_in": 31821,
+      "gaussians_out": 20716,
+      "frames": 63,
+      "steps": 4000,
+      "seconds": 17.8,
+      "from_background": 11361
+    },
+    "basket#1": {
+      "gaussians_in": 44238,
+      "gaussians_out": 33909,
+      "frames": 52,
+      "steps": 4000,
+      "seconds": 18.2,
+      "from_background": 20813
+    },
+    "basket#2": {
+      "gaussians_in": 8479,
+      "gaussians_out": 6684,
+      "frames": 48,
+      "steps": 4000,
+      "seconds": 17.3,
+      "from_background": 1761
+    },
+    "pillow#1": {
+      "gaussians_in": 3886,
+      "gaussians_out": 3676,
+      "frames": 35,
+      "steps": 4000,
+      "seconds": 17.2,
+      "from_background": 190
+    },
+    "pillow#2": {
+      "gaussians_in": 6344,
+      "gaussians_out": 5986,
+      "frames": 36,
+      "steps": 4000,
+      "seconds": 17.3,
+      "from_background": 321
+    },
+    "pillow#3": {
+      "gaussians_in": 5399,
+      "gaussians_out": 4774,
+      "frames": 39,
+      "steps": 4000,
+      "seconds": 17.0,
+      "from_background": 899
+    },
+    "pillow#4": {
+      "gaussians_in": 1936,
+      "gaussians_out": 3400,
+      "frames": 26,
+      "steps": 4000,
+      "seconds": 17.0,
+      "from_background": 890
+    }
+  },
+  "items_joined": {
+    "book#5": 4010,
+    "book#12": 1924,
+    "potted plant#8": 0,
+    "potted plant#0": 225,
+    "statue#1": 10584,
+    "vase#9": 535,
+    "vase#8": 290,
+    "pillow#4": 7,
+    "basket#1": 20319,
+    "book#10": 8726,
+    "basket#2": 1223,
+    "picture frame#1": 1111,
+    "pillow#1": 1,
+    "pillow#2": 0,
+    "picture frame#2": 6568,
+    "potted plant#1": 994,
+    "pillow#3": 623,
+    "picture frame#7": 1335,
+    "picture frame#10": 2997,
+    "ottoman#0": 148,
+    "table lamp#0": 184,
+    "potted plant#2": 3076,
+    "potted plant#6": 1016,
+    "ottoman#1": 111,
+    "side table#0": 1699,
+    "coffee table#0": 9940,
+    "potted plant#7": 5255,
+    "soundbar#1": 16674,
+    "tv stand#0": 1176,
+    "armchair#1": 171,
+    "bookshelf#1": 139787,
+    "sofa#0": 6710
+  },
+  "junk_removed": 124563,
+  "moved_from_background": {
+    "armchair#1": 15561,
+    "bookshelf#1": 194826,
+    "sofa#0": 10454,
+    "coffee table#0": 15249,
+    "side table#0": 3641,
+    "tv stand#0": 22440,
+    "ottoman#0": 5414,
+    "ottoman#1": 1131,
+    "table lamp#0": 802,
+    "soundbar#1": 21024,
+    "potted plant#0": 5347,
+    "potted plant#1": 44870,
+    "potted plant#2": 33157,
+    "potted plant#6": 10104,
+    "potted plant#7": 26645,
+    "potted plant#8": 75,
+    "vase#8": 882,
+    "vase#9": 1540,
+    "book#5": 6355,
+    "book#10": 9604,
+    "book#12": 3900,
+    "picture frame#1": 1263,
+    "picture frame#2": 7973,
+    "picture frame#7": 2955,
+    "picture frame#10": 49854,
+    "statue#1": 11361,
+    "basket#1": 20813,
+    "basket#2": 1761,
+    "pillow#1": 190,
+    "pillow#2": 321,
+    "pillow#3": 899,
+    "pillow#4": 890
+  },
+  "hidden_kept": 2112,
+  "in_front_removed": 54823,
+  "high_needles_removed": 844,
+  "background": {
+    "gaussians_in": 1290737,
+    "gaussians_out": 1093358,
+    "frames": 465,
+    "steps": 8000,
+    "seconds": 159.9,
+    "fill_seconds": 59.9
+  },
+  "merged": {
+    "basket#1": "bookshelf#1",
+    "statue#1": "bookshelf#1",
+    "book#10": "bookshelf#1",
+    "potted plant#0": "bookshelf#1",
+    "book#5": "bookshelf#1",
+    "vase#9": "tv stand#0",
+    "pillow#4": "armchair#1",
+    "potted plant#1": "potted plant#7",
+    "potted plant#6": "potted plant#2",
+    "pillow#2": "sofa#0",
+    "pillow#3": "sofa#0"
+  }
+}

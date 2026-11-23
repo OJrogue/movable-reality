@@ -1,0 +1,2424 @@
+{
+  "version": 1,
+  "scene_id": "blender01",
+  "units": "m",
+  "world_from_recon": [
+    [
+      2.0988201033408953,
+      0.08799869258302292,
+      0.03246524160743552,
+      0.0
+    ],
+    [
+      0.09369778365955694,
+      -1.9336848087397118,
+      -0.8160437327639984,
+      1.6187210154192124
+    ],
+    [
+      -0.004299668154337126,
+      0.8166779527756286,
+      -1.935681332838859,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+    ]
+  ],
+  "background_ply": "objects/background_room.ply",
+  "room_mesh": null,
+  "room_planes": [
+    "room/shell_floor_0.glb",
+    "room/shell_ceiling_0.glb",
+    "room/shell_wall_0.glb",
+    "room/shell_wall_1.glb",
+    "room/shell_wall_2.glb",
+    "room/shell_wall_3.glb"
+  ],
+  "background_lod": "lod/background_room.rad",
+  "objects": [
+    {
+      "id": "armchair#0",
+      "label": "armchair",
+      "ply": "objects/obj_armchair_0.ply",
+      "completed_ply": "objects/obj_armchair_0_completed.ply",
+      "lod": "lod/obj_armchair_0.rad",
+      "completed_lod": "lod/obj_armchair_0_completed.rad",
+      "mesh": "objects/obj_armchair_0_mesh.glb",
+      "bbox_min": [
+        -1.9134447303281592,
+        0.03673137144261969,
+        -2.5115083435289787
+      ],
+      "bbox_max": [
+        -1.1508080229581663,
+        1.094835863134089,
+        -1.6639660316412086
+      ],
+      "transform": {
+        "translation": [
+          0.052126376643162775,
+          0.0,
+          -0.06826281241490628
+        ],
+        "yaw_deg": 0.0,
+        "scale": 1.0
+      },
+      "visible": true,
+      "source": "scan",
+      "prompt": null
+    },
+    {
+      "id": "sofa#1",
+      "label": "sofa",
+      "ply": "objects/obj_sofa_1.ply",
+      "completed_ply": "objects/obj_sofa_1_completed.ply",
+      "lod": "lod/obj_sofa_1.rad",
+      "completed_lod": "lod/obj_sofa_1_completed.rad",
+      "mesh": "objects/obj_sofa_1_mesh.glb",
+      "bbox_min": [
+        -0.9094729857867424,
+        0.10118202407274536,
+        -4.169223381009658
+      ],
+      "bbox_max": [
+        0.8369906515939433,
+        0.7413679381979897,
+        -3.371693929926737
+      ],
+      "transform": {
+        "translation": [
+          -0.07775883290360043,
+          0.0,
+          0.48945865546819745
+        ],
+        "yaw_deg": 0.0,
+        "scale": 1.0
+      },
+      "visible": true,
+      "source": "scan",
+      "prompt": null
+    },
+    {
+      "id": "floor lamp#0",
+      "label": "floor lamp",
+      "ply": "objects/obj_floor_lamp_0.ply",
+      "completed_ply": "objects/obj_floor_lamp_0_completed.ply",
+      "lod": "lod/obj_floor_lamp_0.rad",
+      "completed_lod": "lod/obj_floor_lamp_0_completed.rad",
+      "mesh": "objects/obj_floor_lamp_0_mesh.glb",
+      "bbox_min": [
+        -1.7906601810421665,
+        -0.0034525307487256345,
+        -4.066322937412656
+      ],
+      "bbox_max": [
+        -1.3282255497334967,
+        1.7213576829223023,
+        -3.6297254393741567
+      ],
+      "transform": {
+        "translation": [
+          -0.01055713461216845,
+          0.0,
+          2.4930241883934063
+        ],
+        "yaw_deg": 0.0,
+        "scale": 1.0
+      },
+      "visible": true,
+      "source": "scan",
+      "prompt": null
+    },
+    {
+      "id": "coffee table#0",
+      "label": "coffee table",
+      "ply": "objects/obj_coffee_table_0.ply",
+      "completed_ply": "objects/obj_coffee_table_0_completed.ply",
+      "lod": "lod/obj_coffee_table_0.rad",
+      "completed_lod": "lod/obj_coffee_table_0_completed.rad",
+      "mesh": "objects/obj_coffee_table_0_mesh.glb",
+      "bbox_min": [
+        -0.6427976920874321,
+        0.001759260517684762,
+        -2.9674423222301716
+      ],
+      "bbox_max": [
+        0.6079351984168582,
+        0.6704690807858915,
+        -2.3253043246018503
+      ],
+      "transform": {
+        "translation": [
+          -0.18456875316471305,
+          0.0,
+          0.728373323416011
+        ],
+        "yaw_deg": 0.0,
+        "scale": 1.0
+      },
+      "visible": true,
+      "source": "scan",
+      "prompt": null
+    },
+    {
+      "id": "side table#0",
+      "label": "side table",
+      "ply": "objects/obj_side_table_0.ply",
+      "completed_ply": "objects/obj_side_table_0_completed.ply",
+      "lod": "lod/obj_side_table_0.rad",
+      "completed_lod": "lod/obj_side_table_0_completed.rad",
+      "mesh": "objects/obj_side_table_0_mesh.glb",
+      "bbox_min": [
+        1.159861066660697,
+        0.011615521820884584,
+        -4.145079558691431
+      ],
+      "bbox_max": [
+        1.738378921700495,
+        0.9965952648285027,
+        -3.6684897522817113
+      ],
+      "transform": {
+        "translation": [
+          -0.5621199941805961,
+          0.0,
+          1.7907846554865707
+        ],
+        "yaw_deg": 0.0,
+        "scale": 1.0
+      },
+      "visible": true,
+      "source": "scan",
+      "prompt": null
+    },
+    {
+      "id": "cabinet#0",
+      "label": "cabinet",
+      "ply": "objects/obj_cabinet_0.ply",
+      "completed_ply": "objects/obj_cabinet_0_completed.ply",
+      "lod": "lod/obj_cabinet_0.rad",
+      "completed_lod": "lod/obj_cabinet_0_completed.rad",
+      "mesh": "objects/obj_cabinet_0_mesh.glb",
+      "bbox_min": [
+        -0.2658379773884442,
+        0.012683132224419857,
+        0.31879592578556254
+      ],
+      "bbox_max": [
+        0.942201420293701,
+        1.2438834329592967,
+        0.8288384593206741
+      ],
+      "transform": {
+        "translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "yaw_deg": 0.0,
+        "scale": 1.0
+      },
+      "visible": true,
+      "source": "scan",
+      "prompt": null
+    },
+    {
+      "id": "potted plant#1",
+      "label": "potted plant",
+      "ply": "objects/obj_potted_plant_1.ply",
+      "completed_ply": "objects/obj_potted_plant_1_completed.ply",
+      "lod": "lod/obj_potted_plant_1.rad",
+      "completed_lod": "lod/obj_potted_plant_1_completed.rad",
+      "mesh": "objects/obj_potted_plant_1_mesh.glb",
+      "bbox_min": [
+        1.2540821235525148,
+        0.010753103061999503,
+        0.13254349308476607
+      ],
+      "bbox_max": [
+        1.7778261672198472,
+        1.377165822653738,
+        0.727457130012053
+      ],
+      "transform": {
+        "translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "yaw_deg": 0.0,
+        "scale": 1.0
+      },
+      "visible": true,
+      "source": "scan",
+      "prompt": null
+    },
+    {
+      "id": "potted plant#2",
+      "label": "potted plant",
+      "ply": "objects/obj_potted_plant_2.ply",
+      "completed_ply": "objects/obj_potted_plant_2_completed.ply",
+      "lod": "lod/obj_potted_plant_2.rad",
+      "completed_lod": "lod/obj_potted_plant_2_completed.rad",
+      "mesh": "objects/obj_potted_plant_2_mesh.glb",
+      "bbox_min": [
+        1.491024046313923,
+        0.8614091828372589,
+        0.4482721704432366
+      ],
+      "bbox_max": [
+        1.81871762879346,
+        1.350128521003831,
+        0.7653519314565028
+      ],
+      "transform": {
+        "translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "yaw_deg": 0.0,
+        "scale": 1.0
+      },
+      "visible": false,
+      "source": "scan",
+      "prompt": null
+    },
+    {
+      "id": "books#0",
+      "label": "books",
+      "ply": "objects/obj_books_0.ply",
+      "completed_ply": "objects/obj_books_0_completed.ply",
+      "lod": "lod/obj_books_0.rad",
+      "completed_lod": "lod/obj_books_0_completed.rad",
+      "mesh": "objects/obj_books_0_mesh.glb",
+      "bbox_min": [
+        0.0037021014164319377,
+        1.2506524682489342,
+        0.5031487167314753
+      ],
+      "bbox_max": [
+        0.5721861153877476,
+        1.4964537555776134,
+        0.7413525261169561
+      ],
+      "transform": {
+        "translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "yaw_deg": 0.0,
+        "scale": 1.0
+      },
+      "visible": true,
+      "source": "scan",
+      "prompt": null
+    }
+  ],
+  "planes": [
+    {
+      "id": "floor",
+      "label": "floor",
+      "mesh": "planes/floor.glb",
+      "removed_splats": 37481,
+      "normal": [
+        0.00012975078187449913,
+        0.9999999628271095,
+        0.00023981349961887943
+      ],
+      "offset": 0.0002883775804147689,
+      "corners": [
+        [
+          -1.981134808312461,
+          0.0003530714984602322,
+          0.8021228402998919
+        ],
+        [
+          -2.2545875185607964,
+          0.0014308791395756814,
+          -3.544283428514442
+        ],
+        [
+          1.9720556407546046,
+          0.0009462395869093497,
+          -3.810201402590732
+        ],
+        [
+          2.24550835100294,
+          -0.00013156805420609966,
+          0.5362048662236016
+        ]
+      ],
+      "texel_m": 0.005,
+      "texture_px": [
+        871,
+        847
+      ],
+      "fit_rms_m": 0.008868219954748801,
+      "filled_fraction": 0.24302427558872605,
+      "transparent_fraction": 0.005977740034727823
+    }
+  ],
+  "plane_bake": {
+    "source_background_ply": "objects/background.ply",
+    "background_ply": "objects/background_baked.ply",
+    "ids": "ids/gaussian_ids.npy",
+    "ids_ply": "splat/scene.ply",
+    "removed_splats": 37481
+  },
+  "coverage": {
+    "gap_map": "coverage/gaps.npz",
+    "gaps": [
+      {
+        "id": "gap_000",
+        "label": null,
+        "near_object": "cabinet#0",
+        "center": [
+          0.259,
+          0.756,
+          0.721
+        ],
+        "radius": 1.214,
+        "score": 0.936,
+        "status": "open",
+        "next_best_views": [
+          {
+            "eye": [
+              0.23,
+              1.509,
+              -0.871
+            ],
+            "target": [
+              0.15,
+              1.015,
+              0.689
+            ],
+            "visible": 75,
+            "gain": 0.188
+          },
+          {
+            "eye": [
+              -0.77,
+              1.509,
+              0.129
+            ],
+            "target": [
+              0.15,
+              1.015,
+              0.689
+            ],
+            "visible": 67,
+            "gain": 0.168
+          },
+          {
+            "eye": [
+              -0.52,
+              1.509,
+              -0.871
+            ],
+            "target": [
+              0.15,
+              1.015,
+              0.689
+            ],
+            "visible": 56,
+            "gain": 0.14
+          }
+        ]
+      },
+      {
+        "id": "gap_001",
+        "label": null,
+        "near_object": "armchair#0",
+        "center": [
+          -1.942,
+          1.16,
+          -0.68
+        ],
+        "radius": 1.109,
+        "score": 0.993,
+        "status": "open",
+        "next_best_views": [
+          {
+            "eye": [
+              -0.77,
+              1.509,
+              0.129
+            ],
+            "target": [
+              -1.942,
+              1.16,
+              -0.68
+            ],
+            "visible": 83,
+            "gain": 0.261
+          },
+          {
+            "eye": [
+              1.23,
+              1.509,
+              -0.621
+            ],
+            "target": [
+              -1.942,
+              1.16,
+              -0.68
+            ],
+            "visible": 78,
+            "gain": 0.245
+          },
+          {
+            "eye": [
+              0.23,
+              1.509,
+              -0.121
+            ],
+            "target": [
+              -1.942,
+              1.16,
+              -0.68
+            ],
+            "visible": 76,
+            "gain": 0.239
+          }
+        ]
+      },
+      {
+        "id": "gap_002",
+        "label": null,
+        "near_object": "side table#0",
+        "center": [
+          1.503,
+          0.434,
+          -4.039
+        ],
+        "radius": 1.249,
+        "score": 0.881,
+        "status": "open",
+        "next_best_views": [
+          {
+            "eye": [
+              1.48,
+              1.509,
+              -3.121
+            ],
+            "target": [
+              1.447,
+              0.35,
+              -4.022
+            ],
+            "visible": 21,
+            "gain": 0.052
+          },
+          {
+            "eye": [
+              1.23,
+              1.509,
+              -0.621
+            ],
+            "target": [
+              1.447,
+              0.35,
+              -4.022
+            ],
+            "visible": 6,
+            "gain": 0.015
+          },
+          {
+            "eye": [
+              -0.52,
+              1.509,
+              -1.871
+            ],
+            "target": [
+              1.447,
+              0.35,
+              -4.022
+            ],
+            "visible": 4,
+            "gain": 0.01
+          }
+        ]
+      },
+      {
+        "id": "gap_003",
+        "label": null,
+        "near_object": "sofa#1",
+        "center": [
+          -0.409,
+          0.52,
+          -4.038
+        ],
+        "radius": 1.207,
+        "score": 0.928,
+        "status": "open",
+        "next_best_views": [
+          {
+            "eye": [
+              -0.77,
+              1.509,
+              -2.121
+            ],
+            "target": [
+              -0.317,
+              0.376,
+              -4.003
+            ],
+            "visible": 32,
+            "gain": 0.08
+          },
+          {
+            "eye": [
+              1.23,
+              1.509,
+              -2.621
+            ],
+            "target": [
+              -0.317,
+              0.376,
+              -4.003
+            ],
+            "visible": 30,
+            "gain": 0.075
+          },
+          {
+            "eye": [
+              -0.02,
+              1.509,
+              -1.871
+            ],
+            "target": [
+              -0.317,
+              0.376,
+              -4.003
+            ],
+            "visible": 23,
+            "gain": 0.058
+          }
+        ]
+      },
+      {
+        "id": "gap_004",
+        "label": null,
+        "near_object": "sofa#1",
+        "center": [
+          -0.084,
+          0.025,
+          -3.658
+        ],
+        "radius": 1.219,
+        "score": 0.944,
+        "status": "open",
+        "next_best_views": [
+          {
+            "eye": [
+              0.98,
+              1.509,
+              -3.121
+            ],
+            "target": [
+              -0.091,
+              0.023,
+              -3.517
+            ],
+            "visible": 15,
+            "gain": 0.037
+          },
+          {
+            "eye": [
+              1.23,
+              1.509,
+              -2.371
+            ],
+            "target": [
+              -0.091,
+              0.023,
+              -3.517
+            ],
+            "visible": 10,
+            "gain": 0.025
+          },
+          {
+            "eye": [
+              -0.27,
+              1.509,
+              -1.871
+            ],
+            "target": [
+              -0.091,
+              0.023,
+              -3.517
+            ],
+            "visible": 4,
+            "gain": 0.01
+          }
+        ]
+      },
+      {
+        "id": "gap_005",
+        "label": null,
+        "near_object": "armchair#0",
+        "center": [
+          -1.862,
+          0.203,
+          -2.759
+        ],
+        "radius": 1.098,
+        "score": 0.951,
+        "status": "open",
+        "next_best_views": [
+          {
+            "eye": [
+              -0.77,
+              1.509,
+              -1.621
+            ],
+            "target": [
+              -1.706,
+              0.2,
+              -2.571
+            ],
+            "visible": 46,
+            "gain": 0.115
+          },
+          {
+            "eye": [
+              -0.52,
+              1.509,
+              -0.871
+            ],
+            "target": [
+              -1.706,
+              0.2,
+              -2.571
+            ],
+            "visible": 26,
+            "gain": 0.065
+          },
+          {
+            "eye": [
+              1.23,
+              1.509,
+              -3.121
+            ],
+            "target": [
+              -1.706,
+              0.2,
+              -2.571
+            ],
+            "visible": 26,
+            "gain": 0.065
+          }
+        ]
+      },
+      {
+        "id": "gap_006",
+        "label": null,
+        "near_object": "potted plant#1",
+        "center": [
+          1.536,
+          0.108,
+          0.647
+        ],
+        "radius": 0.944,
+        "score": 0.909,
+        "status": "open",
+        "next_best_views": [
+          {
+            "eye": [
+              1.23,
+              1.509,
+              -0.371
+            ],
+            "target": [
+              1.457,
+              0.271,
+              0.549
+            ],
+            "visible": 38,
+            "gain": 0.095
+          },
+          {
+            "eye": [
+              1.23,
+              1.509,
+              -1.121
+            ],
+            "target": [
+              1.457,
+              0.271,
+              0.549
+            ],
+            "visible": 37,
+            "gain": 0.092
+          },
+          {
+            "eye": [
+              1.48,
+              1.509,
+              -2.621
+            ],
+            "target": [
+              1.457,
+              0.271,
+              0.549
+            ],
+            "visible": 35,
+            "gain": 0.087
+          }
+        ]
+      },
+      {
+        "id": "gap_007",
+        "label": null,
+        "near_object": "potted plant#1",
+        "center": [
+          1.641,
+          0.94,
+          0.719
+        ],
+        "radius": 1.026,
+        "score": 0.893,
+        "status": "open",
+        "next_best_views": [
+          {
+            "eye": [
+              1.23,
+              1.509,
+              -0.871
+            ],
+            "target": [
+              1.567,
+              0.915,
+              0.563
+            ],
+            "visible": 2,
+            "gain": 0.005
+          },
+          {
+            "eye": [
+              0.48,
+              1.509,
+              -1.121
+            ],
+            "target": [
+              1.567,
+              0.915,
+              0.563
+            ],
+            "visible": 2,
+            "gain": 0.005
+          },
+          {
+            "eye": [
+              1.48,
+              1.509,
+              -2.871
+            ],
+            "target": [
+              1.567,
+              0.915,
+              0.563
+            ],
+            "visible": 2,
+            "gain": 0.005
+          }
+        ]
+      },
+      {
+        "id": "gap_008",
+        "label": null,
+        "near_object": "armchair#0",
+        "center": [
+          -1.697,
+          0.233,
+          -2.032
+        ],
+        "radius": 0.599,
+        "score": 0.891,
+        "status": "open",
+        "next_best_views": [
+          {
+            "eye": [
+              -0.77,
+              1.509,
+              0.129
+            ],
+            "target": [
+              -1.63,
+              0.311,
+              -1.877
+            ],
+            "visible": 41,
+            "gain": 0.102
+          },
+          {
+            "eye": [
+              -0.77,
+              1.509,
+              -2.121
+            ],
+            "target": [
+              -1.63,
+              0.311,
+              -1.877
+            ],
+            "visible": 15,
+            "gain": 0.037
+          },
+          {
+            "eye": [
+              1.23,
+              1.509,
+              -1.621
+            ],
+            "target": [
+              -1.63,
+              0.311,
+              -1.877
+            ],
+            "visible": 9,
+            "gain": 0.022
+          }
+        ]
+      },
+      {
+        "id": "gap_009",
+        "label": null,
+        "near_object": "sofa#1",
+        "center": [
+          0.562,
+          0.136,
+          -3.957
+        ],
+        "radius": 0.602,
+        "score": 0.941,
+        "status": "open",
+        "next_best_views": [
+          {
+            "eye": [
+              0.98,
+              1.509,
+              -3.121
+            ],
+            "target": [
+              0.528,
+              0.251,
+              -3.94
+            ],
+            "visible": 86,
+            "gain": 0.215
+          },
+          {
+            "eye": [
+              1.23,
+              1.509,
+              -2.371
+            ],
+            "target": [
+              0.528,
+              0.251,
+              -3.94
+            ],
+            "visible": 21,
+            "gain": 0.052
+          },
+          {
+            "eye": [
+              0.48,
+              1.509,
+              -1.871
+            ],
+            "target": [
+              0.528,
+              0.251,
+              -3.94
+            ],
+            "visible": 6,
+            "gain": 0.015
+          }
+        ]
+      },
+      {
+        "id": "gap_010",
+        "label": null,
+        "near_object": "armchair#0",
+        "center": [
+          -1.989,
+          0.892,
+          -2.219
+        ],
+        "radius": 0.951,
+        "score": 0.919,
+        "status": "open",
+        "next_best_views": [
+          {
+            "eye": [
+              -1.02,
+              1.509,
+              -1.371
+            ],
+            "target": [
+              -1.867,
+              0.674,
+              -2.068
+            ],
+            "visible": 32,
+            "gain": 0.08
+          },
+          {
+            "eye": [
+              -0.77,
+              1.509,
+              0.129
+            ],
+            "target": [
+              -1.867,
+              0.674,
+              -2.068
+            ],
+            "visible": 24,
+            "gain": 0.06
+          },
+          {
+            "eye": [
+              -0.77,
+              1.509,
+              -2.121
+            ],
+            "target": [
+              -1.867,
+              0.674,
+              -2.068
+            ],
+            "visible": 15,
+            "gain": 0.037
+          }
+        ]
+      },
+      {
+        "id": "gap_011",
+        "label": null,
+        "near_object": "coffee table#0",
+        "center": [
+          0.658,
+          0.025,
+          -3.167
+        ],
+        "radius": 0.963,
+        "score": 0.896,
+        "status": "open",
+        "next_best_views": [
+          {
+            "eye": [
+              0.98,
+              1.509,
+              -3.121
+            ],
+            "target": [
+              0.635,
+              0.071,
+              -3.079
+            ],
+            "visible": 81,
+            "gain": 0.203
+          },
+          {
+            "eye": [
+              1.23,
+              1.509,
+              -2.371
+            ],
+            "target": [
+              0.635,
+              0.071,
+              -3.079
+            ],
+            "visible": 52,
+            "gain": 0.13
+          },
+          {
+            "eye": [
+              0.98,
+              1.509,
+              -1.621
+            ],
+            "target": [
+              0.635,
+              0.071,
+              -3.079
+            ],
+            "visible": 26,
+            "gain": 0.065
+          }
+        ]
+      },
+      {
+        "id": "gap_012",
+        "label": null,
+        "near_object": "floor lamp#0",
+        "center": [
+          -1.15,
+          0.031,
+          -3.665
+        ],
+        "radius": 0.978,
+        "score": 0.92,
+        "status": "open",
+        "next_best_views": [
+          {
+            "eye": [
+              -1.02,
+              1.509,
+              -1.371
+            ],
+            "target": [
+              -1.066,
+              0.077,
+              -3.674
+            ],
+            "visible": 34,
+            "gain": 0.085
+          },
+          {
+            "eye": [
+              -0.77,
+              1.509,
+              -2.121
+            ],
+            "target": [
+              -1.066,
+              0.077,
+              -3.674
+            ],
+            "visible": 26,
+            "gain": 0.065
+          },
+          {
+            "eye": [
+              -0.02,
+              1.509,
+              -1.871
+            ],
+            "target": [
+              -1.066,
+              0.077,
+              -3.674
+            ],
+            "visible": 8,
+            "gain": 0.02
+          }
+        ]
+      },
+      {
+        "id": "gap_013",
+        "label": null,
+        "near_object": "coffee table#0",
+        "center": [
+          -0.506,
+          0.096,
+          -2.913
+        ],
+        "radius": 0.978,
+        "score": 0.91,
+        "status": "open",
+        "next_best_views": [
+          {
+            "eye": [
+              -0.77,
+              1.509,
+              -2.121
+            ],
+            "target": [
+              -0.465,
+              0.155,
+              -2.82
+            ],
+            "visible": 33,
+            "gain": 0.083
+          },
+          {
+            "eye": [
+              0.98,
+              1.509,
+              -3.121
+            ],
+            "target": [
+              -0.465,
+              0.155,
+              -2.82
+            ],
+            "visible": 31,
+            "gain": 0.077
+          },
+          {
+            "eye": [
+              -0.02,
+              1.509,
+              -1.871
+            ],
+            "target": [
+              -0.465,
+              0.155,
+              -2.82
+            ],
+            "visible": 19,
+            "gain": 0.048
+          }
+        ]
+      },
+      {
+        "id": "gap_014",
+        "label": null,
+        "near_object": "cabinet#0",
+        "center": [
+          -1.494,
+          0.367,
+          0.885
+        ],
+        "radius": 1.206,
+        "score": 0.93,
+        "status": "open",
+        "next_best_views": [
+          {
+            "eye": [
+              -1.02,
+              1.509,
+              -1.371
+            ],
+            "target": [
+              -1.401,
+              0.197,
+              0.879
+            ],
+            "visible": 38,
+            "gain": 0.14
+          },
+          {
+            "eye": [
+              -0.77,
+              1.509,
+              -2.121
+            ],
+            "target": [
+              -1.401,
+              0.197,
+              0.879
+            ],
+            "visible": 32,
+            "gain": 0.118
+          },
+          {
+            "eye": [
+              -0.02,
+              1.509,
+              -1.871
+            ],
+            "target": [
+              -1.401,
+              0.197,
+              0.879
+            ],
+            "visible": 19,
+            "gain": 0.07
+          }
+        ]
+      },
+      {
+        "id": "gap_015",
+        "label": null,
+        "near_object": "cabinet#0",
+        "center": [
+          -1.472,
+          -0.084,
+          0.068
+        ],
+        "radius": 0.949,
+        "score": 0.952,
+        "status": "open",
+        "next_best_views": [
+          {
+            "eye": [
+              -0.77,
+              1.509,
+              0.129
+            ],
+            "target": [
+              -1.397,
+              -0.066,
+              0.038
+            ],
+            "visible": 127,
+            "gain": 0.318
+          },
+          {
+            "eye": [
+              -0.52,
+              1.509,
+              -0.871
+            ],
+            "target": [
+              -1.397,
+              -0.066,
+              0.038
+            ],
+            "visible": 65,
+            "gain": 0.163
+          },
+          {
+            "eye": [
+              -0.02,
+              1.509,
+              -0.121
+            ],
+            "target": [
+              -1.397,
+              -0.066,
+              0.038
+            ],
+            "visible": 64,
+            "gain": 0.16
+          }
+        ]
+      },
+      {
+        "id": "gap_016",
+        "label": null,
+        "near_object": "potted plant#1",
+        "center": [
+          2.01,
+          1.169,
+          -0.971
+        ],
+        "radius": 1.228,
+        "score": 0.968,
+        "status": "open",
+        "next_best_views": [
+          {
+            "eye": [
+              0.23,
+              1.509,
+              -1.871
+            ],
+            "target": [
+              2.012,
+              1.17,
+              -0.973
+            ],
+            "visible": 19,
+            "gain": 0.235
+          },
+          {
+            "eye": [
+              -0.52,
+              1.509,
+              -1.871
+            ],
+            "target": [
+              2.012,
+              1.17,
+              -0.973
+            ],
+            "visible": 18,
+            "gain": 0.222
+          },
+          {
+            "eye": [
+              -0.77,
+              1.509,
+              0.129
+            ],
+            "target": [
+              2.012,
+              1.17,
+              -0.973
+            ],
+            "visible": 13,
+            "gain": 0.16
+          }
+        ]
+      },
+      {
+        "id": "gap_017",
+        "label": null,
+        "near_object": "floor lamp#0",
+        "center": [
+          -1.688,
+          1.454,
+          -4.028
+        ],
+        "radius": 0.462,
+        "score": 0.843,
+        "status": "open",
+        "next_best_views": [
+          {
+            "eye": [
+              1.48,
+              1.509,
+              -2.621
+            ],
+            "target": [
+              -1.657,
+              1.439,
+              -3.959
+            ],
+            "visible": 13,
+            "gain": 0.033
+          },
+          {
+            "eye": [
+              1.23,
+              1.509,
+              -1.871
+            ],
+            "target": [
+              -1.657,
+              1.439,
+              -3.959
+            ],
+            "visible": 4,
+            "gain": 0.01
+          },
+          {
+            "eye": [
+              0.48,
+              1.509,
+              -1.871
+            ],
+            "target": [
+              -1.657,
+              1.439,
+              -3.959
+            ],
+            "visible": 2,
+            "gain": 0.005
+          }
+        ]
+      },
+      {
+        "id": "gap_018",
+        "label": null,
+        "near_object": "armchair#0",
+        "center": [
+          -1.767,
+          -0.088,
+          -1.271
+        ],
+        "radius": 0.413,
+        "score": 0.956,
+        "status": "open",
+        "next_best_views": [
+          {
+            "eye": [
+              -1.02,
+              1.509,
+              -1.371
+            ],
+            "target": [
+              -1.693,
+              -0.068,
+              -1.298
+            ],
+            "visible": 63,
+            "gain": 0.432
+          },
+          {
+            "eye": [
+              -0.27,
+              1.509,
+              -1.121
+            ],
+            "target": [
+              -1.693,
+              -0.068,
+              -1.298
+            ],
+            "visible": 9,
+            "gain": 0.062
+          },
+          {
+            "eye": [
+              -0.27,
+              1.509,
+              -1.871
+            ],
+            "target": [
+              -1.693,
+              -0.068,
+              -1.298
+            ],
+            "visible": 7,
+            "gain": 0.048
+          }
+        ]
+      },
+      {
+        "id": "gap_019",
+        "label": null,
+        "near_object": "floor lamp#0",
+        "center": [
+          -1.887,
+          -0.052,
+          -4.082
+        ],
+        "radius": 0.268,
+        "score": 0.955,
+        "status": "open",
+        "next_best_views": [
+          {
+            "eye": [
+              -0.77,
+              1.509,
+              -1.621
+            ],
+            "target": [
+              -1.873,
+              -0.034,
+              -4.084
+            ],
+            "visible": 5,
+            "gain": 0.139
+          }
+        ]
+      },
+      {
+        "id": "gap_020",
+        "label": null,
+        "near_object": "coffee table#0",
+        "center": [
+          0.186,
+          0.271,
+          -2.921
+        ],
+        "radius": 0.353,
+        "score": 1.0,
+        "status": "open",
+        "next_best_views": [
+          {
+            "eye": [
+              0.98,
+              1.509,
+              -3.121
+            ],
+            "target": [
+              0.225,
+              0.314,
+              -2.87
+            ],
+            "visible": 6,
+            "gain": 0.171
+          },
+          {
+            "eye": [
+              0.23,
+              1.509,
+              -1.871
+            ],
+            "target": [
+              0.225,
+              0.314,
+              -2.87
+            ],
+            "visible": 2,
+            "gain": 0.057
+          },
+          {
+            "eye": [
+              1.23,
+              1.509,
+              -2.371
+            ],
+            "target": [
+              0.225,
+              0.314,
+              -2.87
+            ],
+            "visible": 1,
+            "gain": 0.029
+          }
+        ]
+      },
+      {
+        "id": "gap_021",
+        "label": null,
+        "near_object": "sofa#1",
+        "center": [
+          0.293,
+          1.4,
+          -4.107
+        ],
+        "radius": 0.261,
+        "score": 0.954,
+        "status": "open",
+        "next_best_views": [
+          {
+            "eye": [
+              0.98,
+              1.509,
+              -3.121
+            ],
+            "target": [
+              0.29,
+              1.399,
+              -4.104
+            ],
+            "visible": 6,
+            "gain": 0.545
+          },
+          {
+            "eye": [
+              1.23,
+              1.509,
+              -2.371
+            ],
+            "target": [
+              0.29,
+              1.399,
+              -4.104
+            ],
+            "visible": 6,
+            "gain": 0.545
+          },
+          {
+            "eye": [
+              -0.52,
+              1.509,
+              -1.871
+            ],
+            "target": [
+              0.29,
+              1.399,
+              -4.104
+            ],
+            "visible": 2,
+            "gain": 0.182
+          }
+        ]
+      },
+      {
+        "id": "gap_022",
+        "label": null,
+        "near_object": "side table#0",
+        "center": [
+          1.3,
+          1.359,
+          -4.171
+        ],
+        "radius": 0.302,
+        "score": 1.0,
+        "status": "open",
+        "next_best_views": [
+          {
+            "eye": [
+              1.23,
+              1.509,
+              -3.121
+            ],
+            "target": [
+              1.3,
+              1.359,
+              -4.171
+            ],
+            "visible": 3,
+            "gain": 0.3
+          },
+          {
+            "eye": [
+              0.98,
+              1.509,
+              -2.121
+            ],
+            "target": [
+              1.3,
+              1.359,
+              -4.171
+            ],
+            "visible": 3,
+            "gain": 0.3
+          },
+          {
+            "eye": [
+              1.23,
+              1.509,
+              -1.371
+            ],
+            "target": [
+              1.3,
+              1.359,
+              -4.171
+            ],
+            "visible": 3,
+            "gain": 0.3
+          }
+        ]
+      },
+      {
+        "id": "gap_023",
+        "label": null,
+        "near_object": "floor lamp#0",
+        "center": [
+          -2.07,
+          0.253,
+          -4.071
+        ],
+        "radius": 0.324,
+        "score": 0.914,
+        "status": "open",
+        "next_best_views": [
+          {
+            "eye": [
+              0.73,
+              1.509,
+              -1.871
+            ],
+            "target": [
+              -2.069,
+              0.252,
+              -4.071
+            ],
+            "visible": 7,
+            "gain": 0.778
+          },
+          {
+            "eye": [
+              -0.02,
+              1.509,
+              -1.871
+            ],
+            "target": [
+              -2.069,
+              0.252,
+              -4.071
+            ],
+            "visible": 6,
+            "gain": 0.667
+          },
+          {
+            "eye": [
+              -0.77,
+              1.509,
+              -1.371
+            ],
+            "target": [
+              -2.069,
+              0.252,
+              -4.071
+            ],
+            "visible": 4,
+            "gain": 0.444
+          }
+        ]
+      },
+      {
+        "id": "gap_024",
+        "label": null,
+        "near_object": "floor lamp#0",
+        "center": [
+          -1.556,
+          0.895,
+          -3.957
+        ],
+        "radius": 0.336,
+        "score": 0.893,
+        "status": "open",
+        "next_best_views": [
+          {
+            "eye": [
+              0.98,
+              1.509,
+              -3.121
+            ],
+            "target": [
+              -1.567,
+              0.919,
+              -3.961
+            ],
+            "visible": 8,
+            "gain": 1.0
+          },
+          {
+            "eye": [
+              0.73,
+              1.509,
+              -1.871
+            ],
+            "target": [
+              -1.567,
+              0.919,
+              -3.961
+            ],
+            "visible": 8,
+            "gain": 1.0
+          },
+          {
+            "eye": [
+              0.48,
+              1.509,
+              -1.121
+            ],
+            "target": [
+              -1.567,
+              0.919,
+              -3.961
+            ],
+            "visible": 4,
+            "gain": 0.5
+          }
+        ]
+      },
+      {
+        "id": "gap_025",
+        "label": null,
+        "near_object": "coffee table#0",
+        "center": [
+          0.37,
+          -0.091,
+          -2.351
+        ],
+        "radius": 0.176,
+        "score": 0.74,
+        "status": "open",
+        "next_best_views": [
+          {
+            "eye": [
+              0.48,
+              1.509,
+              -1.621
+            ],
+            "target": [
+              0.372,
+              -0.062,
+              -2.323
+            ],
+            "visible": 23,
+            "gain": 0.511
+          },
+          {
+            "eye": [
+              -0.27,
+              1.509,
+              -1.871
+            ],
+            "target": [
+              0.372,
+              -0.062,
+              -2.323
+            ],
+            "visible": 15,
+            "gain": 0.333
+          },
+          {
+            "eye": [
+              1.23,
+              1.509,
+              -1.871
+            ],
+            "target": [
+              0.372,
+              -0.062,
+              -2.323
+            ],
+            "visible": 8,
+            "gain": 0.178
+          }
+        ]
+      },
+      {
+        "id": "gap_026",
+        "label": null,
+        "near_object": null,
+        "center": [
+          2.03,
+          1.159,
+          -1.946
+        ],
+        "radius": 0.245,
+        "score": 1.0,
+        "status": "open",
+        "next_best_views": [
+          {
+            "eye": [
+              0.98,
+              1.509,
+              -3.121
+            ],
+            "target": [
+              2.03,
+              1.159,
+              -1.946
+            ],
+            "visible": 3,
+            "gain": 0.75
+          },
+          {
+            "eye": [
+              0.73,
+              1.509,
+              -1.871
+            ],
+            "target": [
+              2.03,
+              1.159,
+              -1.946
+            ],
+            "visible": 2,
+            "gain": 0.5
+          },
+          {
+            "eye": [
+              0.73,
+              1.509,
+              -0.871
+            ],
+            "target": [
+              2.03,
+              1.159,
+              -1.946
+            ],
+            "visible": 1,
+            "gain": 0.25
+          }
+        ]
+      },
+      {
+        "id": "gap_027",
+        "label": null,
+        "near_object": null,
+        "center": [
+          2.005,
+          0.884,
+          -0.646
+        ],
+        "radius": 0.198,
+        "score": 0.927,
+        "status": "open",
+        "next_best_views": [
+          {
+            "eye": [
+              0.73,
+              1.509,
+              -1.121
+            ],
+            "target": [
+              2.015,
+              0.891,
+              -0.645
+            ],
+            "visible": 2,
+            "gain": 0.5
+          },
+          {
+            "eye": [
+              0.73,
+              1.509,
+              -0.121
+            ],
+            "target": [
+              2.015,
+              0.891,
+              -0.645
+            ],
+            "visible": 2,
+            "gain": 0.5
+          },
+          {
+            "eye": [
+              -0.02,
+              1.509,
+              -0.121
+            ],
+            "target": [
+              2.015,
+              0.891,
+              -0.645
+            ],
+            "visible": 2,
+            "gain": 0.5
+          }
+        ]
+      },
+      {
+        "id": "gap_028",
+        "label": null,
+        "near_object": "floor lamp#0",
+        "center": [
+          -1.795,
+          0.534,
+          -4.171
+        ],
+        "radius": 0.196,
+        "score": 1.0,
+        "status": "open",
+        "next_best_views": [
+          {
+            "eye": [
+              -0.77,
+              1.509,
+              -1.621
+            ],
+            "target": [
+              -1.795,
+              0.534,
+              -4.171
+            ],
+            "visible": 3,
+            "gain": 0.75
+          },
+          {
+            "eye": [
+              -0.52,
+              1.509,
+              -0.871
+            ],
+            "target": [
+              -1.795,
+              0.534,
+              -4.171
+            ],
+            "visible": 2,
+            "gain": 0.5
+          },
+          {
+            "eye": [
+              1.23,
+              1.509,
+              -2.871
+            ],
+            "target": [
+              -1.795,
+              0.534,
+              -4.171
+            ],
+            "visible": 1,
+            "gain": 0.25
+          }
+        ]
+      },
+      {
+        "id": "gap_029",
+        "label": null,
+        "near_object": null,
+        "center": [
+          -2.045,
+          1.209,
+          0.579
+        ],
+        "radius": 0.202,
+        "score": 1.0,
+        "status": "open",
+        "next_best_views": [
+          {
+            "eye": [
+              -0.77,
+              1.509,
+              -1.371
+            ],
+            "target": [
+              -2.06,
+              1.208,
+              0.612
+            ],
+            "visible": 4,
+            "gain": 0.8
+          },
+          {
+            "eye": [
+              0.23,
+              1.509,
+              -0.121
+            ],
+            "target": [
+              -2.06,
+              1.208,
+              0.612
+            ],
+            "visible": 4,
+            "gain": 0.8
+          },
+          {
+            "eye": [
+              1.23,
+              1.509,
+              -0.371
+            ],
+            "target": [
+              -2.06,
+              1.208,
+              0.612
+            ],
+            "visible": 4,
+            "gain": 0.8
+          }
+        ]
+      },
+      {
+        "id": "gap_030",
+        "label": null,
+        "near_object": null,
+        "center": [
+          -2.07,
+          0.609,
+          0.204
+        ],
+        "radius": 0.175,
+        "score": 1.0,
+        "status": "open",
+        "next_best_views": [
+          {
+            "eye": [
+              -0.77,
+              1.509,
+              0.129
+            ],
+            "target": [
+              -2.07,
+              0.609,
+              0.204
+            ],
+            "visible": 3,
+            "gain": 0.75
+          },
+          {
+            "eye": [
+              -0.52,
+              1.509,
+              -1.121
+            ],
+            "target": [
+              -2.07,
+              0.609,
+              0.204
+            ],
+            "visible": 1,
+            "gain": 0.25
+          },
+          {
+            "eye": [
+              -0.02,
+              1.509,
+              -0.121
+            ],
+            "target": [
+              -2.07,
+              0.609,
+              0.204
+            ],
+            "visible": 1,
+            "gain": 0.25
+          }
+        ]
+      },
+      {
+        "id": "gap_031",
+        "label": null,
+        "near_object": "floor lamp#0",
+        "center": [
+          -1.67,
+          0.459,
+          -3.971
+        ],
+        "radius": 0.2,
+        "score": 1.0,
+        "status": "open",
+        "next_best_views": [
+          {
+            "eye": [
+              -1.02,
+              1.509,
+              -1.371
+            ],
+            "target": [
+              -1.67,
+              0.459,
+              -3.971
+            ],
+            "visible": 3,
+            "gain": 0.75
+          }
+        ]
+      }
+    ],
+    "generated_splats": 0,
+    "generated_ply": null,
+    "gap_share": 0.2205
+  },
+  "history": [
+    {
+      "ts": "2026-11-02T01:05:32+00:00",
+      "op": "place",
+      "object_id": "armchair#0",
+      "args": {
+        "x": -1.512,
+        "z": -2.017,
+        "prev": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "instruction": null,
+      "verified": null
+    },
+    {
+      "ts": "2026-11-02T01:05:35+00:00",
+      "op": "place",
+      "object_id": "coffee table#0",
+      "args": {
+        "x": 0.395,
+        "z": -2.052,
+        "prev": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "instruction": null,
+      "verified": null
+    },
+    {
+      "ts": "2026-11-02T01:05:37+00:00",
+      "op": "place",
+      "object_id": "coffee table#0",
+      "args": {
+        "x": 0.009,
+        "z": -2.41,
+        "prev": [
+          0.412431246835287,
+          0.0,
+          0.5943733234160109
+        ]
+      },
+      "instruction": null,
+      "verified": null
+    },
+    {
+      "ts": "2026-11-02T01:05:48+00:00",
+      "op": "place",
+      "object_id": "coffee table#0",
+      "args": {
+        "x": 0.445,
+        "z": -2.262,
+        "prev": [
+          0.026431246835286963,
+          0.0,
+          0.2363733234160108
+        ]
+      },
+      "instruction": null,
+      "verified": null
+    },
+    {
+      "ts": "2026-11-02T01:06:05+00:00",
+      "op": "place",
+      "object_id": "coffee table#0",
+      "args": {
+        "x": 0.743,
+        "z": -2.015,
+        "prev": [
+          0.46243124683528697,
+          0.0,
+          0.38437332341601094
+        ]
+      },
+      "instruction": null,
+      "verified": null
+    },
+    {
+      "ts": "2026-11-02T01:06:08+00:00",
+      "op": "place",
+      "object_id": "sofa#1",
+      "args": {
+        "x": -0.644,
+        "z": -3.1,
+        "prev": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "instruction": null,
+      "verified": null
+    },
+    {
+      "ts": "2026-11-02T01:06:12+00:00",
+      "op": "place",
+      "object_id": "side table#0",
+      "args": {
+        "x": 0.93,
+        "z": -2.498,
+        "prev": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "instruction": null,
+      "verified": null
+    },
+    {
+      "ts": "2026-11-02T01:06:14+00:00",
+      "op": "place",
+      "object_id": "coffee table#0",
+      "args": {
+        "x": 0.021,
+        "z": -1.553,
+        "prev": [
+          0.760431246835287,
+          0.0,
+          0.6313733234160108
+        ]
+      },
+      "instruction": null,
+      "verified": null
+    },
+    {
+      "ts": "2026-11-02T01:06:17+00:00",
+      "op": "place",
+      "object_id": "floor lamp#0",
+      "args": {
+        "x": -0.943,
+        "z": -1.403,
+        "prev": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "instruction": null,
+      "verified": null
+    },
+    {
+      "ts": "2026-11-02T01:06:19+00:00",
+      "op": "place",
+      "object_id": "floor lamp#0",
+      "args": {
+        "x": -1.57,
+        "z": -1.355,
+        "prev": [
+          0.6164428653878317,
+          0.0,
+          2.4450241883934063
+        ]
+      },
+      "instruction": null,
+      "verified": null
+    },
+    {
+      "ts": "2026-11-02T01:06:20+00:00",
+      "op": "place",
+      "object_id": "coffee table#0",
+      "args": {
+        "x": -0.296,
+        "z": -1.439,
+        "prev": [
+          0.03843124683528697,
+          0.0,
+          1.093373323416011
+        ]
+      },
+      "instruction": null,
+      "verified": null
+    },
+    {
+      "ts": "2026-11-02T01:06:21+00:00",
+      "op": "place",
+      "object_id": "side table#0",
+      "args": {
+        "x": 0.887,
+        "z": -2.116,
+        "prev": [
+          -0.5191199941805961,
+          0.0,
+          1.4087846554865706
+        ]
+      },
+      "instruction": null,
+      "verified": null
+    },
+    {
+      "ts": "2026-11-02T01:06:22+00:00",
+      "op": "place",
+      "object_id": "sofa#1",
+      "args": {
+        "x": -0.114,
+        "z": -3.281,
+        "prev": [
+          -0.6077588329036004,
+          0.0,
+          0.6704586554681975
+        ]
+      },
+      "instruction": null,
+      "verified": null
+    },
+    {
+      "ts": "2026-11-02T01:06:24+00:00",
+      "op": "place",
+      "object_id": "armchair#0",
+      "args": {
+        "x": -1.48,
+        "z": -2.156,
+        "prev": [
+          0.020126376643162747,
+          0.0,
+          0.07073718758509395
+        ]
+      },
+      "instruction": null,
+      "verified": null
+    },
+    {
+      "ts": "2026-11-02T01:06:27+00:00",
+      "op": "place",
+      "object_id": "coffee table#0",
+      "args": {
+        "x": -0.247,
+        "z": -1.967,
+        "prev": [
+          -0.278568753164713,
+          0.0,
+          1.207373323416011
+        ]
+      },
+      "instruction": null,
+      "verified": null
+    },
+    {
+      "ts": "2026-11-02T01:06:29+00:00",
+      "op": "place",
+      "object_id": "coffee table#0",
+      "args": {
+        "x": -0.194,
+        "z": -1.913,
+        "prev": [
+          -0.22956875316471304,
+          0.0,
+          0.6793733234160109
+        ]
+      },
+      "instruction": null,
+      "verified": null
+    },
+    {
+      "ts": "2026-11-02T01:06:35+00:00",
+      "op": "place",
+      "object_id": "coffee table#0",
+      "args": {
+        "x": -0.202,
+        "z": -1.918,
+        "prev": [
+          -0.17656875316471304,
+          0.0,
+          0.7333733234160109
+        ]
+      },
+      "instruction": null,
+      "verified": null
+    }
+  ]
+}

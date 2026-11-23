@@ -1,0 +1,116 @@
+{
+  "scene": "blender06",
+  "stages": {
+    "frames": {
+      "state": "done",
+      "started": "16:48:49",
+      "log": "logs/frames.log",
+      "cmd": "uv run python scripts/extract_frames.py data/raw/blender06.mp4 --scene blender06 --focal35 25.0 --force",
+      "seconds": 23.8,
+      "last_line": "intrinsics.json: fx = fy = 1386.6 px (25.0 mm equivalent)"
+    },
+    "inventory": {
+      "state": "done",
+      "started": "16:49:13",
+      "log": "logs/inventory.log",
+      "cmd": "uv run python scripts/inventory.py --scene blender06 --force",
+      "seconds": 1.8,
+      "last_line": "wrote D:\\Projects\\MetaHackathon\\movable-reality\\data\\scenes\\blender06\\inventory.json: 26 nouns"
+    },
+    "sam": {
+      "state": "done",
+      "started": "16:49:15",
+      "log": "logs/sam.log",
+      "cmd": "uv run python scripts/lift_ids.py --scene blender06 --sam-only",
+      "seconds": 5.2,
+      "last_line": "SAM cache filled for 26 nouns"
+    },
+    "reconstruct": {
+      "state": "done",
+      "started": "16:49:15",
+      "log": "logs/reconstruct.log",
+      "cmd": "uv run modal run modal_jobs/reconstruct.py --scene blender06 --preset quality",
+      "seconds": 1098.5,
+      "last_line": "https://modal.com/apps/ojytcanal/main/ap-7QDVdPdNHw7o7hNy3yEL0V"
+    },
+    "lift": {
+      "state": "done",
+      "started": "17:07:33",
+      "log": "logs/lift.log",
+      "cmd": "uv run python scripts/lift_ids.py --scene blender06 --ceiling-height 2.6 --force",
+      "seconds": 219.5,
+      "last_line": "wrote 12 objects to D:\\Projects\\MetaHackathon\\movable-reality\\data\\scenes\\blender06\\scene.json"
+    },
+    "objects": {
+      "state": "done",
+      "started": "17:11:12",
+      "log": "logs/objects.log",
+      "cmd": "uv run modal run modal_jobs/reconstruct.py --scene blender06 --objects",
+      "seconds": 821.5,
+      "last_line": "https://modal.com/apps/ojytcanal/main/ap-1QsM3aDm2Lau0jilXkKIrp"
+    },
+    "complete": {
+      "state": "done",
+      "started": "17:24:54",
+      "log": "logs/complete.log",
+      "cmd": "uv run python scripts/complete_objects.py --scene blender06 --mesh --force",
+      "seconds": 243.0,
+      "last_line": "basket#1                 frame 56 (3899 px) -> objects/obj_basket_1_completed.ply, 108776 splats, ICP RMS 0.052 -> 0.025 m, 13 s"
+    },
+    "shell": {
+      "state": "done",
+      "started": "17:28:57",
+      "log": "logs/shell.log",
+      "cmd": "uv run python scripts/room_shell.py --scene blender06 --force",
+      "seconds": 441.8,
+      "last_line": "6 surfaces -> scene.json room_planes, 441 s"
+    },
+    "bake": {
+      "state": "done",
+      "started": "17:36:19",
+      "log": "logs/bake.log",
+      "cmd": "uv run python scripts/bake_planes.py --scene blender06 --labels floor --force",
+      "seconds": 140.3,
+      "last_line": "blender06: baked 1 planes, removed 17860 splats -> objects/background_baked.ply"
+    },
+    "surfaces": {
+      "state": "done",
+      "started": "17:38:39",
+      "log": "logs/surfaces.log",
+      "cmd": "uv run python scripts/room_surfaces.py --scene blender06",
+      "seconds": 46.2,
+      "last_line": "not a box room: 68295 of 596122 background splats off the shell (over --max-kept 0.1); background left at objects/background_baked.ply (--force applies it)"
+    },
+    "lod": {
+      "state": "done",
+      "started": "17:39:25",
+      "log": "logs/lod.log",
+      "cmd": "uv run python scripts/build_lod.py blender06 --force",
+      "seconds": 56.7,
+      "last_line": "blender06: 25/25 meshes have LOD trees (25 built now)"
+    },
+    "coverage": {
+      "state": "done",
+      "started": "17:40:22",
+      "log": "logs/coverage.log",
+      "cmd": "uv run python scripts/score_coverage.py --scene blender06 --force",
+      "seconds": 206.7,
+      "last_line": "}"
+    }
+  },
+  "order": [
+    "frames",
+    "inventory",
+    "sam",
+    "reconstruct",
+    "lift",
+    "objects",
+    "complete",
+    "shell",
+    "bake",
+    "surfaces",
+    "lod",
+    "coverage"
+  ],
+  "updated": "2026-11-02T17:43:49"
+}

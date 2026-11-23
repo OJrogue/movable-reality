@@ -1,0 +1,116 @@
+{
+  "scene": "blender07",
+  "stages": {
+    "frames": {
+      "state": "done",
+      "started": "21:31:10",
+      "log": "logs/frames.log",
+      "cmd": "uv run python scripts/extract_frames.py data/raw/blender07.mp4 --scene blender07 --focal35 25.0",
+      "seconds": 23.9,
+      "last_line": "intrinsics.json: fx = fy = 1386.6 px (25.0 mm equivalent)"
+    },
+    "inventory": {
+      "state": "done",
+      "started": "21:31:34",
+      "log": "logs/inventory.log",
+      "cmd": "uv run python scripts/inventory.py --scene blender07",
+      "seconds": 81.9,
+      "last_line": "wrote D:\\Projects\\MetaHackathon\\movable-reality\\data\\scenes\\blender07\\inventory.json: 28 nouns"
+    },
+    "sam": {
+      "state": "done",
+      "started": "21:32:56",
+      "log": "logs/sam.log",
+      "cmd": "uv run python scripts/lift_ids.py --scene blender07 --sam-only",
+      "seconds": 2194.2,
+      "last_line": "SAM cache filled for 28 nouns"
+    },
+    "reconstruct": {
+      "state": "done",
+      "started": "21:32:56",
+      "log": "logs/reconstruct.log",
+      "cmd": "uv run modal run modal_jobs/reconstruct.py --scene blender07 --preset quality",
+      "seconds": 1349.1,
+      "last_line": "https://modal.com/apps/ojytcanal/main/ap-6wRy6xuhhUujULOctwKQ1D"
+    },
+    "lift": {
+      "state": "done",
+      "started": "22:09:30",
+      "log": "logs/lift.log",
+      "cmd": "uv run python scripts/lift_ids.py --scene blender07 --ceiling-height 2.7",
+      "seconds": 309.4,
+      "last_line": "wrote 35 objects to D:\\Projects\\MetaHackathon\\movable-reality\\data\\scenes\\blender07\\scene.json"
+    },
+    "objects": {
+      "state": "done",
+      "started": "22:14:40",
+      "log": "logs/objects.log",
+      "cmd": "uv run modal run modal_jobs/reconstruct.py --scene blender07 --objects",
+      "seconds": 1369.1,
+      "last_line": "https://modal.com/apps/ojytcanal/main/ap-5qwu9sAGajFnGnXNvUiB0v"
+    },
+    "complete": {
+      "state": "done",
+      "started": "22:37:29",
+      "log": "logs/complete.log",
+      "cmd": "uv run python scripts/complete_objects.py --scene blender07 --mesh",
+      "seconds": 1023.4,
+      "last_line": "picture frame#14         frame 168 (144957 px) -> objects/obj_picture_frame_14_completed.ply, 30120 splats, ICP RMS 0.040 -> 0.016 m, 21 s"
+    },
+    "shell": {
+      "state": "done",
+      "started": "22:54:32",
+      "log": "logs/shell.log",
+      "cmd": "uv run python scripts/room_shell.py --scene blender07",
+      "seconds": 524.4,
+      "last_line": "7 surfaces -> scene.json room_planes, 524 s"
+    },
+    "bake": {
+      "state": "done",
+      "started": "23:03:17",
+      "log": "logs/bake.log",
+      "cmd": "uv run python scripts/bake_planes.py --scene blender07 --labels floor",
+      "seconds": 202.1,
+      "last_line": "blender07: baked 1 planes, removed 53190 splats -> objects/background_baked.ply"
+    },
+    "surfaces": {
+      "state": "done",
+      "started": "23:06:39",
+      "log": "logs/surfaces.log",
+      "cmd": "uv run python scripts/room_surfaces.py --scene blender07",
+      "seconds": 69.6,
+      "last_line": "objects/background.ply: 842492 splats, 768575 on or behind the room surfaces or haze (5784), needles (23460), in objects (172478), ghosts (46484) or floaters (861) removed, 73917 kept -> objects/background_room.ply"
+    },
+    "lod": {
+      "state": "done",
+      "started": "23:07:48",
+      "log": "logs/lod.log",
+      "cmd": "uv run python scripts/build_lod.py blender07",
+      "seconds": 62.0,
+      "last_line": "blender07: 71/71 meshes have LOD trees (71 built now)"
+    },
+    "coverage": {
+      "state": "done",
+      "started": "23:08:50",
+      "log": "logs/coverage.log",
+      "cmd": "uv run python scripts/score_coverage.py --scene blender07",
+      "seconds": 292.3,
+      "last_line": "gap_124  r=0.18 m  score=0.99  near=coffee table#0  c=(-0.69, 0.31, -1.45)  stand at (-0.09, -2.95) gain 0.69"
+    }
+  },
+  "order": [
+    "frames",
+    "inventory",
+    "sam",
+    "reconstruct",
+    "lift",
+    "objects",
+    "complete",
+    "shell",
+    "bake",
+    "surfaces",
+    "lod",
+    "coverage"
+  ],
+  "updated": "2026-11-02T23:13:43"
+}

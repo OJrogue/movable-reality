@@ -1,0 +1,361 @@
+{
+  "version": 1,
+  "scene_id": "tnt_meetingroom",
+  "units": "m",
+  "world_from_recon": [
+    [
+      0.2527858681840494,
+      -0.18500881233469343,
+      -1.5323077511403846,
+      0.0
+    ],
+    [
+      0.01874649361671622,
+      -1.5522407118756898,
+      0.19050811366628947,
+      1.4303301115329405
+    ],
+    [
+      -1.543322349291785,
+      -0.049158028379051505,
+      -0.24866767868455913,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+    ]
+  ],
+  "background_ply": "objects/background.ply",
+  "room_mesh": null,
+  "room_planes": [],
+  "background_lod": null,
+  "objects": [
+    {
+      "id": "table#1",
+      "label": "table",
+      "ply": "objects/obj_table_1.ply",
+      "completed_ply": "objects/obj_table_1_completed.ply",
+      "lod": null,
+      "completed_lod": null,
+      "mesh": "objects/obj_table_1_mesh.glb",
+      "bbox_min": [
+        -5.68083716025113,
+        0.057576299566909635,
+        -5.409233999431569
+      ],
+      "bbox_max": [
+        -4.677633994274963,
+        0.8367580932056372,
+        -4.839836376352074
+      ],
+      "transform": {
+        "translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "yaw_deg": 0.0,
+        "scale": 1.0
+      },
+      "visible": true,
+      "source": "scan",
+      "prompt": null,
+      "library_id": null
+    },
+    {
+      "id": "table#5",
+      "label": "table",
+      "ply": "objects/obj_table_5.ply",
+      "completed_ply": "objects/obj_table_5_completed.ply",
+      "lod": null,
+      "completed_lod": null,
+      "mesh": "objects/obj_table_5_mesh.glb",
+      "bbox_min": [
+        -0.9453230994536342,
+        -0.05283787176242028,
+        0.5951652390675187
+      ],
+      "bbox_max": [
+        1.307621906278489,
+        0.8070852332283226,
+        1.6720081251844645
+      ],
+      "transform": {
+        "translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "yaw_deg": 0.0,
+        "scale": 1.0
+      },
+      "visible": true,
+      "source": "scan",
+      "prompt": null,
+      "library_id": null
+    },
+    {
+      "id": "table#6",
+      "label": "table",
+      "ply": "objects/obj_table_6.ply",
+      "completed_ply": "objects/obj_table_6_completed.ply",
+      "lod": null,
+      "completed_lod": null,
+      "mesh": "objects/obj_table_6_mesh.glb",
+      "bbox_min": [
+        -0.8060025657432772,
+        -0.07309714518550453,
+        -5.6388239490940855
+      ],
+      "bbox_max": [
+        0.5155312668677028,
+        0.874079409577295,
+        -1.592356439745953
+      ],
+      "transform": {
+        "translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "yaw_deg": 0.0,
+        "scale": 1.0
+      },
+      "visible": true,
+      "source": "scan",
+      "prompt": null,
+      "library_id": null
+    },
+    {
+      "id": "table#8",
+      "label": "table",
+      "ply": "objects/obj_table_8.ply",
+      "completed_ply": "objects/obj_table_8_completed.ply",
+      "lod": null,
+      "completed_lod": null,
+      "mesh": "objects/obj_table_8_mesh.glb",
+      "bbox_min": [
+        -8.236198144261115,
+        -0.15328230476224836,
+        -5.31940715070346
+      ],
+      "bbox_max": [
+        -6.956647965224781,
+        0.8502143473987634,
+        -4.4892614809225995
+      ],
+      "transform": {
+        "translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "yaw_deg": 0.0,
+        "scale": 1.0
+      },
+      "visible": true,
+      "source": "scan",
+      "prompt": null,
+      "library_id": null
+    },
+    {
+      "id": "wooden chair#9",
+      "label": "wooden chair",
+      "ply": "objects/obj_wooden_chair_9.ply",
+      "completed_ply": null,
+      "lod": null,
+      "completed_lod": null,
+      "mesh": null,
+      "bbox_min": [
+        -7.419966461036669,
+        0.15858687739611976,
+        -9.369577235554582
+      ],
+      "bbox_max": [
+        -6.8103152984914646,
+        1.392668411305652,
+        -8.307097338647681
+      ],
+      "transform": {
+        "translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "yaw_deg": 0.0,
+        "scale": 1.0
+      },
+      "visible": true,
+      "source": "scan",
+      "prompt": null,
+      "library_id": null
+    },
+    {
+      "id": "wooden chair#11",
+      "label": "wooden chair",
+      "ply": "objects/obj_wooden_chair_11.ply",
+      "completed_ply": null,
+      "lod": null,
+      "completed_lod": null,
+      "mesh": null,
+      "bbox_min": [
+        -11.998901435988875,
+        0.04566849756173313,
+        -8.091523381598197
+      ],
+      "bbox_max": [
+        -11.48611543364153,
+        1.0345789177957152,
+        -7.4108683049636355
+      ],
+      "transform": {
+        "translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "yaw_deg": 0.0,
+        "scale": 1.0
+      },
+      "visible": true,
+      "source": "scan",
+      "prompt": null,
+      "library_id": null
+    },
+    {
+      "id": "wooden chair#12",
+      "label": "wooden chair",
+      "ply": "objects/obj_wooden_chair_12.ply",
+      "completed_ply": null,
+      "lod": null,
+      "completed_lod": null,
+      "mesh": null,
+      "bbox_min": [
+        -11.408633454859777,
+        0.05280718020079293,
+        -7.9903123089017924
+      ],
+      "bbox_max": [
+        -10.909340834121023,
+        0.8222843886205047,
+        -7.418395850176402
+      ],
+      "transform": {
+        "translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "yaw_deg": 0.0,
+        "scale": 1.0
+      },
+      "visible": true,
+      "source": "scan",
+      "prompt": null,
+      "library_id": null
+    },
+    {
+      "id": "potted plant#0",
+      "label": "potted plant",
+      "ply": "objects/obj_potted_plant_0.ply",
+      "completed_ply": null,
+      "lod": null,
+      "completed_lod": null,
+      "mesh": null,
+      "bbox_min": [
+        -8.51197537507726,
+        0.1691602258871061,
+        -9.058300292247896
+      ],
+      "bbox_max": [
+        -7.730823760899535,
+        2.0698676115496615,
+        -8.278156111587261
+      ],
+      "transform": {
+        "translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "yaw_deg": 0.0,
+        "scale": 1.0
+      },
+      "visible": true,
+      "source": "scan",
+      "prompt": null,
+      "library_id": null
+    },
+    {
+      "id": "potted plant#6",
+      "label": "potted plant",
+      "ply": "objects/obj_potted_plant_6.ply",
+      "completed_ply": null,
+      "lod": null,
+      "completed_lod": null,
+      "mesh": null,
+      "bbox_min": [
+        -1.9593212448297033,
+        0.07157496723642807,
+        1.1143989721503973
+      ],
+      "bbox_max": [
+        -1.092432464665968,
+        2.0880269223059313,
+        1.9825360202142228
+      ],
+      "transform": {
+        "translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "yaw_deg": 0.0,
+        "scale": 1.0
+      },
+      "visible": true,
+      "source": "scan",
+      "prompt": null,
+      "library_id": null
+    },
+    {
+      "id": "chafing dish#0",
+      "label": "chafing dish",
+      "ply": "objects/obj_chafing_dish_0.ply",
+      "completed_ply": null,
+      "lod": null,
+      "completed_lod": null,
+      "mesh": null,
+      "bbox_min": [
+        -0.40822078277759644,
+        0.6806347193223863,
+        -4.440494555293505
+      ],
+      "bbox_max": [
+        0.22306507244235393,
+        1.2075070079112908,
+        -3.9083770270806344
+      ],
+      "transform": {
+        "translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "yaw_deg": 0.0,
+        "scale": 1.0
+      },
+      "visible": true,
+      "source": "scan",
+      "prompt": null,
+      "library_id": null
+    }
+  ],
+  "planes": [],
+  "plane_bake": null,
+  "coverage": null,
+  "history": []
+}

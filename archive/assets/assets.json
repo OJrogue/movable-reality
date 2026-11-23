@@ -1,0 +1,683 @@
+[
+  {
+    "id": "sofa_02",
+    "name": "Sofa 02",
+    "kind": "model",
+    "resolution": "2k",
+    "authors": [
+      "Kirill Sannikov"
+    ],
+    "url": "https://polyhaven.com/a/sofa_02",
+    "license": "CC0-1.0",
+    "path": "sofa_02/sofa_02.gltf"
+  },
+  {
+    "id": "ArmChair_01",
+    "name": "Arm Chair 01",
+    "kind": "model",
+    "resolution": "2k",
+    "authors": [
+      "Kirill Sannikov"
+    ],
+    "url": "https://polyhaven.com/a/ArmChair_01",
+    "license": "CC0-1.0",
+    "path": "ArmChair_01/ArmChair_01.gltf"
+  },
+  {
+    "id": "modern_coffee_table_01",
+    "name": "Modern Coffee Table 01",
+    "kind": "model",
+    "resolution": "2k",
+    "authors": [
+      "Amin"
+    ],
+    "url": "https://polyhaven.com/a/modern_coffee_table_01",
+    "license": "CC0-1.0",
+    "path": "modern_coffee_table_01/modern_coffee_table_01.gltf"
+  },
+  {
+    "id": "side_table_01",
+    "name": "Side Table 01",
+    "kind": "model",
+    "resolution": "1k",
+    "authors": [
+      "James Ray Cock"
+    ],
+    "url": "https://polyhaven.com/a/side_table_01",
+    "license": "CC0-1.0",
+    "path": "side_table_01/side_table_01.gltf"
+  },
+  {
+    "id": "painted_wooden_cabinet",
+    "name": "Painted Wooden Cabinet",
+    "kind": "model",
+    "resolution": "2k",
+    "authors": [
+      "Kirill Sannikov"
+    ],
+    "url": "https://polyhaven.com/a/painted_wooden_cabinet",
+    "license": "CC0-1.0",
+    "path": "painted_wooden_cabinet/painted_wooden_cabinet.gltf"
+  },
+  {
+    "id": "potted_plant_01",
+    "name": "Potted Plant 01",
+    "kind": "model",
+    "resolution": "2k",
+    "authors": [
+      "Rico Cilliers"
+    ],
+    "url": "https://polyhaven.com/a/potted_plant_01",
+    "license": "CC0-1.0",
+    "path": "potted_plant_01/potted_plant_01.gltf"
+  },
+  {
+    "id": "book_encyclopedia_set_01",
+    "name": "Book Encyclopedia Set 01",
+    "kind": "model",
+    "resolution": "1k",
+    "authors": [
+      "John Malcolm"
+    ],
+    "url": "https://polyhaven.com/a/book_encyclopedia_set_01",
+    "license": "CC0-1.0",
+    "path": "book_encyclopedia_set_01/book_encyclopedia_set_01.gltf"
+  },
+  {
+    "id": "ceramic_vase_01",
+    "name": "Ceramic Vase 01",
+    "kind": "model",
+    "resolution": "1k",
+    "authors": [
+      "James Ray Cock"
+    ],
+    "url": "https://polyhaven.com/a/ceramic_vase_01",
+    "license": "CC0-1.0",
+    "path": "ceramic_vase_01/ceramic_vase_01.gltf"
+  },
+  {
+    "id": "potted_plant_04",
+    "name": "Potted Plant 04",
+    "kind": "model",
+    "resolution": "1k",
+    "authors": [
+      "James Ray Cock"
+    ],
+    "url": "https://polyhaven.com/a/potted_plant_04",
+    "license": "CC0-1.0",
+    "path": "potted_plant_04/potted_plant_04.gltf"
+  },
+  {
+    "id": "wooden_bowl_01",
+    "name": "Wooden Bowl 01",
+    "kind": "model",
+    "resolution": "1k",
+    "authors": [
+      "Oliver Harries"
+    ],
+    "url": "https://polyhaven.com/a/wooden_bowl_01",
+    "license": "CC0-1.0",
+    "path": "wooden_bowl_01/wooden_bowl_01.gltf"
+  },
+  {
+    "id": "vintage_day_bed",
+    "name": "Vintage Day Bed",
+    "kind": "model",
+    "resolution": "2k",
+    "authors": [
+      "Aron \u0141yczek"
+    ],
+    "url": "https://polyhaven.com/a/vintage_day_bed",
+    "license": "CC0-1.0",
+    "path": "vintage_day_bed/vintage_day_bed.gltf"
+  },
+  {
+    "id": "painted_wooden_nightstand",
+    "name": "Painted Wooden Nightstand",
+    "kind": "model",
+    "resolution": "1k",
+    "authors": [
+      "Kirill Sannikov"
+    ],
+    "url": "https://polyhaven.com/a/painted_wooden_nightstand",
+    "license": "CC0-1.0",
+    "path": "painted_wooden_nightstand/painted_wooden_nightstand.gltf"
+  },
+  {
+    "id": "wooden_table_02",
+    "name": "Wooden Table 02",
+    "kind": "model",
+    "resolution": "2k",
+    "authors": [
+      "Serhii Khromov"
+    ],
+    "url": "https://polyhaven.com/a/wooden_table_02",
+    "license": "CC0-1.0",
+    "path": "wooden_table_02/wooden_table_02.gltf"
+  },
+  {
+    "id": "dining_chair_02",
+    "name": "Dining Chair 02",
+    "kind": "model",
+    "resolution": "2k",
+    "authors": [
+      "James Ray Cock"
+    ],
+    "url": "https://polyhaven.com/a/dining_chair_02",
+    "license": "CC0-1.0",
+    "path": "dining_chair_02/dining_chair_02.gltf"
+  },
+  {
+    "id": "wooden_bookshelf_worn",
+    "name": "Wooden Bookshelf Worn",
+    "kind": "model",
+    "resolution": "2k",
+    "authors": [
+      "Ulan Cabanilla"
+    ],
+    "url": "https://polyhaven.com/a/wooden_bookshelf_worn",
+    "license": "CC0-1.0",
+    "path": "wooden_bookshelf_worn/wooden_bookshelf_worn.gltf"
+  },
+  {
+    "id": "modern_arm_chair_01",
+    "name": "Modern Arm Chair 01",
+    "kind": "model",
+    "resolution": "2k",
+    "authors": [
+      "Vibrant Nordic"
+    ],
+    "url": "https://polyhaven.com/a/modern_arm_chair_01",
+    "license": "CC0-1.0",
+    "path": "modern_arm_chair_01/modern_arm_chair_01.gltf"
+  },
+  {
+    "id": "potted_plant_02",
+    "name": "Potted Plant 02",
+    "kind": "model",
+    "resolution": "2k",
+    "authors": [
+      "Rico Cilliers"
+    ],
+    "url": "https://polyhaven.com/a/potted_plant_02",
+    "license": "CC0-1.0",
+    "path": "potted_plant_02/potted_plant_02.gltf"
+  },
+  {
+    "id": "ceramic_vase_03",
+    "name": "Ceramic Vase 03",
+    "kind": "model",
+    "resolution": "1k",
+    "authors": [
+      "James Ray Cock"
+    ],
+    "url": "https://polyhaven.com/a/ceramic_vase_03",
+    "license": "CC0-1.0",
+    "path": "ceramic_vase_03/ceramic_vase_03.gltf"
+  },
+  {
+    "id": "horse_statue_01",
+    "name": "Horse Statue 01",
+    "kind": "model",
+    "resolution": "1k",
+    "authors": [
+      "Rico Cilliers"
+    ],
+    "url": "https://polyhaven.com/a/horse_statue_01",
+    "license": "CC0-1.0",
+    "path": "horse_statue_01/horse_statue_01.gltf"
+  },
+  {
+    "id": "painted_wooden_chair_01",
+    "name": "Painted Wooden Chair 01",
+    "kind": "model",
+    "resolution": "2k",
+    "authors": [
+      "Kuutti Siitonen"
+    ],
+    "url": "https://polyhaven.com/a/painted_wooden_chair_01",
+    "license": "CC0-1.0",
+    "path": "painted_wooden_chair_01/painted_wooden_chair_01.gltf"
+  },
+  {
+    "id": "desk_lamp_arm_01",
+    "name": "Desk Lamp Arm 01",
+    "kind": "model",
+    "resolution": "2k",
+    "authors": [
+      "Kuutti Siitonen",
+      "Yann Kervran"
+    ],
+    "url": "https://polyhaven.com/a/desk_lamp_arm_01",
+    "license": "CC0-1.0",
+    "path": "desk_lamp_arm_01/desk_lamp_arm_01.gltf"
+  },
+  {
+    "id": "alarm_clock_01",
+    "name": "Alarm Clock 01",
+    "kind": "model",
+    "resolution": "1k",
+    "authors": [
+      "James Ray Cock",
+      "Yann Kervran"
+    ],
+    "url": "https://polyhaven.com/a/alarm_clock_01",
+    "license": "CC0-1.0",
+    "path": "alarm_clock_01/alarm_clock_01.gltf"
+  },
+  {
+    "id": "carved_wooden_elephant",
+    "name": "Carved Wooden Elephant",
+    "kind": "model",
+    "resolution": "1k",
+    "authors": [
+      "Greg Zaal"
+    ],
+    "url": "https://polyhaven.com/a/carved_wooden_elephant",
+    "license": "CC0-1.0",
+    "path": "carved_wooden_elephant/carved_wooden_elephant.gltf"
+  },
+  {
+    "id": "Ukulele_01",
+    "name": "Ukulele 01",
+    "kind": "model",
+    "resolution": "2k",
+    "authors": [
+      "Joseph Burgan"
+    ],
+    "url": "https://polyhaven.com/a/Ukulele_01",
+    "license": "CC0-1.0",
+    "path": "Ukulele_01/Ukulele_01.gltf"
+  },
+  {
+    "id": "wicker_basket_02",
+    "name": "Wicker Basket 02",
+    "kind": "model",
+    "resolution": "2k",
+    "authors": [
+      "Kuutti Siitonen"
+    ],
+    "url": "https://polyhaven.com/a/wicker_basket_02",
+    "license": "CC0-1.0",
+    "path": "wicker_basket_02/wicker_basket_02.gltf"
+  },
+  {
+    "id": "modern_ceiling_lamp_01",
+    "name": "Modern Ceiling Lamp 01",
+    "kind": "model",
+    "resolution": "1k",
+    "authors": [
+      "James Ray Cock"
+    ],
+    "url": "https://polyhaven.com/a/modern_ceiling_lamp_01",
+    "license": "CC0-1.0",
+    "path": "modern_ceiling_lamp_01/modern_ceiling_lamp_01.gltf"
+  },
+  {
+    "id": "wall_clock",
+    "name": "Wall Clock",
+    "kind": "model",
+    "resolution": "1k",
+    "authors": [
+      "PierreB3D"
+    ],
+    "url": "https://polyhaven.com/a/wall_clock",
+    "license": "CC0-1.0",
+    "path": "wall_clock/wall_clock.gltf"
+  },
+  {
+    "id": "standing_picture_frame_01",
+    "name": "Standing Picture Frame 01",
+    "kind": "model",
+    "resolution": "1k",
+    "authors": [
+      "James Ray Cock"
+    ],
+    "url": "https://polyhaven.com/a/standing_picture_frame_01",
+    "license": "CC0-1.0",
+    "path": "standing_picture_frame_01/standing_picture_frame_01.gltf"
+  },
+  {
+    "id": "modern_wooden_cabinet",
+    "name": "Modern Wooden Cabinet",
+    "kind": "model",
+    "resolution": "2k",
+    "authors": [
+      "Patrik Pangerl"
+    ],
+    "url": "https://polyhaven.com/a/modern_wooden_cabinet",
+    "license": "CC0-1.0",
+    "path": "modern_wooden_cabinet/modern_wooden_cabinet.gltf"
+  },
+  {
+    "id": "coffee_table_round_01",
+    "name": "Coffee Table Round 01",
+    "kind": "model",
+    "resolution": "2k",
+    "authors": [
+      "Ulan Cabanilla"
+    ],
+    "url": "https://polyhaven.com/a/coffee_table_round_01",
+    "license": "CC0-1.0",
+    "path": "coffee_table_round_01/coffee_table_round_01.gltf"
+  },
+  {
+    "id": "gaming_console",
+    "name": "Gaming Console",
+    "kind": "model",
+    "resolution": "1k",
+    "authors": [
+      "Sean Buckley"
+    ],
+    "url": "https://polyhaven.com/a/gaming_console",
+    "license": "CC0-1.0",
+    "path": "gaming_console/gaming_console.gltf"
+  },
+  {
+    "id": "ceramic_vase_02",
+    "name": "Ceramic Vase 02",
+    "kind": "model",
+    "resolution": "1k",
+    "authors": [
+      "James Ray Cock"
+    ],
+    "url": "https://polyhaven.com/a/ceramic_vase_02",
+    "license": "CC0-1.0",
+    "path": "ceramic_vase_02/ceramic_vase_02.gltf"
+  },
+  {
+    "id": "ceramic_vase_04",
+    "name": "Ceramic Vase 04",
+    "kind": "model",
+    "resolution": "1k",
+    "authors": [
+      "James Ray Cock"
+    ],
+    "url": "https://polyhaven.com/a/ceramic_vase_04",
+    "license": "CC0-1.0",
+    "path": "ceramic_vase_04/ceramic_vase_04.gltf"
+  },
+  {
+    "id": "wooden_bowl_02",
+    "name": "Wooden Bowl 02",
+    "kind": "model",
+    "resolution": "1k",
+    "authors": [
+      "Kuutti Siitonen"
+    ],
+    "url": "https://polyhaven.com/a/wooden_bowl_02",
+    "license": "CC0-1.0",
+    "path": "wooden_bowl_02/wooden_bowl_02.gltf"
+  },
+  {
+    "id": "sofa_03",
+    "name": "Sofa 03",
+    "kind": "model",
+    "resolution": "2k",
+    "authors": [
+      "Fran Calvente"
+    ],
+    "url": "https://polyhaven.com/a/sofa_03",
+    "license": "CC0-1.0",
+    "path": "sofa_03/sofa_03.gltf"
+  },
+  {
+    "id": "Ottoman_01",
+    "name": "Ottoman 01",
+    "kind": "model",
+    "resolution": "2k",
+    "authors": [
+      "Caspian Fortune"
+    ],
+    "url": "https://polyhaven.com/a/Ottoman_01",
+    "license": "CC0-1.0",
+    "path": "Ottoman_01/Ottoman_01.gltf"
+  },
+  {
+    "id": "throw_pillows_01",
+    "name": "Throw Pillows 01",
+    "kind": "model",
+    "resolution": "2k",
+    "authors": [
+      "Serhii Khromov"
+    ],
+    "url": "https://polyhaven.com/a/throw_pillows_01",
+    "license": "CC0-1.0",
+    "path": "throw_pillows_01/throw_pillows_01.gltf"
+  },
+  {
+    "id": "brass_vase_01",
+    "name": "Brass Vase 01",
+    "kind": "model",
+    "resolution": "1k",
+    "authors": [
+      "Rico Cilliers"
+    ],
+    "url": "https://polyhaven.com/a/brass_vase_01",
+    "license": "CC0-1.0",
+    "path": "brass_vase_01/brass_vase_01.gltf"
+  },
+  {
+    "id": "mantel_clock_01",
+    "name": "Mantel Clock 01",
+    "kind": "model",
+    "resolution": "1k",
+    "authors": [
+      "Rico Cilliers",
+      "Yann Kervran"
+    ],
+    "url": "https://polyhaven.com/a/mantel_clock_01",
+    "license": "CC0-1.0",
+    "path": "mantel_clock_01/mantel_clock_01.gltf"
+  },
+  {
+    "id": "laminate_floor_02",
+    "name": "Laminate Floor 02",
+    "kind": "texture",
+    "resolution": "2k",
+    "authors": [
+      "Charlotte Baglioni",
+      "Dario Barresi"
+    ],
+    "url": "https://polyhaven.com/a/laminate_floor_02",
+    "license": "CC0-1.0",
+    "path": "laminate_floor_02"
+  },
+  {
+    "id": "beige_wall_001",
+    "name": "Beige Wall 001",
+    "kind": "texture",
+    "resolution": "2k",
+    "authors": [
+      "Dimitrios Savva",
+      "Rico Cilliers"
+    ],
+    "url": "https://polyhaven.com/a/beige_wall_001",
+    "license": "CC0-1.0",
+    "path": "beige_wall_001"
+  },
+  {
+    "id": "wood_floor",
+    "name": "Wood Floor",
+    "kind": "texture",
+    "resolution": "2k",
+    "authors": [
+      "Dimitrios Savva"
+    ],
+    "url": "https://polyhaven.com/a/wood_floor",
+    "license": "CC0-1.0",
+    "path": "wood_floor"
+  },
+  {
+    "id": "white_stucco",
+    "name": "White Stucco",
+    "kind": "texture",
+    "resolution": "2k",
+    "authors": [
+      "Amal Kumar"
+    ],
+    "url": "https://polyhaven.com/a/white_stucco",
+    "license": "CC0-1.0",
+    "path": "white_stucco"
+  },
+  {
+    "id": "white_oak_veneer",
+    "name": "White Oak Veneer",
+    "kind": "texture",
+    "resolution": "2k",
+    "authors": [
+      "Jenelle van Heerden"
+    ],
+    "url": "https://polyhaven.com/a/white_oak_veneer",
+    "license": "CC0-1.0",
+    "path": "white_oak_veneer"
+  },
+  {
+    "id": "poly_wool_herringbone",
+    "name": "Poly Wool Herringbone",
+    "kind": "texture",
+    "resolution": "2k",
+    "authors": [
+      "Rico Cilliers",
+      "colormass"
+    ],
+    "url": "https://polyhaven.com/a/poly_wool_herringbone",
+    "license": "CC0-1.0",
+    "path": "poly_wool_herringbone"
+  },
+  {
+    "id": "rough_linen",
+    "name": "Rough Linen",
+    "kind": "texture",
+    "resolution": "2k",
+    "authors": [
+      "Rico Cilliers",
+      "colormass"
+    ],
+    "url": "https://polyhaven.com/a/rough_linen",
+    "license": "CC0-1.0",
+    "path": "rough_linen"
+  },
+  {
+    "id": "waffle_pique_cotton",
+    "name": "Waffle Pique Cotton",
+    "kind": "texture",
+    "resolution": "2k",
+    "authors": [
+      "Rico Cilliers",
+      "colormass"
+    ],
+    "url": "https://polyhaven.com/a/waffle_pique_cotton",
+    "license": "CC0-1.0",
+    "path": "waffle_pique_cotton"
+  },
+  {
+    "id": "cotton_jersey",
+    "name": "Cotton Jersey",
+    "kind": "texture",
+    "resolution": "2k",
+    "authors": [
+      "Rico Cilliers",
+      "colormass"
+    ],
+    "url": "https://polyhaven.com/a/cotton_jersey",
+    "license": "CC0-1.0",
+    "path": "cotton_jersey"
+  },
+  {
+    "id": "eilenriede_park",
+    "name": "Eilenriede Park",
+    "kind": "hdri",
+    "resolution": "4k",
+    "authors": [
+      "Greg Zaal"
+    ],
+    "url": "https://polyhaven.com/a/eilenriede_park",
+    "license": "CC0-1.0",
+    "path": "eilenriede_park"
+  },
+  {
+    "id": "poster_great_wave",
+    "name": "Tsunami_by_hokusai_19th_century.jpg",
+    "kind": "poster",
+    "resolution": "1920px",
+    "authors": [
+      "Katsushika Hokusai"
+    ],
+    "url": "https://commons.wikimedia.org/wiki/File:Tsunami_by_hokusai_19th_century.jpg",
+    "license": "Public domain",
+    "path": "posters/poster_great_wave.jpg"
+  },
+  {
+    "id": "poster_earthrise",
+    "name": "NASA-Apollo8-Dec24-Earthrise.jpg",
+    "kind": "poster",
+    "resolution": "1920px",
+    "authors": [
+      "NASA/Bill Anders"
+    ],
+    "url": "https://commons.wikimedia.org/wiki/File:NASA-Apollo8-Dec24-Earthrise.jpg",
+    "license": "Public domain",
+    "path": "posters/poster_earthrise.jpg"
+  },
+  {
+    "id": "painting_yellow_red_blue",
+    "name": "Kandinsky_-_Jaune_Rouge_Bleu.jpg",
+    "kind": "poster",
+    "resolution": "1920px",
+    "authors": [
+      "Wassily Kandinsky"
+    ],
+    "url": "https://commons.wikimedia.org/wiki/File:Kandinsky_-_Jaune_Rouge_Bleu.jpg",
+    "license": "Public domain",
+    "path": "posters/painting_yellow_red_blue.jpg"
+  },
+  {
+    "id": "painting_mondrian",
+    "name": "Piet_Mondriaan,_1930_-_Mondrian_Composition_II_in_Red,_Blue,_and_Yellow.jpg",
+    "kind": "poster",
+    "resolution": "1920px",
+    "authors": [
+      "Piet Mondrian"
+    ],
+    "url": "https://commons.wikimedia.org/wiki/File:Piet_Mondriaan,_1930_-_Mondrian_Composition_II_in_Red,_Blue,_and_Yellow.jpg",
+    "license": "Public domain",
+    "path": "posters/painting_mondrian.jpg"
+  },
+  {
+    "id": "painting_kandinsky",
+    "name": "Vassily_Kandinsky,_1913_-_Color_Study,_Squares_with_Concentric_Circles.jpg",
+    "kind": "poster",
+    "resolution": "1920px",
+    "authors": [
+      "Wassily Kandinsky"
+    ],
+    "url": "https://commons.wikimedia.org/wiki/File:Vassily_Kandinsky,_1913_-_Color_Study,_Squares_with_Concentric_Circles.jpg",
+    "license": "Public domain",
+    "path": "posters/painting_kandinsky.jpg"
+  },
+  {
+    "id": "painting_af_klint",
+    "name": "Hilma_af_Klint_-_The_Ten_Largest_No._3_-_Youth_-_1907.jpg",
+    "kind": "poster",
+    "resolution": "1920px",
+    "authors": [
+      "Hilma af Klint"
+    ],
+    "url": "https://commons.wikimedia.org/wiki/File:Hilma_af_Klint_-_The_Ten_Largest_No._3_-_Youth_-_1907.jpg",
+    "license": "Public domain",
+    "path": "posters/painting_af_klint.jpg"
+  },
+  {
+    "id": "painting_klee",
+    "name": "Ad_Parnassum,_Paul_Klee_(1932,_274).jpg",
+    "kind": "poster",
+    "resolution": "1920px",
+    "authors": [
+      "Paul Klee"
+    ],
+    "url": "https://commons.wikimedia.org/wiki/File:Ad_Parnassum,_Paul_Klee_(1932,_274).jpg",
+    "license": "Public domain",
+    "path": "posters/painting_klee.jpg"
+  }
+]

@@ -1,0 +1,70 @@
+{
+  "model": "muse-wonder-1.0",
+  "objects": [
+    {
+      "noun": "table",
+      "count": 6,
+      "on": null
+    },
+    {
+      "noun": "banquet chair",
+      "count": 32,
+      "on": null
+    },
+    {
+      "noun": "armchair",
+      "count": 10,
+      "on": null
+    },
+    {
+      "noun": "wooden chair",
+      "count": 14,
+      "on": null
+    },
+    {
+      "noun": "potted plant",
+      "count": 8,
+      "on": null
+    },
+    {
+      "noun": "round table",
+      "count": 2,
+      "on": null
+    },
+    {
+      "noun": "lantern",
+      "count": 6,
+      "on": "table"
+    },
+    {
+      "noun": "flower arrangement",
+      "count": 4,
+      "on": "table"
+    },
+    {
+      "noun": "chafing dish",
+      "count": 1,
+      "on": "table"
+    },
+    {
+      "noun": "candle",
+      "count": 3,
+      "on": "table"
+    }
+  ],
+  "nouns": [
+    "table",
+    "banquet chair",
+    "armchair",
+    "wooden chair",
+    "potted plant",
+    "round table",
+    "lantern",
+    "flower arrangement",
+    "chafing dish",
+    "candle",
+    "floor",
+    "wall",
+    "ceiling"
+  ]
+}

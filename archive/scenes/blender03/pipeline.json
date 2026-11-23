@@ -1,0 +1,76 @@
+{
+  "scene": "blender03",
+  "stages": {
+    "frames": {
+      "state": "done",
+      "started": "14:21:55",
+      "log": "logs/frames.log",
+      "cmd": "uv run python scripts/extract_frames.py data/raw/blender03.mp4 --scene blender03 --focal35 25.0",
+      "seconds": 18.5,
+      "last_line": "intrinsics.json: fx = fy = 1386.6 px (25.0 mm equivalent)"
+    },
+    "inventory": {
+      "state": "done",
+      "started": "14:22:13",
+      "log": "logs/inventory.log",
+      "cmd": "uv run python scripts/inventory.py --scene blender03",
+      "seconds": 78.7,
+      "last_line": "wrote D:\\Projects\\MetaHackathon\\movable-reality\\data\\scenes\\blender03\\inventory.json: 14 nouns"
+    },
+    "sam": {
+      "state": "done",
+      "started": "14:23:32",
+      "log": "logs/sam.log",
+      "cmd": "uv run python scripts/lift_ids.py --scene blender03 --sam-only --skip wall",
+      "seconds": 2202.1,
+      "last_line": "SAM cache filled for 13 nouns"
+    },
+    "reconstruct": {
+      "state": "failed",
+      "started": "14:26:45",
+      "log": "logs/reconstruct.log",
+      "cmd": "uv run modal run modal_jobs/reconstruct.py --scene blender03 --preset quality",
+      "seconds": 40420.6,
+      "last_line": "\u2514\u2500\u2500 \u2713 Created Function build_room_mesh."
+    },
+    "lift": {
+      "state": "todo"
+    },
+    "objects": {
+      "state": "todo"
+    },
+    "complete": {
+      "state": "todo"
+    },
+    "shell": {
+      "state": "todo"
+    },
+    "bake": {
+      "state": "todo"
+    },
+    "surfaces": {
+      "state": "todo"
+    },
+    "lod": {
+      "state": "todo"
+    },
+    "coverage": {
+      "state": "todo"
+    }
+  },
+  "order": [
+    "frames",
+    "inventory",
+    "sam",
+    "reconstruct",
+    "lift",
+    "objects",
+    "complete",
+    "shell",
+    "bake",
+    "surfaces",
+    "lod",
+    "coverage"
+  ],
+  "updated": "2026-11-03T01:40:26"
+}

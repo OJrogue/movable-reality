@@ -1,0 +1,167 @@
+{
+  "background_ply": "objects/background.ply",
+  "floor_frames": 172,
+  "outline_xz": [
+    [
+      0.637,
+      -2.871
+    ],
+    [
+      1.011,
+      1.964
+    ],
+    [
+      -3.974,
+      2.35
+    ],
+    [
+      -4.352,
+      -2.536
+    ]
+  ],
+  "wall_lengths_m": [
+    4.85,
+    5.0,
+    4.9,
+    5.0
+  ],
+  "height_m": 2.5,
+  "height_from": "typical; ceiling not seen, pass --height",
+  "frames": 172,
+  "texel_m": 0.006,
+  "surfaces": [
+    {
+      "glb": "room/shell_floor_0.glb",
+      "kind": "floor",
+      "size_m": [
+        5.363,
+        5.221
+      ],
+      "texture_px": [
+        894,
+        870
+      ],
+      "seen_share": 0.881,
+      "generated_share": 0.288,
+      "normal": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "bytes": 827044
+    },
+    {
+      "glb": "room/shell_ceiling_0.glb",
+      "kind": "ceiling",
+      "size_m": [
+        5.363,
+        5.221
+      ],
+      "texture_px": [
+        894,
+        870
+      ],
+      "seen_share": 0.0,
+      "generated_share": 0.0,
+      "normal": [
+        -0.0,
+        -1.0,
+        -0.0
+      ],
+      "bytes": 6332
+    },
+    {
+      "glb": "room/shell_wall_0.glb",
+      "kind": "wall",
+      "size_m": [
+        4.85,
+        2.5
+      ],
+      "texture_px": [
+        808,
+        417
+      ],
+      "seen_share": 0.69,
+      "generated_share": 0.382,
+      "normal": [
+        -0.997,
+        0.0,
+        0.0771
+      ],
+      "bytes": 19700
+    },
+    {
+      "glb": "room/shell_wall_1.glb",
+      "kind": "wall",
+      "size_m": [
+        5.0,
+        2.5
+      ],
+      "texture_px": [
+        833,
+        417
+      ],
+      "seen_share": 0.562,
+      "generated_share": 0.513,
+      "normal": [
+        -0.0771,
+        0.0,
+        -0.997
+      ],
+      "bytes": 16692
+    },
+    {
+      "glb": "room/shell_wall_2.glb",
+      "kind": "wall",
+      "size_m": [
+        4.9,
+        2.5
+      ],
+      "texture_px": [
+        817,
+        417
+      ],
+      "seen_share": 0.636,
+      "generated_share": 0.49,
+      "normal": [
+        0.997,
+        0.0,
+        -0.0771
+      ],
+      "bytes": 25672
+    },
+    {
+      "glb": "room/shell_wall_3.glb",
+      "kind": "wall",
+      "size_m": [
+        5.0,
+        2.5
+      ],
+      "texture_px": [
+        833,
+        417
+      ],
+      "seen_share": 0.623,
+      "generated_share": 0.555,
+      "normal": [
+        0.0671,
+        0.0,
+        0.9977
+      ],
+      "bytes": 21672
+    }
+  ],
+  "seconds": 327.3,
+  "replaces_splats": false,
+  "surfaces_source_ply": "objects/background.ply",
+  "surfaces_gap_m": 0.06,
+  "surfaces_reach_sigma": 2.0,
+  "surfaces_haze_removed": 4091,
+  "surfaces_floaters_removed": 507,
+  "surfaces_needles_removed": 11094,
+  "surfaces_in_objects_removed": 139780,
+  "surfaces_ghosts_removed": 33479,
+  "surfaces_removed": 416225,
+  "surfaces_kept": 141788,
+  "surfaces_skipped": "141788 of 558013 background splats off the shell (over --max-kept 0.18)"
+}

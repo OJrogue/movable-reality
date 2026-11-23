@@ -1,0 +1,61 @@
+{
+  "scene": "eyeful_furnished3",
+  "stages": {
+    "frames": {
+      "state": "done"
+    },
+    "inventory": {
+      "state": "todo"
+    },
+    "sam": {
+      "state": "todo"
+    },
+    "reconstruct": {
+      "state": "done",
+      "started": "19:39:43",
+      "log": "logs/reconstruct.log",
+      "cmd": "uv run modal run modal_jobs/reconstruct.py --scene eyeful_furnished3 --preset quality",
+      "seconds": 1795.6,
+      "last_line": "https://modal.com/apps/ojytcanal/main/ap-VyEhdvB2elIczwJ5xcHNj8"
+    },
+    "lift": {
+      "state": "todo"
+    },
+    "objects": {
+      "state": "todo"
+    },
+    "complete": {
+      "state": "todo"
+    },
+    "shell": {
+      "state": "todo"
+    },
+    "bake": {
+      "state": "todo"
+    },
+    "surfaces": {
+      "state": "todo"
+    },
+    "lod": {
+      "state": "todo"
+    },
+    "coverage": {
+      "state": "todo"
+    }
+  },
+  "order": [
+    "frames",
+    "inventory",
+    "sam",
+    "reconstruct",
+    "lift",
+    "objects",
+    "complete",
+    "shell",
+    "bake",
+    "surfaces",
+    "lod",
+    "coverage"
+  ],
+  "updated": "2026-11-03T20:09:39"
+}

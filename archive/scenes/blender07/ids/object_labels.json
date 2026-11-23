@@ -1,0 +1,161 @@
+{
+  "armchair#1": [
+    2
+  ],
+  "bookshelf#1": [
+    4
+  ],
+  "sofa#0": [
+    7
+  ],
+  "coffee table#0": [
+    8
+  ],
+  "side table#0": [
+    10,
+    15
+  ],
+  "tv stand#0": [
+    11
+  ],
+  "ottoman#0": [
+    12
+  ],
+  "table lamp#0": [
+    14
+  ],
+  "television#0": [
+    16
+  ],
+  "soundbar#1": [
+    18
+  ],
+  "soundbar#2": [
+    19
+  ],
+  "potted plant#1": [
+    21
+  ],
+  "potted plant#2": [
+    22
+  ],
+  "potted plant#4": [
+    24
+  ],
+  "potted plant#5": [
+    25
+  ],
+  "potted plant#7": [
+    27
+  ],
+  "potted plant#8": [
+    28
+  ],
+  "vase#4": [
+    32,
+    23
+  ],
+  "vase#6": [
+    34
+  ],
+  "vase#7": [
+    35
+  ],
+  "book#1": [
+    40
+  ],
+  "book#5": [
+    44
+  ],
+  "book#10": [
+    46,
+    48,
+    49
+  ],
+  "book#9": [
+    50
+  ],
+  "book#12": [
+    51
+  ],
+  "picture frame#0": [
+    55
+  ],
+  "picture frame#1": [
+    56
+  ],
+  "picture frame#2": [
+    57
+  ],
+  "picture frame#4": [
+    59
+  ],
+  "picture frame#6": [
+    61
+  ],
+  "picture frame#13": [
+    68
+  ],
+  "statue#1": [
+    72
+  ],
+  "basket#1": [
+    74
+  ],
+  "basket#2": [
+    75
+  ],
+  "pillow#1": [
+    85
+  ],
+  "pillow#2": [
+    86
+  ],
+  "pillow#3": [
+    87
+  ],
+  "pillow#4": [
+    88
+  ],
+  "rug#0": [
+    91,
+    52,
+    84,
+    79,
+    53,
+    82
+  ],
+  "pendant lamp#0": [
+    92
+  ],
+  "curtain#0": [
+    93
+  ],
+  "curtain#1": [
+    94
+  ],
+  "curtain#2": [
+    95
+  ],
+  "curtain#10": [
+    103
+  ],
+  "curtain#11": [
+    104
+  ],
+  "curtain#12": [
+    105
+  ],
+  "curtain#13": [
+    106
+  ],
+  "radiator#0": [
+    108
+  ],
+  "radiator#1": [
+    109
+  ],
+  "radiator#2": [
+    110
+  ]
+}

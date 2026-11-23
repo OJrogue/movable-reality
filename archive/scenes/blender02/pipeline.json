@@ -1,0 +1,112 @@
+{
+  "scene": "blender02",
+  "stages": {
+    "frames": {
+      "state": "done",
+      "started": "13:57:02",
+      "log": "logs/frames.log",
+      "cmd": "uv run python scripts/extract_frames.py data/raw/blender02.mp4 --scene blender02 --focal35 25.0",
+      "seconds": 21.5,
+      "last_line": "intrinsics.json: fx = fy = 1386.6 px (25.0 mm equivalent)"
+    },
+    "inventory": {
+      "state": "done",
+      "started": "13:57:24",
+      "log": "logs/inventory.log",
+      "cmd": "uv run python scripts/inventory.py --scene blender02",
+      "seconds": 61.3,
+      "last_line": "wrote D:\\Projects\\MetaHackathon\\movable-reality\\data\\scenes\\blender02\\inventory.json: 15 nouns"
+    },
+    "sam": {
+      "state": "todo",
+      "started": "13:58:25",
+      "log": "logs/sam.log",
+      "cmd": "uv run python scripts/lift_ids.py --scene blender02 --sam-only --skip wall"
+    },
+    "reconstruct": {
+      "state": "done",
+      "started": "13:58:25",
+      "log": "logs/reconstruct.log",
+      "cmd": "uv run modal run modal_jobs/reconstruct.py --scene blender02 --preset quality"
+    },
+    "lift": {
+      "state": "done",
+      "started": "14:23:07",
+      "log": "logs/lift.log",
+      "cmd": "uv run python scripts/lift_ids.py --scene blender02 --skip wall --scale 2.714",
+      "seconds": 736.4,
+      "last_line": "wrote 12 objects to D:\\Projects\\MetaHackathon\\movable-reality\\data\\scenes\\blender02\\scene.json"
+    },
+    "objects": {
+      "state": "done",
+      "started": "14:35:23",
+      "log": "logs/objects.log",
+      "cmd": "uv run modal run modal_jobs/reconstruct.py --scene blender02 --objects",
+      "seconds": 2639.0,
+      "last_line": "https://modal.com/apps/ojytcanal/main/ap-gUHBN0NmKEMJLm1JnVZEXt"
+    },
+    "complete": {
+      "state": "done",
+      "started": "15:19:22",
+      "log": "logs/complete.log",
+      "cmd": "uv run python scripts/complete_objects.py --scene blender02 --mesh",
+      "seconds": 555.4,
+      "last_line": "statue#0                 frame 25 (4430 px) -> objects/obj_statue_0_completed.ply, 60656 splats, ICP RMS 0.071 -> 0.014 m, 24 s"
+    },
+    "shell": {
+      "state": "done",
+      "started": "15:28:37",
+      "log": "logs/shell.log",
+      "cmd": "uv run python scripts/room_shell.py --scene blender02",
+      "seconds": 267.3,
+      "last_line": "8 surfaces -> scene.json room_planes, 267 s"
+    },
+    "bake": {
+      "state": "done",
+      "started": "15:33:05",
+      "log": "logs/bake.log",
+      "cmd": "uv run python scripts/bake_planes.py --scene blender02 --labels floor",
+      "seconds": 167.9,
+      "last_line": "blender02: baked 1 planes, removed 47230 splats -> objects/background_baked.ply"
+    },
+    "surfaces": {
+      "state": "done",
+      "started": "15:35:53",
+      "log": "logs/surfaces.log",
+      "cmd": "uv run python scripts/room_surfaces.py --scene blender02",
+      "seconds": 39.7,
+      "last_line": "objects/background.ply: 429364 splats, 418290 on or behind the room surfaces or haze (3010), needles (8627), in objects (98640), ghosts (6290) or floaters (257) removed, 11074 kept -> objects/background_room.ply"
+    },
+    "lod": {
+      "state": "done",
+      "started": "15:36:32",
+      "log": "logs/lod.log",
+      "cmd": "uv run python scripts/build_lod.py blender02",
+      "seconds": 37.6,
+      "last_line": "blender02: 25/25 meshes have LOD trees (25 built now)"
+    },
+    "coverage": {
+      "state": "done",
+      "started": "15:37:10",
+      "log": "logs/coverage.log",
+      "cmd": "uv run python scripts/score_coverage.py --scene blender02",
+      "seconds": 239.2,
+      "last_line": "gap_032  r=0.20 m  score=0.82  near=potted plant#0  c=(-2.42, -0.07, -0.55)  stand at (-1.52, -1.35) gain 0.03"
+    }
+  },
+  "order": [
+    "frames",
+    "inventory",
+    "sam",
+    "reconstruct",
+    "lift",
+    "objects",
+    "complete",
+    "shell",
+    "bake",
+    "surfaces",
+    "lod",
+    "coverage"
+  ],
+  "updated": "2026-11-02T15:41:09"
+}

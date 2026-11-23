@@ -1,0 +1,134 @@
+{
+  "frames": 152,
+  "folded": {
+    "armchair#0": [
+      2
+    ],
+    "sofa#1": [
+      3
+    ],
+    "coffee table#0": [
+      7
+    ],
+    "side table#0": [
+      9
+    ],
+    "cabinet#0": [
+      11
+    ],
+    "books#0": [
+      19
+    ]
+  },
+  "objects": {
+    "armchair#0": {
+      "gaussians_in": 129483,
+      "gaussians_out": 97421,
+      "frames": 81,
+      "steps": 4000,
+      "seconds": 19.2,
+      "from_background": 27708
+    },
+    "sofa#1": {
+      "gaussians_in": 41447,
+      "gaussians_out": 37505,
+      "frames": 79,
+      "steps": 4000,
+      "seconds": 15.9,
+      "from_background": 11968
+    },
+    "floor lamp#0": {
+      "gaussians_in": 25833,
+      "gaussians_out": 13671,
+      "frames": 59,
+      "steps": 4000,
+      "seconds": 16.4,
+      "from_background": 5052
+    },
+    "coffee table#0": {
+      "gaussians_in": 72000,
+      "gaussians_out": 65064,
+      "frames": 117,
+      "steps": 4000,
+      "seconds": 18.0,
+      "from_background": 1776
+    },
+    "side table#0": {
+      "gaussians_in": 15685,
+      "gaussians_out": 13563,
+      "frames": 72,
+      "steps": 4000,
+      "seconds": 15.2,
+      "from_background": 8992
+    },
+    "cabinet#0": {
+      "gaussians_in": 104057,
+      "gaussians_out": 86626,
+      "frames": 50,
+      "steps": 4000,
+      "seconds": 19.7,
+      "from_background": 7594
+    },
+    "potted plant#1": {
+      "gaussians_in": 51776,
+      "gaussians_out": 44213,
+      "frames": 28,
+      "steps": 4000,
+      "seconds": 17.1,
+      "from_background": 4982
+    },
+    "potted plant#2": {
+      "gaussians_in": 851,
+      "gaussians_out": 16954,
+      "frames": 13,
+      "steps": 4000,
+      "seconds": 14.3,
+      "from_background": 447
+    },
+    "books#0": {
+      "gaussians_in": 32336,
+      "gaussians_out": 23325,
+      "frames": 40,
+      "steps": 4000,
+      "seconds": 17.9,
+      "from_background": 289
+    }
+  },
+  "items_joined": {
+    "books#0": 0,
+    "potted plant#2": 44,
+    "side table#0": 162,
+    "floor lamp#0": 39,
+    "potted plant#1": 195,
+    "coffee table#0": 9,
+    "cabinet#0": 90,
+    "armchair#0": 35,
+    "sofa#1": 10
+  },
+  "junk_removed": 14285,
+  "moved_from_background": {
+    "armchair#0": 27708,
+    "sofa#1": 11968,
+    "floor lamp#0": 5052,
+    "coffee table#0": 1776,
+    "side table#0": 8992,
+    "cabinet#0": 7594,
+    "potted plant#1": 4982,
+    "potted plant#2": 447,
+    "books#0": 289
+  },
+  "hidden_kept": 3824,
+  "in_front_removed": 3645,
+  "high_needles_removed": 35,
+  "background": {
+    "gaussians_in": 308199,
+    "gaussians_out": 263555,
+    "frames": 152,
+    "steps": 8000,
+    "seconds": 72.9,
+    "fill_seconds": 29.9
+  },
+  "merged": {
+    "potted plant#2": "potted plant#1"
+  }
+}
