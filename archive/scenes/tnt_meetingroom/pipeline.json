@@ -1,0 +1,84 @@
+{
+  "scene": "tnt_meetingroom",
+  "stages": {
+    "frames": {
+      "state": "done"
+    },
+    "inventory": {
+      "state": "done",
+      "started": "22:24:38",
+      "log": "logs/inventory.log",
+      "cmd": "uv run python scripts/inventory.py --scene tnt_meetingroom",
+      "seconds": 176.2,
+      "last_line": "wrote D:\\Projects\\MetaHackathon\\movable-reality\\data\\scenes\\tnt_meetingroom\\inventory.json: 13 nouns"
+    },
+    "sam": {
+      "state": "done",
+      "started": "22:46:21",
+      "log": "logs/sam.log",
+      "cmd": "uv run python scripts/lift_ids.py --scene tnt_meetingroom --sam-only",
+      "seconds": 1501.1,
+      "last_line": "SAM cache filled for 13 nouns"
+    },
+    "reconstruct": {
+      "state": "done",
+      "started": "22:46:21",
+      "log": "logs/reconstruct.log",
+      "cmd": "uv run modal run modal_jobs/reconstruct.py --scene tnt_meetingroom --preset quality --real-capture",
+      "seconds": 251.6,
+      "last_line": "https://modal.com/apps/ojytcanal/main/ap-ByKdlmPXyqSnWR4lJ6Wqui"
+    },
+    "lift": {
+      "state": "done",
+      "started": "23:11:23",
+      "log": "logs/lift.log",
+      "cmd": "uv run python scripts/lift_ids.py --scene tnt_meetingroom --scale 1.564 --group table=banquet chair,wooden chair,armchair",
+      "seconds": 352.6,
+      "last_line": "wrote 10 objects to D:\\Projects\\MetaHackathon\\movable-reality\\data\\scenes\\tnt_meetingroom\\scene.json"
+    },
+    "objects": {
+      "state": "done",
+      "started": "23:17:15",
+      "log": "logs/objects.log",
+      "cmd": "uv run modal run modal_jobs/reconstruct.py --scene tnt_meetingroom --objects",
+      "seconds": 800.2,
+      "last_line": "https://modal.com/apps/ojytcanal/main/ap-LdkRQdYVm7d27u8EGcf7c8"
+    },
+    "complete": {
+      "state": "running",
+      "started": "23:30:35",
+      "log": "logs/complete.log",
+      "cmd": "uv run python scripts/complete_objects.py --scene tnt_meetingroom --mesh"
+    },
+    "shell": {
+      "state": "queued"
+    },
+    "bake": {
+      "state": "queued"
+    },
+    "surfaces": {
+      "state": "queued"
+    },
+    "lod": {
+      "state": "queued"
+    },
+    "coverage": {
+      "state": "queued"
+    }
+  },
+  "order": [
+    "frames",
+    "inventory",
+    "sam",
+    "reconstruct",
+    "lift",
+    "objects",
+    "complete",
+    "shell",
+    "bake",
+    "surfaces",
+    "lod",
+    "coverage"
+  ],
+  "updated": "2026-11-03T23:30:35"
+}

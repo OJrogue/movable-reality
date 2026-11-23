@@ -1,0 +1,29 @@
+Movable Reality. Record your room and get a customizable 3D room.
+
+All it needs is a video walkthrough of the room and the ceiling height. No depth sensor, no floor plan, no manual labelling.
+
+Muse Wonder watches the video and lists the objects. SAM 3.1 tracks each one. MapAnything finds the cameras, and Gaussian splatting builds the room. One command takes it from video to finished room.
+
+Every object comes out as its own set of Gaussian splats.
+
+Select any, move it along an axis, or turn it.
+
+Measure it.
+
+Add furniture from a library.
+
+Or just say what you want.
+
+Ask it to move the sofa half a metre, and it moves it thirty centimetres, because the side table is in the way.
+
+It answers questions too. Will the armchair fit between the sofa and the bookshelf? No. The gap is one metre two, and the chair is wider.
+
+Ask for a plant, and it picks one and places it. After every edit, Muse Spark Open looks at the room and checks the result.
+
+No walk sees everything. The pipeline scores what the video covered and marks the spots it barely saw. The detail you get follows the data you give it.
+
+This is a working demo, on two rooms rendered in Blender, and it can be a good starting point for a project or research.
+
+Runs on eight Meta models. It's MIT licensed, each stage is a plain script you can swap, and the test rooms and scoring tools come with it, so you can measure your changes.
+
+Try the demo at the link below.

@@ -1,0 +1,148 @@
+{
+  "model": "muse-wonder-1.0",
+  "objects": [
+    {
+      "noun": "bed",
+      "count": 1,
+      "on": null
+    },
+    {
+      "noun": "desk",
+      "count": 1,
+      "on": null
+    },
+    {
+      "noun": "chair",
+      "count": 1,
+      "on": null
+    },
+    {
+      "noun": "dresser",
+      "count": 1,
+      "on": null
+    },
+    {
+      "noun": "nightstand",
+      "count": 1,
+      "on": null
+    },
+    {
+      "noun": "shelf",
+      "count": 1,
+      "on": "wall"
+    },
+    {
+      "noun": "trash can",
+      "count": 1,
+      "on": null
+    },
+    {
+      "noun": "ukulele",
+      "count": 1,
+      "on": null
+    },
+    {
+      "noun": "suitcase",
+      "count": 1,
+      "on": null
+    },
+    {
+      "noun": "basket",
+      "count": 1,
+      "on": null
+    },
+    {
+      "noun": "potted plant",
+      "count": 1,
+      "on": null
+    },
+    {
+      "noun": "pillow",
+      "count": 1,
+      "on": "bed"
+    },
+    {
+      "noun": "blanket",
+      "count": 1,
+      "on": "bed"
+    },
+    {
+      "noun": "laptop",
+      "count": 1,
+      "on": "desk"
+    },
+    {
+      "noun": "desk lamp",
+      "count": 1,
+      "on": "desk"
+    },
+    {
+      "noun": "mug",
+      "count": 1,
+      "on": "desk"
+    },
+    {
+      "noun": "computer mouse",
+      "count": 1,
+      "on": "desk"
+    },
+    {
+      "noun": "book",
+      "count": 1,
+      "on": "desk"
+    },
+    {
+      "noun": "alarm clock",
+      "count": 1,
+      "on": "nightstand"
+    },
+    {
+      "noun": "elephant statue",
+      "count": 1,
+      "on": "dresser"
+    },
+    {
+      "noun": "figurine",
+      "count": 3,
+      "on": "dresser"
+    },
+    {
+      "noun": "framed picture",
+      "count": 2,
+      "on": "wall"
+    },
+    {
+      "noun": "box",
+      "count": 1,
+      "on": "shelf"
+    }
+  ],
+  "nouns": [
+    "bed",
+    "desk",
+    "chair",
+    "dresser",
+    "nightstand",
+    "shelf",
+    "trash can",
+    "ukulele",
+    "suitcase",
+    "basket",
+    "potted plant",
+    "pillow",
+    "blanket",
+    "laptop",
+    "desk lamp",
+    "mug",
+    "computer mouse",
+    "book",
+    "alarm clock",
+    "elephant statue",
+    "figurine",
+    "framed picture",
+    "box",
+    "floor",
+    "wall",
+    "ceiling"
+  ]
+}

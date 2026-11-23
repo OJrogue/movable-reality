@@ -1,0 +1,82 @@
+{
+  "model": "muse-wonder-1.0",
+  "objects": [
+    {
+      "noun": "daybed",
+      "count": 1,
+      "on": null
+    },
+    {
+      "noun": "side table",
+      "count": 1,
+      "on": null
+    },
+    {
+      "noun": "floor lamp",
+      "count": 1,
+      "on": null
+    },
+    {
+      "noun": "desk",
+      "count": 1,
+      "on": null
+    },
+    {
+      "noun": "chair",
+      "count": 1,
+      "on": null
+    },
+    {
+      "noun": "armchair",
+      "count": 1,
+      "on": null
+    },
+    {
+      "noun": "bookshelf",
+      "count": 1,
+      "on": null
+    },
+    {
+      "noun": "potted plant",
+      "count": 1,
+      "on": null
+    },
+    {
+      "noun": "pillow",
+      "count": 1,
+      "on": "daybed"
+    },
+    {
+      "noun": "vase",
+      "count": 1,
+      "on": "side table"
+    },
+    {
+      "noun": "statue",
+      "count": 1,
+      "on": "side table"
+    },
+    {
+      "noun": "books",
+      "count": 1,
+      "on": "desk"
+    }
+  ],
+  "nouns": [
+    "daybed",
+    "side table",
+    "floor lamp",
+    "desk",
+    "chair",
+    "armchair",
+    "bookshelf",
+    "potted plant",
+    "pillow",
+    "vase",
+    "statue",
+    "books",
+    "floor",
+    "wall",
+    "ceiling"
+  ]
+}

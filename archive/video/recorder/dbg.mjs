@@ -1,0 +1,25 @@
+import { launch, sleep } from "./lib.mjs";
+const J = JSON.stringify;
+const { tab, close } = await launch();
+await sleep(3000);
+await tab.cdp("Network.enable");
+await tab.cdp("Network.clearBrowserCookies");
+await tab.goto("http://localhost:5173/?scene=blender07&onboarding=0&hud=0&budget=0");
+await tab.ready(14000);
+await tab.js(`window.__ev=[];for(const n of ['pointerdown','pointerup','click'])addEventListener(n,e=>__ev.push(n+':'+e.target.tagName+'.'+(e.target.className||'')+'@'+e.clientX+','+e.clientY+' btn'+e.button),true)`);
+const test = async (name, eye, tgt) => {
+  await tab.js(`__pose(${J(eye)},${J(tgt)})`);
+  await sleep(4000);
+  const o = await tab.js(`(()=>{const o=__obj("armchair#1");return o.bbox_min.map((m,i)=>(m+o.bbox_max[i])/2)})()`);
+  const a = await tab.js(`__screen(${J(o)})`);
+  await tab.click(a[0], a[1], 500);
+  await sleep(1200);
+  console.log(name, a, await tab.js(`JSON.stringify({inner:[innerWidth,innerHeight],ev:__ev.splice(0),giz:(()=>{const g=document.querySelector('.mr-ui-gizmo');return g?getComputedStyle(g).display+' '+g.hidden:'none'})(),at:document.elementFromPoint(${a[0]},${a[1]}).tagName})`));
+  await tab.shot(`dbg_${name}.jpg`);
+  await tab.key("Escape", "Escape");
+  await sleep(500);
+};
+await test("old", [2.3, 1.5, -3.2], [0.2, 0.45, -1.7]);
+await test("new", [1.75, 1.4, -0.55], [0.25, 0.55, -1.75]);
+close();
+process.exit(0);

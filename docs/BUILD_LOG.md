@@ -1900,3 +1900,11 @@ The README keeps its limits under "Known limits". Next: OJ's go-ahead to push, p
 Lane: ui. Compared 11 viewpoints in the viewer. The living room now opens from in front of the sofa,
 facing the TV wall, which keeps most of the rug and ceiling smears out of frame. Merged the site
 work into main and redeployed. Next: submission.
+
+## 23 Nov, docs: data cleanup and archive
+
+Lane: docs (after the event). The local `data/` folder (~140 GB) is cleaned up. Text records go
+into `archive/`: how the submission video was made (script, voice-over, subtitles, recorder and
+cut scripts), every scene's JSON files except the private test room's, and the asset and library
+lists. Paid API responses, logs, the private test video and the final video files go into one zip
+kept off the repo. Renders, trained splats and clips are deleted; scripts in the repo rebuild them.

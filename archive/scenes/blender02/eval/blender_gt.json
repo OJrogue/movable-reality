@@ -1,0 +1,18 @@
+{
+  "scene": "blender02",
+  "walk": "main",
+  "synthetic": true,
+  "pose": {
+    "n_cameras": 160,
+    "ate_rmse_m": 0.001093450576707759,
+    "ate_mean_m": 0.000992710310437717,
+    "ate_median_m": 0.0009287300717917861,
+    "ate_max_m": 0.002436983110006107,
+    "rot_err_median_deg": 0.033260119688200654,
+    "rot_err_max_deg": 0.06561875821480963,
+    "sim3_scale": 2.7143787265250117,
+    "gt_path_length_m": 16.429508316277953,
+    "n_frames_selected": 160
+  },
+  "completion": "not run: needs M4 completions (obj_<id>_completed.ply)"
+}

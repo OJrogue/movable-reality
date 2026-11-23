@@ -1,0 +1,67 @@
+{
+  "scene": "eyeful_furnished",
+  "stages": {
+    "frames": {
+      "state": "done"
+    },
+    "inventory": {
+      "state": "done",
+      "started": "19:13:23",
+      "log": "logs/inventory.log",
+      "cmd": "uv run python scripts/inventory.py --scene eyeful_furnished",
+      "seconds": 120.9,
+      "last_line": "wrote D:\\Projects\\MetaHackathon\\movable-reality\\data\\scenes\\eyeful_furnished\\inventory.json: 21 nouns"
+    },
+    "sam": {
+      "state": "running",
+      "started": "19:15:24",
+      "log": "logs/sam.log",
+      "cmd": "uv run python scripts/lift_ids.py --scene eyeful_furnished --sam-only"
+    },
+    "reconstruct": {
+      "state": "running",
+      "started": "19:15:24",
+      "log": "logs/reconstruct.log",
+      "cmd": "uv run modal run modal_jobs/reconstruct.py --scene eyeful_furnished --preset quality"
+    },
+    "lift": {
+      "state": "queued"
+    },
+    "objects": {
+      "state": "queued"
+    },
+    "complete": {
+      "state": "queued"
+    },
+    "shell": {
+      "state": "queued"
+    },
+    "bake": {
+      "state": "queued"
+    },
+    "surfaces": {
+      "state": "queued"
+    },
+    "lod": {
+      "state": "queued"
+    },
+    "coverage": {
+      "state": "queued"
+    }
+  },
+  "order": [
+    "frames",
+    "inventory",
+    "sam",
+    "reconstruct",
+    "lift",
+    "objects",
+    "complete",
+    "shell",
+    "bake",
+    "surfaces",
+    "lod",
+    "coverage"
+  ],
+  "updated": "2026-11-03T19:15:24"
+}

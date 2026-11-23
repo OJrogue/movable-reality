@@ -1,0 +1,31 @@
+{
+  "armchair#0": [
+    1
+  ],
+  "sofa#1": [
+    4
+  ],
+  "floor lamp#0": [
+    5
+  ],
+  "coffee table#0": [
+    6,
+    12
+  ],
+  "side table#0": [
+    8,
+    15
+  ],
+  "cabinet#0": [
+    10
+  ],
+  "potted plant#1": [
+    13
+  ],
+  "potted plant#2": [
+    14
+  ],
+  "books#0": [
+    18
+  ]
+}

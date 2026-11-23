@@ -1,0 +1,126 @@
+{
+  "version": 1,
+  "scene_id": "demo",
+  "units": "m",
+  "world_from_recon": [
+    [
+      1.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      1.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      1.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+    ]
+  ],
+  "background_ply": "objects/background.ply",
+  "background_lod": "lod/background.rad",
+  "objects": [
+    {
+      "id": "chair#1",
+      "label": "chair",
+      "ply": "objects/obj_chair_1.ply",
+      "completed_ply": null,
+      "lod": "lod/obj_chair_1.rad",
+      "bbox_min": [
+        -1.1,
+        0.0,
+        -1.8
+      ],
+      "bbox_max": [
+        -0.6,
+        0.9,
+        -1.3
+      ],
+      "transform": {
+        "translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "yaw_deg": 0.0,
+        "scale": 1.0
+      },
+      "visible": true,
+      "source": "scan",
+      "prompt": null
+    },
+    {
+      "id": "table#1",
+      "label": "table",
+      "ply": "objects/obj_table_1.ply",
+      "completed_ply": null,
+      "lod": "lod/obj_table_1.rad",
+      "bbox_min": [
+        0.2,
+        0.0,
+        -2.2
+      ],
+      "bbox_max": [
+        1.4,
+        0.75,
+        -1.4
+      ],
+      "transform": {
+        "translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "yaw_deg": 0.0,
+        "scale": 1.0
+      },
+      "visible": true,
+      "source": "scan",
+      "prompt": null
+    },
+    {
+      "id": "floor lamp#1",
+      "label": "floor lamp",
+      "ply": "objects/obj_floor_lamp_1.ply",
+      "completed_ply": null,
+      "lod": "lod/obj_floor_lamp_1.rad",
+      "bbox_min": [
+        1.6,
+        0.0,
+        -3.0
+      ],
+      "bbox_max": [
+        1.8,
+        1.6,
+        -2.8
+      ],
+      "transform": {
+        "translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "yaw_deg": 0.0,
+        "scale": 1.0
+      },
+      "visible": true,
+      "source": "scan",
+      "prompt": null
+    }
+  ],
+  "planes": [],
+  "plane_bake": null,
+  "coverage": null,
+  "history": []
+}

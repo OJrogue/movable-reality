@@ -1,0 +1,495 @@
+[
+  {
+    "id": "sofa_02",
+    "label": "sofa",
+    "category": "Seating",
+    "on_surface": false,
+    "size": [
+      1.807,
+      0.709,
+      0.818
+    ],
+    "triangles": 2728,
+    "glb": "sofa_02.glb",
+    "thumb": "thumbs/sofa_02.png",
+    "author": "Kirill Sannikov",
+    "source_url": "https://polyhaven.com/a/sofa_02",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "sofa_03",
+    "label": "large sofa",
+    "category": "Seating",
+    "on_surface": false,
+    "size": [
+      2.731,
+      1.118,
+      0.925
+    ],
+    "triangles": 8004,
+    "glb": "sofa_03.glb",
+    "thumb": "thumbs/sofa_03.png",
+    "author": "Fran Calvente",
+    "source_url": "https://polyhaven.com/a/sofa_03",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "ArmChair_01",
+    "label": "armchair",
+    "category": "Seating",
+    "on_surface": false,
+    "size": [
+      0.848,
+      1.065,
+      0.766
+    ],
+    "triangles": 5626,
+    "glb": "ArmChair_01.glb",
+    "thumb": "thumbs/ArmChair_01.png",
+    "author": "Kirill Sannikov",
+    "source_url": "https://polyhaven.com/a/ArmChair_01",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "modern_arm_chair_01",
+    "label": "modern armchair",
+    "category": "Seating",
+    "on_surface": false,
+    "size": [
+      0.82,
+      1.023,
+      0.987
+    ],
+    "triangles": 8916,
+    "glb": "modern_arm_chair_01.glb",
+    "thumb": "thumbs/modern_arm_chair_01.png",
+    "author": "Vibrant Nordic",
+    "source_url": "https://polyhaven.com/a/modern_arm_chair_01",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "dining_chair_02",
+    "label": "dining chair",
+    "category": "Seating",
+    "on_surface": false,
+    "size": [
+      0.434,
+      0.973,
+      0.576
+    ],
+    "triangles": 22013,
+    "glb": "dining_chair_02.glb",
+    "thumb": "thumbs/dining_chair_02.png",
+    "author": "James Ray Cock",
+    "source_url": "https://polyhaven.com/a/dining_chair_02",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "painted_wooden_chair_01",
+    "label": "painted chair",
+    "category": "Seating",
+    "on_surface": false,
+    "size": [
+      0.432,
+      0.956,
+      0.54
+    ],
+    "triangles": 724,
+    "glb": "painted_wooden_chair_01.glb",
+    "thumb": "thumbs/painted_wooden_chair_01.png",
+    "author": "Kuutti Siitonen",
+    "source_url": "https://polyhaven.com/a/painted_wooden_chair_01",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "Ottoman_01",
+    "label": "ottoman",
+    "category": "Seating",
+    "on_surface": false,
+    "size": [
+      0.885,
+      0.624,
+      0.621
+    ],
+    "triangles": 4240,
+    "glb": "Ottoman_01.glb",
+    "thumb": "thumbs/Ottoman_01.png",
+    "author": "Caspian Fortune",
+    "source_url": "https://polyhaven.com/a/Ottoman_01",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "modern_coffee_table_01",
+    "label": "coffee table",
+    "category": "Tables",
+    "on_surface": false,
+    "size": [
+      0.6,
+      0.39,
+      1.202
+    ],
+    "triangles": 4504,
+    "glb": "modern_coffee_table_01.glb",
+    "thumb": "thumbs/modern_coffee_table_01.png",
+    "author": "Amin",
+    "source_url": "https://polyhaven.com/a/modern_coffee_table_01",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "coffee_table_round_01",
+    "label": "round coffee table",
+    "category": "Tables",
+    "on_surface": false,
+    "size": [
+      1.301,
+      0.491,
+      1.301
+    ],
+    "triangles": 4044,
+    "glb": "coffee_table_round_01.glb",
+    "thumb": "thumbs/coffee_table_round_01.png",
+    "author": "Ulan Cabanilla",
+    "source_url": "https://polyhaven.com/a/coffee_table_round_01",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "side_table_01",
+    "label": "side table",
+    "category": "Tables",
+    "on_surface": false,
+    "size": [
+      0.55,
+      0.551,
+      0.45
+    ],
+    "triangles": 2756,
+    "glb": "side_table_01.glb",
+    "thumb": "thumbs/side_table_01.png",
+    "author": "James Ray Cock",
+    "source_url": "https://polyhaven.com/a/side_table_01",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "wooden_table_02",
+    "label": "wooden table",
+    "category": "Tables",
+    "on_surface": false,
+    "size": [
+      1.134,
+      0.8,
+      0.706
+    ],
+    "triangles": 196,
+    "glb": "wooden_table_02.glb",
+    "thumb": "thumbs/wooden_table_02.png",
+    "author": "Serhii Khromov",
+    "source_url": "https://polyhaven.com/a/wooden_table_02",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "painted_wooden_cabinet",
+    "label": "cabinet",
+    "category": "Storage and beds",
+    "on_surface": false,
+    "size": [
+      1.195,
+      1.182,
+      0.617
+    ],
+    "triangles": 2227,
+    "glb": "painted_wooden_cabinet.glb",
+    "thumb": "thumbs/painted_wooden_cabinet.png",
+    "author": "Kirill Sannikov",
+    "source_url": "https://polyhaven.com/a/painted_wooden_cabinet",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "modern_wooden_cabinet",
+    "label": "modern cabinet",
+    "category": "Storage and beds",
+    "on_surface": false,
+    "size": [
+      2.44,
+      0.68,
+      0.52
+    ],
+    "triangles": 24976,
+    "glb": "modern_wooden_cabinet.glb",
+    "thumb": "thumbs/modern_wooden_cabinet.png",
+    "author": "Patrik Pangerl",
+    "source_url": "https://polyhaven.com/a/modern_wooden_cabinet",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "painted_wooden_nightstand",
+    "label": "nightstand",
+    "category": "Storage and beds",
+    "on_surface": false,
+    "size": [
+      0.505,
+      0.616,
+      0.509
+    ],
+    "triangles": 470,
+    "glb": "painted_wooden_nightstand.glb",
+    "thumb": "thumbs/painted_wooden_nightstand.png",
+    "author": "Kirill Sannikov",
+    "source_url": "https://polyhaven.com/a/painted_wooden_nightstand",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "wooden_bookshelf_worn",
+    "label": "bookshelf",
+    "category": "Storage and beds",
+    "on_surface": false,
+    "size": [
+      1.374,
+      2.063,
+      0.581
+    ],
+    "triangles": 10106,
+    "glb": "wooden_bookshelf_worn.glb",
+    "thumb": "thumbs/wooden_bookshelf_worn.png",
+    "author": "Ulan Cabanilla",
+    "source_url": "https://polyhaven.com/a/wooden_bookshelf_worn",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "vintage_day_bed",
+    "label": "day bed",
+    "category": "Storage and beds",
+    "on_surface": false,
+    "size": [
+      1.973,
+      1.127,
+      0.855
+    ],
+    "triangles": 2715,
+    "glb": "vintage_day_bed.glb",
+    "thumb": "thumbs/vintage_day_bed.png",
+    "author": "Aron \u0141yczek",
+    "source_url": "https://polyhaven.com/a/vintage_day_bed",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "potted_plant_01",
+    "label": "tall potted plant",
+    "category": "Plants",
+    "on_surface": false,
+    "size": [
+      0.587,
+      1.35,
+      0.634
+    ],
+    "triangles": 176226,
+    "glb": "potted_plant_01.glb",
+    "thumb": "thumbs/potted_plant_01.png",
+    "author": "Rico Cilliers",
+    "source_url": "https://polyhaven.com/a/potted_plant_01",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "potted_plant_02",
+    "label": "potted plant",
+    "category": "Plants",
+    "on_surface": false,
+    "size": [
+      0.701,
+      0.841,
+      0.657
+    ],
+    "triangles": 69806,
+    "glb": "potted_plant_02.glb",
+    "thumb": "thumbs/potted_plant_02.png",
+    "author": "Rico Cilliers",
+    "source_url": "https://polyhaven.com/a/potted_plant_02",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "potted_plant_04",
+    "label": "succulent",
+    "category": "Plants",
+    "on_surface": true,
+    "size": [
+      0.168,
+      0.267,
+      0.185
+    ],
+    "triangles": 8929,
+    "glb": "potted_plant_04.glb",
+    "thumb": "thumbs/potted_plant_04.png",
+    "author": "James Ray Cock",
+    "source_url": "https://polyhaven.com/a/potted_plant_04",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "wicker_basket_02",
+    "label": "wicker basket",
+    "category": "Decor",
+    "on_surface": false,
+    "size": [
+      0.375,
+      0.218,
+      0.271
+    ],
+    "triangles": 17850,
+    "glb": "wicker_basket_02.glb",
+    "thumb": "thumbs/wicker_basket_02.png",
+    "author": "Kuutti Siitonen",
+    "source_url": "https://polyhaven.com/a/wicker_basket_02",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "desk_lamp_arm_01",
+    "label": "desk lamp",
+    "category": "Decor",
+    "on_surface": true,
+    "size": [
+      0.202,
+      0.893,
+      0.614
+    ],
+    "triangles": 24102,
+    "glb": "desk_lamp_arm_01.glb",
+    "thumb": "thumbs/desk_lamp_arm_01.png",
+    "author": "Kuutti Siitonen, Yann Kervran",
+    "source_url": "https://polyhaven.com/a/desk_lamp_arm_01",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "ceramic_vase_01",
+    "label": "ceramic vase",
+    "category": "Decor",
+    "on_surface": true,
+    "size": [
+      0.204,
+      0.4,
+      0.204
+    ],
+    "triangles": 10296,
+    "glb": "ceramic_vase_01.glb",
+    "thumb": "thumbs/ceramic_vase_01.png",
+    "author": "James Ray Cock",
+    "source_url": "https://polyhaven.com/a/ceramic_vase_01",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "brass_vase_01",
+    "label": "brass vase",
+    "category": "Decor",
+    "on_surface": true,
+    "size": [
+      0.227,
+      0.692,
+      0.227
+    ],
+    "triangles": 21440,
+    "glb": "brass_vase_01.glb",
+    "thumb": "thumbs/brass_vase_01.png",
+    "author": "Rico Cilliers",
+    "source_url": "https://polyhaven.com/a/brass_vase_01",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "wooden_bowl_01",
+    "label": "wooden bowl",
+    "category": "Decor",
+    "on_surface": true,
+    "size": [
+      0.313,
+      0.094,
+      0.309
+    ],
+    "triangles": 14122,
+    "glb": "wooden_bowl_01.glb",
+    "thumb": "thumbs/wooden_bowl_01.png",
+    "author": "Oliver Harries",
+    "source_url": "https://polyhaven.com/a/wooden_bowl_01",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "book_encyclopedia_set_01",
+    "label": "books",
+    "category": "Decor",
+    "on_surface": true,
+    "size": [
+      0.551,
+      0.237,
+      0.163
+    ],
+    "triangles": 67306,
+    "glb": "book_encyclopedia_set_01.glb",
+    "thumb": "thumbs/book_encyclopedia_set_01.png",
+    "author": "John Malcolm",
+    "source_url": "https://polyhaven.com/a/book_encyclopedia_set_01",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "throw_pillows_01",
+    "label": "throw pillows",
+    "category": "Decor",
+    "on_surface": true,
+    "size": [
+      1.022,
+      0.45,
+      0.627
+    ],
+    "triangles": 6362,
+    "glb": "throw_pillows_01.glb",
+    "thumb": "thumbs/throw_pillows_01.png",
+    "author": "Serhii Khromov",
+    "source_url": "https://polyhaven.com/a/throw_pillows_01",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "mantel_clock_01",
+    "label": "mantel clock",
+    "category": "Decor",
+    "on_surface": true,
+    "size": [
+      0.342,
+      0.16,
+      0.126
+    ],
+    "triangles": 25721,
+    "glb": "mantel_clock_01.glb",
+    "thumb": "thumbs/mantel_clock_01.png",
+    "author": "Rico Cilliers, Yann Kervran",
+    "source_url": "https://polyhaven.com/a/mantel_clock_01",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "horse_statue_01",
+    "label": "horse statue",
+    "category": "Decor",
+    "on_surface": true,
+    "size": [
+      0.163,
+      0.22,
+      0.108
+    ],
+    "triangles": 22388,
+    "glb": "horse_statue_01.glb",
+    "thumb": "thumbs/horse_statue_01.png",
+    "author": "Rico Cilliers",
+    "source_url": "https://polyhaven.com/a/horse_statue_01",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "carved_wooden_elephant",
+    "label": "wooden elephant",
+    "category": "Decor",
+    "on_surface": true,
+    "size": [
+      0.109,
+      0.096,
+      0.058
+    ],
+    "triangles": 2752,
+    "glb": "carved_wooden_elephant.glb",
+    "thumb": "thumbs/carved_wooden_elephant.png",
+    "author": "Greg Zaal",
+    "source_url": "https://polyhaven.com/a/carved_wooden_elephant",
+    "license": "CC0-1.0"
+  }
+]

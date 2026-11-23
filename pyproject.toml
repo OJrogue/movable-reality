@@ -35,7 +35,7 @@ packages = ["src/movable_reality"]
 [tool.ruff]
 line-length = 100
 target-version = "py312"
-extend-exclude = ["web"]
+extend-exclude = ["web", "archive"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP"]

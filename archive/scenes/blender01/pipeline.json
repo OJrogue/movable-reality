@@ -1,0 +1,92 @@
+{
+  "scene": "blender01",
+  "stages": {
+    "frames": {
+      "state": "done"
+    },
+    "inventory": {
+      "state": "done"
+    },
+    "sam": {
+      "state": "done",
+      "started": "21:02:23",
+      "log": "logs/sam.log",
+      "cmd": "uv run python scripts/lift_ids.py --scene blender01 --sam-only",
+      "seconds": 2.2,
+      "last_line": "SAM cache filled for 13 nouns"
+    },
+    "reconstruct": {
+      "state": "done"
+    },
+    "lift": {
+      "state": "done",
+      "started": "00:18:16",
+      "log": "logs/lift.log",
+      "cmd": "uv run python scripts/lift_ids.py --scene blender01 --force",
+      "seconds": 143.7,
+      "last_line": "wrote 10 objects to D:\\Projects\\MetaHackathon\\movable-reality\\data\\scenes\\blender01\\scene.json"
+    },
+    "objects": {
+      "state": "done",
+      "started": "01:41:23",
+      "log": "logs/objects.log",
+      "cmd": "uv run modal run modal_jobs/reconstruct.py --scene blender01 --objects",
+      "seconds": 462.6,
+      "last_line": "https://modal.com/apps/ojytcanal/main/ap-RphY8f0Fzc4C0JuIj5ajzE"
+    },
+    "complete": {
+      "state": "done",
+      "started": "01:49:06",
+      "log": "logs/complete.log",
+      "cmd": "uv run python scripts/complete_objects.py --scene blender01 --mesh --force",
+      "seconds": 164.5,
+      "last_line": "books#0                  frame 36 (33539 px) -> objects/obj_books_0_completed.ply, 69260 splats, ICP RMS 0.071 -> 0.017 m, 19 s"
+    },
+    "shell": {
+      "state": "done",
+      "started": "01:51:51",
+      "log": "logs/shell.log",
+      "cmd": "uv run python scripts/room_shell.py --scene blender01 --force",
+      "seconds": 79.2,
+      "last_line": "6 surfaces -> scene.json room_planes, 79 s"
+    },
+    "lod": {
+      "state": "done",
+      "started": "01:54:43",
+      "log": "logs/lod.log",
+      "cmd": "uv run python scripts/build_lod.py blender01 --force",
+      "seconds": 30.7,
+      "last_line": "blender01: 19/19 meshes have LOD trees (19 built now)"
+    },
+    "bake": {
+      "state": "done",
+      "started": "01:53:10",
+      "log": "logs/bake.log",
+      "cmd": "uv run python scripts/bake_planes.py --scene blender01 --labels floor --force",
+      "seconds": 93.2,
+      "last_line": "blender01: baked 1 planes, removed 37481 splats -> objects/background_baked.ply"
+    },
+    "coverage": {
+      "state": "done",
+      "started": "01:55:14",
+      "log": "logs/coverage.log",
+      "cmd": "uv run python scripts/score_coverage.py --scene blender01 --force",
+      "seconds": 141.9,
+      "last_line": "gap_031  r=0.20 m  score=1.00  near=floor lamp#0  c=(-1.67, 0.46, -3.97)  stand at (-1.02, -1.37) gain 0.75"
+    }
+  },
+  "order": [
+    "frames",
+    "inventory",
+    "sam",
+    "reconstruct",
+    "lift",
+    "objects",
+    "complete",
+    "shell",
+    "bake",
+    "lod",
+    "coverage"
+  ],
+  "updated": "2026-11-02T01:57:36"
+}

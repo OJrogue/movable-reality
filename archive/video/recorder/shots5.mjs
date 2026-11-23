@@ -1,0 +1,21 @@
+// Coverage overlay on a glide that sees the armchair only from its clean side.
+import { launch, sleep } from "./lib.mjs";
+const J = JSON.stringify;
+const { tab, close } = await launch();
+await sleep(3000);
+await tab.cdp("Network.enable");
+await tab.cdp("Network.clearBrowserCookies");
+await tab.goto("http://localhost:5173/?scene=blender07&onboarding=0&hud=0&budget=0&gapViews=0");
+await tab.ready(14000);
+await tab.js(`__pose([2.4,1.55,0.2],[1.7,0.6,-3.6])`);
+await sleep(4000);
+await tab.key("KeyG", "g");
+await sleep(2000);
+const stop = await tab.record("gaps2");
+await sleep(400);
+await tab.js(`__glide([3.3,1.6,-0.1],[0.3,0.7,-3.0],10000)`);
+await sleep(600);
+await tab.shot("gaps2.jpg");
+await stop();
+close();
+process.exit(0);

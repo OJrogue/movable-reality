@@ -1,0 +1,524 @@
+{
+  "armchair#0": {
+    "frame": 96,
+    "mask_px": 283485,
+    "splats": 92240,
+    "sam3d_s": 3.8,
+    "total_s": 23.9,
+    "coarse_scale": 1.0947,
+    "total_scale": 1.088,
+    "levelled_deg": 14.5,
+    "floor_shift_m": 0.0242,
+    "starts": 10,
+    "icp_rms_before_m": 0.0377,
+    "icp_rms_free_m": 0.0313,
+    "icp_rms_after_m": 0.0329,
+    "completed_bounds_world": [
+      [
+        -2.032,
+        0.058,
+        -2.509
+      ],
+      [
+        -1.145,
+        1.052,
+        -1.684
+      ]
+    ],
+    "completed_bytes": 6365000,
+    "mesh_vertices": 50045,
+    "mesh_faces": 100000,
+    "mesh_raw_faces": 917882,
+    "mesh_frame": "y_to_z",
+    "mesh_frame_dist": {
+      "y_to_z": 0.02919,
+      "z_to_y": 0.07293,
+      "identity": 0.08839
+    },
+    "mesh_bounds_world": [
+      [
+        -2.056,
+        -0.006,
+        -2.546
+      ],
+      [
+        -1.108,
+        1.132,
+        -1.649
+      ]
+    ],
+    "mesh_bytes": 2402168,
+    "modal": {
+      "download_s": 0.0,
+      "load_s": 48.8,
+      "pointmap_s": 0.9,
+      "generate_s": 19.9,
+      "peak_gib": 21.6,
+      "mesh_faces": 917882
+    }
+  },
+  "sofa#1": {
+    "frame": 18,
+    "mask_px": 241283,
+    "splats": 43812,
+    "sam3d_s": 1.7,
+    "total_s": 23.4,
+    "coarse_scale": 0.9769,
+    "total_scale": 1.0071,
+    "levelled_deg": 9.47,
+    "floor_shift_m": -0.0296,
+    "starts": 10,
+    "icp_rms_before_m": 0.0378,
+    "icp_rms_free_m": 0.0328,
+    "icp_rms_after_m": 0.0331,
+    "completed_bounds_world": [
+      [
+        -0.874,
+        0.089,
+        -4.166
+      ],
+      [
+        0.88,
+        0.684,
+        -3.38
+      ]
+    ],
+    "completed_bytes": 3023468,
+    "mesh_vertices": 49974,
+    "mesh_faces": 100000,
+    "mesh_raw_faces": 447952,
+    "mesh_frame": "y_to_z",
+    "mesh_frame_dist": {
+      "y_to_z": 0.01866,
+      "z_to_y": 0.04732,
+      "identity": 0.05478
+    },
+    "mesh_bounds_world": [
+      [
+        -0.921,
+        -0.023,
+        -4.191
+      ],
+      [
+        0.927,
+        0.702,
+        -3.367
+      ]
+    ],
+    "mesh_bytes": 2400456,
+    "modal": {
+      "download_s": 0.0,
+      "load_s": 48.8,
+      "pointmap_s": 0.6,
+      "generate_s": 6.3,
+      "peak_gib": 21.6,
+      "mesh_faces": 447952
+    }
+  },
+  "floor lamp#0": {
+    "frame": 110,
+    "mask_px": 25691,
+    "splats": 6688,
+    "sam3d_s": 1.0,
+    "total_s": 10.5,
+    "coarse_scale": 1.0,
+    "total_scale": 0.8781,
+    "levelled_deg": 3.08,
+    "floor_shift_m": -0.1143,
+    "starts": 10,
+    "icp_rms_before_m": 0.1985,
+    "icp_rms_free_m": 0.0102,
+    "icp_rms_after_m": 0.01,
+    "completed_bounds_world": [
+      [
+        -1.789,
+        0.001,
+        -4.1
+      ],
+      [
+        -1.352,
+        1.577,
+        -3.663
+      ]
+    ],
+    "completed_bytes": 461911,
+    "mesh_vertices": 40660,
+    "mesh_faces": 81306,
+    "mesh_raw_faces": 81306,
+    "mesh_frame": "y_to_z",
+    "mesh_frame_dist": {
+      "y_to_z": 0.00777,
+      "z_to_y": 0.06552,
+      "identity": 0.37154
+    },
+    "mesh_bounds_world": [
+      [
+        -1.805,
+        0.0,
+        -4.117
+      ],
+      [
+        -1.335,
+        1.582,
+        -3.646
+      ]
+    ],
+    "mesh_bytes": 1952604,
+    "modal": {
+      "download_s": 0.0,
+      "load_s": 48.8,
+      "pointmap_s": 0.6,
+      "generate_s": 5.9,
+      "peak_gib": 21.6,
+      "mesh_faces": 81306
+    }
+  },
+  "coffee table#0": {
+    "frame": 18,
+    "mask_px": 140066,
+    "splats": 32164,
+    "sam3d_s": 1.5,
+    "total_s": 20.4,
+    "coarse_scale": 1.0,
+    "total_scale": 1.2487,
+    "levelled_deg": 7.16,
+    "floor_shift_m": 0.0263,
+    "starts": 10,
+    "icp_rms_before_m": 0.1181,
+    "icp_rms_free_m": 0.0318,
+    "icp_rms_after_m": 0.0374,
+    "completed_bounds_world": [
+      [
+        -0.634,
+        0.001,
+        -2.968
+      ],
+      [
+        0.602,
+        0.488,
+        -2.334
+      ]
+    ],
+    "completed_bytes": 2219756,
+    "mesh_vertices": 50006,
+    "mesh_faces": 100000,
+    "mesh_raw_faces": 443672,
+    "mesh_frame": "y_to_z",
+    "mesh_frame_dist": {
+      "y_to_z": 0.01731,
+      "z_to_y": 0.12196,
+      "identity": 0.08618
+    },
+    "mesh_bounds_world": [
+      [
+        -0.644,
+        -0.003,
+        -2.987
+      ],
+      [
+        0.61,
+        0.472,
+        -2.318
+      ]
+    ],
+    "mesh_bytes": 2401244,
+    "modal": {
+      "download_s": 0.0,
+      "load_s": 48.8,
+      "pointmap_s": 0.6,
+      "generate_s": 6.0,
+      "peak_gib": 21.6,
+      "mesh_faces": 443672
+    }
+  },
+  "side table#0": {
+    "frame": 103,
+    "mask_px": 55782,
+    "splats": 36312,
+    "sam3d_s": 1.6,
+    "total_s": 12.7,
+    "coarse_scale": 1.0815,
+    "total_scale": 1.0581,
+    "levelled_deg": 3.43,
+    "floor_shift_m": -0.0134,
+    "starts": 10,
+    "icp_rms_before_m": 0.0209,
+    "icp_rms_free_m": 0.0189,
+    "icp_rms_after_m": 0.0197,
+    "completed_bounds_world": [
+      [
+        1.167,
+        0.001,
+        -4.248
+      ],
+      [
+        1.738,
+        0.564,
+        -3.685
+      ]
+    ],
+    "completed_bytes": 2505968,
+    "mesh_vertices": 49969,
+    "mesh_faces": 100000,
+    "mesh_raw_faces": 422144,
+    "mesh_frame": "y_to_z",
+    "mesh_frame_dist": {
+      "y_to_z": 0.01809,
+      "z_to_y": 0.02992,
+      "identity": 0.03236
+    },
+    "mesh_bounds_world": [
+      [
+        1.161,
+        0.001,
+        -4.254
+      ],
+      [
+        1.744,
+        0.566,
+        -3.679
+      ]
+    ],
+    "mesh_bytes": 2400348,
+    "modal": {
+      "download_s": 0.0,
+      "load_s": 48.8,
+      "pointmap_s": 0.6,
+      "generate_s": 6.1,
+      "peak_gib": 21.6,
+      "mesh_faces": 422144
+    }
+  },
+  "cabinet#0": {
+    "frame": 38,
+    "mask_px": 237987,
+    "splats": 132836,
+    "sam3d_s": 3.9,
+    "total_s": 30.4,
+    "coarse_scale": 1.0,
+    "total_scale": 1.25,
+    "levelled_deg": 5.39,
+    "floor_shift_m": -0.1716,
+    "starts": 10,
+    "icp_rms_before_m": 0.2078,
+    "icp_rms_free_m": 0.0482,
+    "icp_rms_after_m": 0.0781,
+    "completed_bounds_world": [
+      [
+        -0.158,
+        0.03,
+        0.306
+      ],
+      [
+        0.863,
+        1.014,
+        0.897
+      ]
+    ],
+    "completed_bytes": 9166125,
+    "mesh_vertices": 50011,
+    "mesh_faces": 100000,
+    "mesh_raw_faces": 1304392,
+    "mesh_frame": "y_to_z",
+    "mesh_frame_dist": {
+      "y_to_z": 0.0334,
+      "z_to_y": 0.05483,
+      "identity": 0.10015
+    },
+    "mesh_bounds_world": [
+      [
+        -0.21,
+        -0.007,
+        0.26
+      ],
+      [
+        0.921,
+        1.02,
+        0.916
+      ]
+    ],
+    "mesh_bytes": 2401352,
+    "modal": {
+      "download_s": 0.0,
+      "load_s": 48.8,
+      "pointmap_s": 0.5,
+      "generate_s": 13.5,
+      "peak_gib": 22.2,
+      "mesh_faces": 1304392
+    }
+  },
+  "potted plant#1": {
+    "frame": 41,
+    "mask_px": 83245,
+    "splats": 36276,
+    "sam3d_s": 1.7,
+    "total_s": 21.1,
+    "coarse_scale": 1.0,
+    "total_scale": 1.25,
+    "levelled_deg": 3.66,
+    "floor_shift_m": -0.1132,
+    "starts": 10,
+    "icp_rms_before_m": 0.1489,
+    "icp_rms_free_m": 0.0545,
+    "icp_rms_after_m": 0.0706,
+    "completed_bounds_world": [
+      [
+        1.326,
+        0.001,
+        0.235
+      ],
+      [
+        1.718,
+        1.044,
+        0.651
+      ]
+    ],
+    "completed_bytes": 2503484,
+    "mesh_vertices": 49926,
+    "mesh_faces": 99999,
+    "mesh_raw_faces": 406250,
+    "mesh_frame": "y_to_z",
+    "mesh_frame_dist": {
+      "y_to_z": 0.01573,
+      "z_to_y": 0.03714,
+      "identity": 0.1078
+    },
+    "mesh_bounds_world": [
+      [
+        1.293,
+        -0.002,
+        0.204
+      ],
+      [
+        1.75,
+        1.101,
+        0.69
+      ]
+    ],
+    "mesh_bytes": 2399312,
+    "modal": {
+      "download_s": 0.0,
+      "load_s": 48.8,
+      "pointmap_s": 0.5,
+      "generate_s": 6.1,
+      "peak_gib": 22.2,
+      "mesh_faces": 406250
+    }
+  },
+  "potted plant#2": {
+    "frame": 139,
+    "mask_px": 118257,
+    "splats": 36676,
+    "sam3d_s": 1.7,
+    "total_s": 3.6,
+    "coarse_scale": 1.0,
+    "total_scale": 1.1926,
+    "levelled_deg": 1.87,
+    "floor_shift_m": 0.0,
+    "starts": 10,
+    "icp_rms_before_m": 0.0306,
+    "icp_rms_free_m": 0.0205,
+    "icp_rms_after_m": 0.0205,
+    "completed_bounds_world": [
+      [
+        1.438,
+        0.876,
+        0.446
+      ],
+      [
+        1.92,
+        2.014,
+        0.888
+      ]
+    ],
+    "completed_bytes": 2531084,
+    "mesh_vertices": 49897,
+    "mesh_faces": 100000,
+    "mesh_raw_faces": 407932,
+    "mesh_frame": "y_to_z",
+    "mesh_frame_dist": {
+      "y_to_z": 0.01586,
+      "z_to_y": 0.04671,
+      "identity": 0.1267
+    },
+    "mesh_bounds_world": [
+      [
+        1.4,
+        0.873,
+        0.403
+      ],
+      [
+        1.964,
+        2.061,
+        0.911
+      ]
+    ],
+    "mesh_bytes": 2398632,
+    "modal": {
+      "download_s": 0.0,
+      "load_s": 48.8,
+      "pointmap_s": 0.5,
+      "generate_s": 6.1,
+      "peak_gib": 22.2,
+      "mesh_faces": 407932
+    }
+  },
+  "books#0": {
+    "frame": 36,
+    "mask_px": 33539,
+    "splats": 69260,
+    "sam3d_s": 2.3,
+    "total_s": 19.7,
+    "coarse_scale": 1.0,
+    "total_scale": 1.25,
+    "levelled_deg": 176.36,
+    "floor_shift_m": 0.0,
+    "starts": 10,
+    "icp_rms_before_m": 0.0826,
+    "icp_rms_free_m": 0.0206,
+    "icp_rms_after_m": 0.0206,
+    "completed_bounds_world": [
+      [
+        0.036,
+        1.302,
+        0.477
+      ],
+      [
+        0.463,
+        1.451,
+        0.703
+      ]
+    ],
+    "completed_bytes": 4779380,
+    "mesh_vertices": 50004,
+    "mesh_faces": 100000,
+    "mesh_raw_faces": 439428,
+    "mesh_frame": "y_to_z",
+    "mesh_frame_dist": {
+      "y_to_z": 0.02749,
+      "z_to_y": 0.02936,
+      "identity": 0.03321
+    },
+    "mesh_bounds_world": [
+      [
+        0.028,
+        1.3,
+        0.471
+      ],
+      [
+        0.472,
+        1.453,
+        0.711
+      ]
+    ],
+    "mesh_bytes": 2401180,
+    "modal": {
+      "download_s": 0.0,
+      "load_s": 48.8,
+      "pointmap_s": 0.5,
+      "generate_s": 7.4,
+      "peak_gib": 22.2,
+      "mesh_faces": 439428
+    }
+  }
+}

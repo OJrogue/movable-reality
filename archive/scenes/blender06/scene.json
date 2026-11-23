@@ -1,0 +1,475 @@
+{
+  "version": 1,
+  "scene_id": "blender06",
+  "units": "m",
+  "world_from_recon": [
+    [
+      0.6677771976528261,
+      0.8468526956505384,
+      -1.3766421098943793,
+      0.0
+    ],
+    [
+      0.047004982418959014,
+      -1.4990585725097734,
+      -0.8993571595216477,
+      1.466277227582262
+    ],
+    [
+      -1.6155783851280103,
+      0.3064201047980854,
+      -0.5951828067516718,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+    ]
+  ],
+  "background_ply": "objects/background_room.ply",
+  "room_mesh": null,
+  "room_planes": [
+    "room/shell_floor_0.glb",
+    "room/shell_ceiling_0.glb",
+    "room/shell_wall_0.glb",
+    "room/shell_wall_1.glb",
+    "room/shell_wall_2.glb",
+    "room/shell_wall_3.glb"
+  ],
+  "background_lod": "lod/background_room.rad",
+  "objects": [
+    {
+      "id": "bed#1",
+      "label": "bed",
+      "ply": "objects/obj_bed_1.ply",
+      "completed_ply": "objects/obj_bed_1_completed.ply",
+      "lod": "lod/obj_bed_1.rad",
+      "completed_lod": "lod/obj_bed_1_completed.rad",
+      "mesh": "objects/obj_bed_1_mesh.glb",
+      "bbox_min": [
+        -2.282670331914329,
+        0.03692112963294987,
+        -0.26527310119606634
+      ],
+      "bbox_max": [
+        -0.6280860943164444,
+        1.323432548804168,
+        2.030586426055188
+      ],
+      "transform": {
+        "translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "yaw_deg": 0.0,
+        "scale": 1.0
+      },
+      "visible": true,
+      "source": "scan",
+      "prompt": null
+    },
+    {
+      "id": "desk#2",
+      "label": "desk",
+      "ply": "objects/obj_desk_2.ply",
+      "completed_ply": "objects/obj_desk_2_completed.ply",
+      "lod": "lod/obj_desk_2.rad",
+      "completed_lod": "lod/obj_desk_2_completed.rad",
+      "mesh": "objects/obj_desk_2_mesh.glb",
+      "bbox_min": [
+        -2.954202044060361,
+        0.05861233795642852,
+        -1.747034681227857
+      ],
+      "bbox_max": [
+        -1.7124568686848727,
+        1.6869247329979888,
+        -1.1078815015376602
+      ],
+      "transform": {
+        "translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "yaw_deg": 0.0,
+        "scale": 1.0
+      },
+      "visible": true,
+      "source": "scan",
+      "prompt": null
+    },
+    {
+      "id": "chair#1",
+      "label": "chair",
+      "ply": "objects/obj_chair_1.ply",
+      "completed_ply": "objects/obj_chair_1_completed.ply",
+      "lod": "lod/obj_chair_1.rad",
+      "completed_lod": "lod/obj_chair_1_completed.rad",
+      "mesh": "objects/obj_chair_1_mesh.glb",
+      "bbox_min": [
+        -2.5605155431839517,
+        0.015838563326700295,
+        -1.059636295448014
+      ],
+      "bbox_max": [
+        -2.076501406430773,
+        1.003178056007342,
+        -0.48345015473944836
+      ],
+      "transform": {
+        "translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "yaw_deg": 0.0,
+        "scale": 1.0
+      },
+      "visible": true,
+      "source": "scan",
+      "prompt": null
+    },
+    {
+      "id": "dresser#0",
+      "label": "dresser",
+      "ply": "objects/obj_dresser_0.ply",
+      "completed_ply": "objects/obj_dresser_0_completed.ply",
+      "lod": "lod/obj_dresser_0.rad",
+      "completed_lod": "lod/obj_dresser_0_completed.rad",
+      "mesh": "objects/obj_dresser_0_mesh.glb",
+      "bbox_min": [
+        0.3402390170164408,
+        0.036780728940853345,
+        0.33907943063136253
+      ],
+      "bbox_max": [
+        0.9344908851217495,
+        1.0675308163300952,
+        1.32102279346811
+      ],
+      "transform": {
+        "translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "yaw_deg": 0.0,
+        "scale": 1.0
+      },
+      "visible": true,
+      "source": "scan",
+      "prompt": null
+    },
+    {
+      "id": "nightstand#0",
+      "label": "nightstand",
+      "ply": "objects/obj_nightstand_0.ply",
+      "completed_ply": "objects/obj_nightstand_0_completed.ply",
+      "lod": "lod/obj_nightstand_0.rad",
+      "completed_lod": "lod/obj_nightstand_0_completed.rad",
+      "mesh": "objects/obj_nightstand_0_mesh.glb",
+      "bbox_min": [
+        -2.794813358759184,
+        0.25611164712552903,
+        1.4574423176649292
+      ],
+      "bbox_max": [
+        -2.266793497924289,
+        0.7544540245746157,
+        1.9975193410081165
+      ],
+      "transform": {
+        "translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "yaw_deg": 0.0,
+        "scale": 1.0
+      },
+      "visible": true,
+      "source": "scan",
+      "prompt": null
+    },
+    {
+      "id": "pillow#0",
+      "label": "pillow",
+      "ply": "objects/obj_pillow_0.ply",
+      "completed_ply": "objects/obj_pillow_0_completed.ply",
+      "lod": "lod/obj_pillow_0.rad",
+      "completed_lod": "lod/obj_pillow_0_completed.rad",
+      "mesh": "objects/obj_pillow_0_mesh.glb",
+      "bbox_min": [
+        -1.8976673127785575,
+        0.5277557815849578,
+        1.199500811280418
+      ],
+      "bbox_max": [
+        -1.097385426701591,
+        0.9130253010916846,
+        1.9478992105398731
+      ],
+      "transform": {
+        "translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "yaw_deg": 0.0,
+        "scale": 1.0
+      },
+      "visible": false,
+      "source": "scan",
+      "prompt": null
+    },
+    {
+      "id": "potted plant#1",
+      "label": "potted plant",
+      "ply": "objects/obj_potted_plant_1.ply",
+      "completed_ply": "objects/obj_potted_plant_1_completed.ply",
+      "lod": "lod/obj_potted_plant_1.rad",
+      "completed_lod": "lod/obj_potted_plant_1_completed.rad",
+      "mesh": "objects/obj_potted_plant_1_mesh.glb",
+      "bbox_min": [
+        -2.078459171778651,
+        0.8316428484170149,
+        -1.7499390431103778
+      ],
+      "bbox_max": [
+        -1.8947016001104828,
+        1.6410126347214842,
+        -1.5391129441040308
+      ],
+      "transform": {
+        "translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "yaw_deg": 0.0,
+        "scale": 1.0
+      },
+      "visible": true,
+      "source": "scan",
+      "prompt": null
+    },
+    {
+      "id": "potted plant#2",
+      "label": "potted plant",
+      "ply": "objects/obj_potted_plant_2.ply",
+      "completed_ply": "objects/obj_potted_plant_2_completed.ply",
+      "lod": "lod/obj_potted_plant_2.rad",
+      "completed_lod": "lod/obj_potted_plant_2_completed.rad",
+      "mesh": "objects/obj_potted_plant_2_mesh.glb",
+      "bbox_min": [
+        -3.3521166838535468,
+        0.1661061557216897,
+        1.1715973830562956
+      ],
+      "bbox_max": [
+        -2.8127474486101,
+        0.8633412275517569,
+        1.8970378900350018
+      ],
+      "transform": {
+        "translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "yaw_deg": 0.0,
+        "scale": 1.0
+      },
+      "visible": true,
+      "source": "scan",
+      "prompt": null
+    },
+    {
+      "id": "trash can#1",
+      "label": "trash can",
+      "ply": "objects/obj_trash_can_1.ply",
+      "completed_ply": "objects/obj_trash_can_1_completed.ply",
+      "lod": "lod/obj_trash_can_1.rad",
+      "completed_lod": "lod/obj_trash_can_1_completed.rad",
+      "mesh": "objects/obj_trash_can_1_mesh.glb",
+      "bbox_min": [
+        -2.2703762987539893,
+        -0.02640788219085688,
+        -1.5910247658977565
+      ],
+      "bbox_max": [
+        -1.910660673885866,
+        0.9251158003910802,
+        -1.3340991611749138
+      ],
+      "transform": {
+        "translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "yaw_deg": 0.0,
+        "scale": 1.0
+      },
+      "visible": false,
+      "source": "scan",
+      "prompt": null
+    },
+    {
+      "id": "ukulele#0",
+      "label": "ukulele",
+      "ply": "objects/obj_ukulele_0.ply",
+      "completed_ply": "objects/obj_ukulele_0_completed.ply",
+      "lod": "lod/obj_ukulele_0.rad",
+      "completed_lod": "lod/obj_ukulele_0_completed.rad",
+      "mesh": "objects/obj_ukulele_0_mesh.glb",
+      "bbox_min": [
+        -0.5409544527259718,
+        0.008080879154422644,
+        -1.7525726077517827
+      ],
+      "bbox_max": [
+        -0.3679814045928356,
+        0.5364450600518014,
+        -1.5490929536028384
+      ],
+      "transform": {
+        "translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "yaw_deg": 0.0,
+        "scale": 1.0
+      },
+      "visible": true,
+      "source": "scan",
+      "prompt": null
+    },
+    {
+      "id": "basket#0",
+      "label": "basket",
+      "ply": "objects/obj_basket_0.ply",
+      "completed_ply": "objects/obj_basket_0_completed.ply",
+      "lod": "lod/obj_basket_0.rad",
+      "completed_lod": "lod/obj_basket_0_completed.rad",
+      "mesh": "objects/obj_basket_0_mesh.glb",
+      "bbox_min": [
+        0.358546937188947,
+        0.0006593369023895013,
+        1.271318061427233
+      ],
+      "bbox_max": [
+        0.7276815656525333,
+        0.5735623012121154,
+        1.8398640857351318
+      ],
+      "transform": {
+        "translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "yaw_deg": 0.0,
+        "scale": 1.0
+      },
+      "visible": true,
+      "source": "scan",
+      "prompt": null
+    },
+    {
+      "id": "basket#1",
+      "label": "basket",
+      "ply": "objects/obj_basket_1.ply",
+      "completed_ply": "objects/obj_basket_1_completed.ply",
+      "lod": "lod/obj_basket_1.rad",
+      "completed_lod": "lod/obj_basket_1_completed.rad",
+      "mesh": "objects/obj_basket_1_mesh.glb",
+      "bbox_min": [
+        0.5100030567024383,
+        0.017493653364320547,
+        1.5984918560334955
+      ],
+      "bbox_max": [
+        0.8631574384150213,
+        0.31258675190292057,
+        1.9914053340748457
+      ],
+      "transform": {
+        "translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "yaw_deg": 0.0,
+        "scale": 1.0
+      },
+      "visible": true,
+      "source": "scan",
+      "prompt": null
+    }
+  ],
+  "planes": [
+    {
+      "id": "floor",
+      "label": "floor",
+      "mesh": "planes/floor.glb",
+      "removed_splats": 17860,
+      "normal": [
+        0.0004421183854292171,
+        0.9999998961106638,
+        0.0001109504176927123
+      ],
+      "offset": -0.0005226651358690216,
+      "corners": [
+        [
+          0.9319836223077517,
+          -0.0009319024668910365,
+          -0.025325367784306264
+        ],
+        [
+          -2.8363852828970924,
+          0.0007464643668795201,
+          -0.13619906786697275
+        ],
+        [
+          -2.7862420583615033,
+          0.0009133837776883898,
+          -1.8404615562093887
+        ],
+        [
+          0.9821268468433408,
+          -0.0007649830560821668,
+          -1.7295878561267222
+        ]
+      ],
+      "texel_m": 0.005,
+      "texture_px": [
+        754,
+        341
+      ],
+      "fit_rms_m": 0.01028137971596107,
+      "filled_fraction": 0.37610165140754687,
+      "transparent_fraction": 0.0
+    }
+  ],
+  "plane_bake": {
+    "source_background_ply": "objects/background.ply",
+    "background_ply": "objects/background_baked.ply",
+    "ids": "ids/gaussian_ids.npy",
+    "ids_ply": "splat/scene.ply",
+    "removed_splats": 17860
+  },
+  "coverage": {
+    "gap_map": "coverage/gaps.npz",
+    "gaps": [],
+    "generated_splats": 0,
+    "generated_ply": null,
+    "gap_share": 0.0
+  },
+  "history": []
+}

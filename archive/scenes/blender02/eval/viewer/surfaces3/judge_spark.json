@@ -1,0 +1,1055 @@
+{
+ "scene": "blender02",
+ "run": "surfaces3",
+ "model": "muse-spark-1.3",
+ "summary": {
+  "frames": 30,
+  "unparsed": 0,
+  "frames_with_artifacts": 28,
+  "artifacts": 73,
+  "severity_sum": 155,
+  "by_surface": {
+   "wall": 64,
+   "floor": 9,
+   "ceiling": 0
+  },
+  "by_kind": {
+   "blotch": 13,
+   "blur": 1,
+   "blur or smear": 16,
+   "floater": 1,
+   "floater or haze": 25,
+   "ghost": 4,
+   "haze": 4,
+   "smear": 2,
+   "streak": 2,
+   "streak or needle": 5
+  }
+ },
+ "frames": {
+  "000000": {
+   "artifacts": [
+    {
+     "kind": "ghost",
+     "surface": "wall",
+     "severity": 2,
+     "box": [
+      0.098,
+      0.3,
+      0.14,
+      0.352
+     ],
+     "note": "white rectangle on wall"
+    },
+    {
+     "kind": "blur or smear",
+     "surface": "wall",
+     "severity": 2,
+     "box": [
+      0.018,
+      0.315,
+      0.165,
+      0.5
+     ],
+     "note": "smeared wall behind table"
+    },
+    {
+     "kind": "floater or haze",
+     "surface": "wall",
+     "severity": 2,
+     "box": [
+      0.583,
+      0.0,
+      0.667,
+      0.141
+     ],
+     "note": "colorful haze above lampshade"
+    },
+    {
+     "kind": "blur or smear",
+     "surface": "wall",
+     "severity": 2,
+     "box": [
+      0.64,
+      0.196,
+      0.73,
+      0.635
+     ],
+     "note": "vertical smear along wall edge"
+    },
+    {
+     "kind": "blotch",
+     "surface": "floor",
+     "severity": 1,
+     "box": [
+      0.51,
+      0.67,
+      0.6,
+      0.76
+     ],
+     "note": "gray smudge on floor"
+    }
+   ],
+   "raw": null
+  },
+  "000020": {
+   "artifacts": [
+    {
+     "kind": "ghost",
+     "surface": "wall",
+     "severity": 2,
+     "box": [
+      0.19,
+      0.305,
+      0.265,
+      0.46
+     ],
+     "note": "white ghost above side table"
+    },
+    {
+     "kind": "blur or smear",
+     "surface": "wall",
+     "severity": 2,
+     "box": [
+      0.269,
+      0.354,
+      0.31,
+      0.48
+     ],
+     "note": "brown smear left of headboard"
+    },
+    {
+     "kind": "blur or smear",
+     "surface": "wall",
+     "severity": 1,
+     "box": [
+      0.151,
+      0.485,
+      0.201,
+      0.618
+     ],
+     "note": "dark smear below table edge"
+    }
+   ],
+   "raw": null
+  },
+  "000040": {
+   "artifacts": [
+    {
+     "kind": "haze",
+     "surface": "wall",
+     "severity": 2,
+     "box": [
+      0.208,
+      0.263,
+      0.323,
+      0.459
+     ],
+     "note": "fuzzy haze on wall above nightstand"
+    },
+    {
+     "kind": "smear",
+     "surface": "wall",
+     "severity": 2,
+     "box": [
+      0.787,
+      0.03,
+      0.876,
+      0.652
+     ],
+     "note": "vertical brown smear behind lamp"
+    },
+    {
+     "kind": "blotch",
+     "surface": "floor",
+     "severity": 2,
+     "box": [
+      0.77,
+      0.72,
+      0.871,
+      0.872
+     ],
+     "note": "gray blotch right of bed"
+    }
+   ],
+   "raw": null
+  },
+  "000060": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000080": {
+   "artifacts": [
+    {
+     "kind": "floater or haze",
+     "surface": "wall",
+     "severity": 2,
+     "box": [
+      0.44,
+      0.255,
+      0.5,
+      0.43
+     ],
+     "note": "translucent white haze over back wall"
+    },
+    {
+     "kind": "blur or smear",
+     "surface": "wall",
+     "severity": 2,
+     "box": [
+      0.365,
+      0.43,
+      0.45,
+      0.58
+     ],
+     "note": "dark smeared patch behind nightstand"
+    }
+   ],
+   "raw": null
+  },
+  "000100": {
+   "artifacts": [
+    {
+     "kind": "floater or haze",
+     "surface": "wall",
+     "severity": 3,
+     "box": [
+      0.504,
+      0.14,
+      0.635,
+      0.365
+     ],
+     "note": "fuzzy white haze on wall behind lamp"
+    },
+    {
+     "kind": "blur or smear",
+     "surface": "wall",
+     "severity": 2,
+     "box": [
+      0.51,
+      0.35,
+      0.615,
+      0.59
+     ],
+     "note": "dark smeared wall behind nightstand"
+    }
+   ],
+   "raw": null
+  },
+  "000120": {
+   "artifacts": [
+    {
+     "kind": "floater or haze",
+     "surface": "wall",
+     "severity": 2,
+     "box": [
+      0.62,
+      0.07,
+      0.79,
+      0.33
+     ],
+     "note": "foggy smear on wall above nightstand"
+    }
+   ],
+   "raw": null
+  },
+  "000140": {
+   "artifacts": [
+    {
+     "kind": "floater or haze",
+     "surface": "wall",
+     "severity": 2,
+     "box": [
+      0.0,
+      0.22,
+      0.185,
+      0.73
+     ],
+     "note": "colored haze around leaves on wall"
+    },
+    {
+     "kind": "blur or smear",
+     "surface": "wall",
+     "severity": 2,
+     "box": [
+      0.815,
+      0.21,
+      0.89,
+      0.49
+     ],
+     "note": "dark smear behind table leg"
+    }
+   ],
+   "raw": null
+  },
+  "000160": {
+   "artifacts": [
+    {
+     "kind": "floater or haze",
+     "surface": "wall",
+     "severity": 2,
+     "box": [
+      0.02,
+      0.11,
+      0.41,
+      0.55
+     ],
+     "note": "colored haze halo on wall around plant"
+    }
+   ],
+   "raw": null
+  },
+  "000180": {
+   "artifacts": [
+    {
+     "kind": "haze",
+     "surface": "wall",
+     "severity": 2,
+     "box": [
+      0.23,
+      0.0,
+      0.5,
+      0.2
+     ],
+     "note": "translucent veil on wall above plant"
+    },
+    {
+     "kind": "ghost",
+     "surface": "wall",
+     "severity": 2,
+     "box": [
+      0.305,
+      0.2,
+      0.365,
+      0.34
+     ],
+     "note": "faint pink spot on wall"
+    },
+    {
+     "kind": "haze",
+     "surface": "wall",
+     "severity": 2,
+     "box": [
+      0.515,
+      0.2,
+      0.63,
+      0.6
+     ],
+     "note": "foggy smear on wall right of plant"
+    },
+    {
+     "kind": "smear",
+     "surface": "wall",
+     "severity": 1,
+     "box": [
+      0.05,
+      0.07,
+      0.135,
+      0.328
+     ],
+     "note": "color bleed on wall near chair"
+    }
+   ],
+   "raw": null
+  },
+  "000200": {
+   "artifacts": [
+    {
+     "kind": "blur",
+     "surface": "wall",
+     "severity": 3,
+     "box": [
+      0.018,
+      0.245,
+      0.135,
+      0.445
+     ],
+     "note": "colorful smear behind table"
+    },
+    {
+     "kind": "streak",
+     "surface": "wall",
+     "severity": 2,
+     "box": [
+      0.267,
+      0.02,
+      0.35,
+      0.515
+     ],
+     "note": "orange vertical smear behind chair"
+    },
+    {
+     "kind": "floater",
+     "surface": "wall",
+     "severity": 2,
+     "box": [
+      0.605,
+      0.23,
+      0.81,
+      0.678
+     ],
+     "note": "hazy fringe around plant leaves"
+    }
+   ],
+   "raw": null
+  },
+  "000220": {
+   "artifacts": [
+    {
+     "kind": "floater or haze",
+     "surface": "wall",
+     "severity": 2,
+     "box": [
+      0.07,
+      0.0,
+      0.56,
+      0.2
+     ],
+     "note": "pastel haze on back wall above table"
+    },
+    {
+     "kind": "blur or smear",
+     "surface": "wall",
+     "severity": 3,
+     "box": [
+      0.174,
+      0.24,
+      0.393,
+      0.47
+     ],
+     "note": "multicolor smear on wall under table"
+    },
+    {
+     "kind": "streak or needle",
+     "surface": "wall",
+     "severity": 2,
+     "box": [
+      0.505,
+      0.01,
+      0.58,
+      0.41
+     ],
+     "note": "brown vertical streak on wall near corner"
+    },
+    {
+     "kind": "floater or haze",
+     "surface": "wall",
+     "severity": 2,
+     "box": [
+      0.675,
+      0.21,
+      0.945,
+      0.533
+     ],
+     "note": "green haze on wall behind plant leaves"
+    },
+    {
+     "kind": "blur or smear",
+     "surface": "wall",
+     "severity": 2,
+     "box": [
+      0.823,
+      0.525,
+      0.896,
+      0.77
+     ],
+     "note": "gray smear on wall beside pot"
+    }
+   ],
+   "raw": null
+  },
+  "000240": {
+   "artifacts": [
+    {
+     "kind": "floater or haze",
+     "surface": "wall",
+     "severity": 3,
+     "box": [
+      0.305,
+      0.145,
+      0.665,
+      0.61
+     ],
+     "note": "colorful fog behind table"
+    },
+    {
+     "kind": "blur or smear",
+     "surface": "wall",
+     "severity": 2,
+     "box": [
+      0.69,
+      0.04,
+      0.96,
+      0.345
+     ],
+     "note": "yellow pink smear upper right wall"
+    },
+    {
+     "kind": "floater or haze",
+     "surface": "wall",
+     "severity": 2,
+     "box": [
+      0.685,
+      0.435,
+      0.97,
+      0.795
+     ],
+     "note": "haze around large plant on wall"
+    }
+   ],
+   "raw": null
+  },
+  "000260": {
+   "artifacts": [
+    {
+     "kind": "floater or haze",
+     "surface": "wall",
+     "severity": 3,
+     "box": [
+      0.342,
+      0.216,
+      0.702,
+      0.623
+     ],
+     "note": "colorful haze behind table"
+    },
+    {
+     "kind": "streak or needle",
+     "surface": "wall",
+     "severity": 3,
+     "box": [
+      0.684,
+      0.207,
+      0.772,
+      0.583
+     ],
+     "note": "brown streaks on wall right of table"
+    }
+   ],
+   "raw": null
+  },
+  "000280": {
+   "artifacts": [
+    {
+     "kind": "floater or haze",
+     "surface": "wall",
+     "severity": 3,
+     "box": [
+      0.53,
+      0.21,
+      0.815,
+      0.36
+     ],
+     "note": "colorful haze above desk"
+    },
+    {
+     "kind": "floater or haze",
+     "surface": "wall",
+     "severity": 3,
+     "box": [
+      0.524,
+      0.385,
+      0.785,
+      0.63
+     ],
+     "note": "color smear behind under desk"
+    },
+    {
+     "kind": "floater or haze",
+     "surface": "wall",
+     "severity": 2,
+     "box": [
+      0.0,
+      0.33,
+      0.075,
+      0.61
+     ],
+     "note": "rainbow haze left wall"
+    },
+    {
+     "kind": "floater or haze",
+     "surface": "wall",
+     "severity": 1,
+     "box": [
+      0.915,
+      0.43,
+      0.99,
+      0.57
+     ],
+     "note": "faint purple haze right wall"
+    }
+   ],
+   "raw": null
+  },
+  "000300": {
+   "artifacts": [
+    {
+     "kind": "floater or haze",
+     "surface": "wall",
+     "severity": 2,
+     "box": [
+      0.02,
+      0.24,
+      0.135,
+      0.54
+     ],
+     "note": "pastel rainbow haze behind chair"
+    },
+    {
+     "kind": "streak or needle",
+     "surface": "wall",
+     "severity": 3,
+     "box": [
+      0.592,
+      0.135,
+      0.915,
+      0.585
+     ],
+     "note": "colorful spiky streaks around desk"
+    }
+   ],
+   "raw": null
+  },
+  "000320": {
+   "artifacts": [
+    {
+     "kind": "floater or haze",
+     "surface": "wall",
+     "severity": 2,
+     "box": [
+      0.0,
+      0.185,
+      0.265,
+      0.515
+     ],
+     "note": "colorful haze beside chair back"
+    },
+    {
+     "kind": "streak or needle",
+     "surface": "wall",
+     "severity": 2,
+     "box": [
+      0.657,
+      0.204,
+      0.975,
+      0.357
+     ],
+     "note": "color streaks above table"
+    },
+    {
+     "kind": "blur or smear",
+     "surface": "wall",
+     "severity": 3,
+     "box": [
+      0.632,
+      0.413,
+      0.872,
+      0.665
+     ],
+     "note": "multicolor smear behind table legs"
+    }
+   ],
+   "raw": null
+  },
+  "000340": {
+   "artifacts": [
+    {
+     "kind": "floater or haze",
+     "surface": "wall",
+     "severity": 3,
+     "box": [
+      0.022,
+      0.157,
+      0.36,
+      0.658
+     ],
+     "note": "colorful halo around chair"
+    },
+    {
+     "kind": "floater or haze",
+     "surface": "wall",
+     "severity": 3,
+     "box": [
+      0.771,
+      0.191,
+      1.0,
+      0.641
+     ],
+     "note": "colorful haze behind table"
+    }
+   ],
+   "raw": null
+  },
+  "000360": {
+   "artifacts": [
+    {
+     "kind": "floater or haze",
+     "surface": "wall",
+     "severity": 3,
+     "box": [
+      0.075,
+      0.13,
+      0.545,
+      0.69
+     ],
+     "note": "colorful hazy halo on wall around chair"
+    },
+    {
+     "kind": "blur or smear",
+     "surface": "wall",
+     "severity": 2,
+     "box": [
+      0.952,
+      0.252,
+      1.0,
+      0.708
+     ],
+     "note": "vertical blur smear at right edge"
+    }
+   ],
+   "raw": null
+  },
+  "000380": {
+   "artifacts": [
+    {
+     "kind": "floater or haze",
+     "surface": "wall",
+     "severity": 2,
+     "box": [
+      0.278,
+      0.061,
+      0.538,
+      0.178
+     ],
+     "note": "dark fuzzy halo above backrest"
+    },
+    {
+     "kind": "blur or smear",
+     "surface": "wall",
+     "severity": 2,
+     "box": [
+      0.218,
+      0.185,
+      0.311,
+      0.677
+     ],
+     "note": "blurry smear left of chair"
+    },
+    {
+     "kind": "floater or haze",
+     "surface": "wall",
+     "severity": 2,
+     "box": [
+      0.525,
+      0.115,
+      0.67,
+      0.522
+     ],
+     "note": "iridescent haze right of chair"
+    }
+   ],
+   "raw": null
+  },
+  "000400": {
+   "artifacts": [
+    {
+     "kind": "haze",
+     "surface": "wall",
+     "severity": 3,
+     "box": [
+      0.32,
+      0.0,
+      0.81,
+      0.62
+     ],
+     "note": "fuzzy halo with color fringing around chair"
+    },
+    {
+     "kind": "blotch",
+     "surface": "wall",
+     "severity": 2,
+     "box": [
+      0.69,
+      0.16,
+      0.79,
+      0.52
+     ],
+     "note": "pink purple wrong-colour patch"
+    }
+   ],
+   "raw": null
+  },
+  "000420": {
+   "artifacts": [
+    {
+     "kind": "floater or haze",
+     "surface": "wall",
+     "severity": 3,
+     "box": [
+      0.63,
+      0.0,
+      0.905,
+      0.135
+     ],
+     "note": "dark fuzzy halo above chair back"
+    },
+    {
+     "kind": "blotch",
+     "surface": "wall",
+     "severity": 2,
+     "box": [
+      0.504,
+      0.08,
+      0.651,
+      0.61
+     ],
+     "note": "rainbow pastel discoloration left of chair"
+    },
+    {
+     "kind": "blotch",
+     "surface": "wall",
+     "severity": 3,
+     "box": [
+      0.882,
+      0.125,
+      1.0,
+      0.635
+     ],
+     "note": "purple blue rainbow patch right of chair"
+    }
+   ],
+   "raw": null
+  },
+  "000440": {
+   "artifacts": [
+    {
+     "kind": "floater or haze",
+     "surface": "wall",
+     "severity": 3,
+     "box": [
+      0.775,
+      0.045,
+      1.0,
+      0.32
+     ],
+     "note": "dark blurry haze behind chair back"
+    },
+    {
+     "kind": "streak or needle",
+     "surface": "wall",
+     "severity": 2,
+     "box": [
+      0.64,
+      0.0,
+      0.735,
+      0.625
+     ],
+     "note": "vertical translucent streak with color fringe"
+    },
+    {
+     "kind": "blotch",
+     "surface": "floor",
+     "severity": 1,
+     "box": [
+      0.035,
+      0.86,
+      0.27,
+      0.99
+     ],
+     "note": "discolored blurry patch on floor"
+    }
+   ],
+   "raw": null
+  },
+  "000460": {
+   "artifacts": [
+    {
+     "kind": "blur or smear",
+     "surface": "wall",
+     "severity": 3,
+     "box": [
+      0.713,
+      0.0,
+      0.845,
+      0.56
+     ],
+     "note": "right wall much blurrier"
+    },
+    {
+     "kind": "floater or haze",
+     "surface": "wall",
+     "severity": 2,
+     "box": [
+      0.73,
+      0.195,
+      0.84,
+      0.48
+     ],
+     "note": "colorful foggy blobs"
+    },
+    {
+     "kind": "blotch",
+     "surface": "floor",
+     "severity": 1,
+     "box": [
+      0.19,
+      0.73,
+      0.27,
+      0.78
+     ],
+     "note": "small brownish patch"
+    }
+   ],
+   "raw": null
+  },
+  "000480": {
+   "artifacts": [
+    {
+     "kind": "blur or smear",
+     "surface": "wall",
+     "severity": 2,
+     "box": [
+      0.87,
+      0.0,
+      1.0,
+      0.55
+     ],
+     "note": "blurry pinkish smear right wall"
+    }
+   ],
+   "raw": null
+  },
+  "000500": {
+   "artifacts": [
+    {
+     "kind": "blotch",
+     "surface": "floor",
+     "severity": 2,
+     "box": [
+      0,
+      0.532,
+      0.136,
+      0.607
+     ],
+     "note": "gray wrong-color patch"
+    }
+   ],
+   "raw": null
+  },
+  "000520": {
+   "artifacts": [
+    {
+     "kind": "blotch",
+     "surface": "floor",
+     "severity": 1,
+     "box": [
+      0.235,
+      0.52,
+      0.355,
+      0.59
+     ],
+     "note": "gray smudge on floor"
+    }
+   ],
+   "raw": null
+  },
+  "000540": {
+   "artifacts": [
+    {
+     "kind": "streak",
+     "surface": "wall",
+     "severity": 3,
+     "box": [
+      0.285,
+      0.0,
+      0.34,
+      0.52
+     ],
+     "note": "long thin dark vertical line"
+    },
+    {
+     "kind": "blotch",
+     "surface": "floor",
+     "severity": 2,
+     "box": [
+      0.31,
+      0.52,
+      0.44,
+      0.585
+     ],
+     "note": "gray smudgy patch on floor"
+    }
+   ],
+   "raw": null
+  },
+  "000560": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000580": {
+   "artifacts": [
+    {
+     "kind": "ghost",
+     "surface": "wall",
+     "severity": 2,
+     "box": [
+      0.0,
+      0.235,
+      0.07,
+      0.448
+     ],
+     "note": "white shape on wall"
+    },
+    {
+     "kind": "blur or smear",
+     "surface": "wall",
+     "severity": 1,
+     "box": [
+      0.0,
+      0.0,
+      0.155,
+      0.28
+     ],
+     "note": "diagonal streaky smear"
+    },
+    {
+     "kind": "blotch",
+     "surface": "wall",
+     "severity": 1,
+     "box": [
+      0.585,
+      0.13,
+      0.635,
+      0.59
+     ],
+     "note": "vertical discoloration beside lamp"
+    },
+    {
+     "kind": "blotch",
+     "surface": "floor",
+     "severity": 2,
+     "box": [
+      0.51,
+      0.61,
+      0.605,
+      0.67
+     ],
+     "note": "dark smudged patch"
+    },
+    {
+     "kind": "blotch",
+     "surface": "floor",
+     "severity": 1,
+     "box": [
+      0.815,
+      0.815,
+      0.973,
+      0.885
+     ],
+     "note": "brownish discolored patch"
+    }
+   ],
+   "raw": null
+  }
+ }
+}

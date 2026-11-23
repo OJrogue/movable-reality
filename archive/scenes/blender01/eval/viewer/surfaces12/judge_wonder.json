@@ -1,0 +1,522 @@
+{
+ "scene": "blender01",
+ "run": "surfaces12",
+ "model": "muse-wonder-1.0",
+ "summary": {
+  "frames": 30,
+  "unparsed": 0,
+  "frames_with_artifacts": 13,
+  "artifacts": 30,
+  "severity_sum": 49,
+  "by_surface": {
+   "wall": 15,
+   "floor": 15,
+   "ceiling": 0
+  },
+  "by_kind": {
+   "blotch": 3,
+   "blur or smear": 15,
+   "floater or haze": 6,
+   "ghost": 1,
+   "hole": 1,
+   "seam or step": 2,
+   "streak or needle": 1,
+   "texture stretch": 1
+  }
+ },
+ "frames": {
+  "000000": {
+   "artifacts": [
+    {
+     "kind": "ghost",
+     "surface": "wall",
+     "severity": 2,
+     "box": [
+      0.857,
+      0.578,
+      0.93,
+      0.675
+     ],
+     "note": "faint white blob behind side table"
+    }
+   ],
+   "raw": null
+  },
+  "000020": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000040": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000060": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000080": {
+   "artifacts": [
+    {
+     "kind": "floater or haze",
+     "surface": "wall",
+     "severity": 2,
+     "box": [
+      0.02,
+      0.04,
+      0.14,
+      0.14
+     ],
+     "note": "faint pinkish haze blob"
+    },
+    {
+     "kind": "blur or smear",
+     "surface": "wall",
+     "severity": 1,
+     "box": [
+      0.53,
+      0.0,
+      0.62,
+      0.17
+     ],
+     "note": "smoky smear at corner top"
+    },
+    {
+     "kind": "blur or smear",
+     "surface": "floor",
+     "severity": 1,
+     "box": [
+      0.3,
+      0.53,
+      0.55,
+      0.66
+     ],
+     "note": "blurred floor at back wall"
+    }
+   ],
+   "raw": null
+  },
+  "000100": {
+   "artifacts": [
+    {
+     "kind": "floater or haze",
+     "surface": "wall",
+     "severity": 2,
+     "box": [
+      0.13,
+      0.0,
+      0.28,
+      0.14
+     ],
+     "note": "faint rainbow haze blob"
+    },
+    {
+     "kind": "blur or smear",
+     "surface": "wall",
+     "severity": 1,
+     "box": [
+      0.46,
+      0.02,
+      0.67,
+      0.2
+     ],
+     "note": "mottled blurry patch"
+    },
+    {
+     "kind": "blur or smear",
+     "surface": "floor",
+     "severity": 1,
+     "box": [
+      0.4,
+      0.54,
+      0.7,
+      0.68
+     ],
+     "note": "smeared floor at wall base"
+    }
+   ],
+   "raw": null
+  },
+  "000120": {
+   "artifacts": [
+    {
+     "kind": "floater or haze",
+     "surface": "wall",
+     "severity": 1,
+     "box": [
+      0.305,
+      0.0,
+      0.395,
+      0.055
+     ],
+     "note": "faint pink-purple haze above chair"
+    },
+    {
+     "kind": "floater or haze",
+     "surface": "wall",
+     "severity": 2,
+     "box": [
+      0.5,
+      0.14,
+      0.59,
+      0.31
+     ],
+     "note": "pale hazy diamond blob"
+    },
+    {
+     "kind": "texture stretch",
+     "surface": "floor",
+     "severity": 1,
+     "box": [
+      0.0,
+      0.7,
+      0.19,
+      1.0
+     ],
+     "note": "stretched smeared floorboards left edge"
+    }
+   ],
+   "raw": null
+  },
+  "000140": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000160": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000180": {
+   "artifacts": [
+    {
+     "kind": "blur or smear",
+     "surface": "wall",
+     "severity": 2,
+     "box": [
+      0.28,
+      0.33,
+      0.6,
+      0.57
+     ],
+     "note": "smeared wall-floor junction"
+    }
+   ],
+   "raw": null
+  },
+  "000200": {
+   "artifacts": [
+    {
+     "kind": "blur or smear",
+     "surface": "wall",
+     "severity": 2,
+     "box": [
+      0.525,
+      0.385,
+      0.855,
+      0.675
+     ],
+     "note": "smeared base of right wall"
+    },
+    {
+     "kind": "blur or smear",
+     "surface": "floor",
+     "severity": 2,
+     "box": [
+      0.285,
+      0.285,
+      0.575,
+      0.435
+     ],
+     "note": "blurry floor at back corner"
+    },
+    {
+     "kind": "blotch",
+     "surface": "floor",
+     "severity": 1,
+     "box": [
+      0.0,
+      0.42,
+      0.055,
+      0.51
+     ],
+     "note": "bright patch at left floor edge"
+    }
+   ],
+   "raw": null
+  },
+  "000220": {
+   "artifacts": [
+    {
+     "kind": "blur or smear",
+     "surface": "wall",
+     "severity": 2,
+     "box": [
+      0.58,
+      0.0,
+      0.7,
+      0.41
+     ],
+     "note": "smeared blurry corner edge"
+    },
+    {
+     "kind": "floater or haze",
+     "surface": "wall",
+     "severity": 2,
+     "box": [
+      0.7,
+      0.3,
+      1.0,
+      0.85
+     ],
+     "note": "hazy fog lower right wall"
+    },
+    {
+     "kind": "blur or smear",
+     "surface": "floor",
+     "severity": 2,
+     "box": [
+      0.6,
+      0.5,
+      0.98,
+      0.95
+     ],
+     "note": "planks washed out near wall"
+    },
+    {
+     "kind": "hole",
+     "surface": "floor",
+     "severity": 2,
+     "box": [
+      0.17,
+      0.435,
+      0.198,
+      0.535
+     ],
+     "note": "black gap beside cabinet"
+    },
+    {
+     "kind": "streak or needle",
+     "surface": "wall",
+     "severity": 1,
+     "box": [
+      0.84,
+      0.07,
+      1.0,
+      0.15
+     ],
+     "note": "faint horizontal light streak"
+    }
+   ],
+   "raw": null
+  },
+  "000240": {
+   "artifacts": [
+    {
+     "kind": "blur or smear",
+     "surface": "floor",
+     "severity": 2,
+     "box": [
+      0.31,
+      0.42,
+      0.82,
+      0.62
+     ],
+     "note": "planks fade at back wall"
+    },
+    {
+     "kind": "floater or haze",
+     "surface": "wall",
+     "severity": 2,
+     "box": [
+      0.74,
+      0.4,
+      1.0,
+      0.96
+     ],
+     "note": "hazy melt along right wall base"
+    }
+   ],
+   "raw": null
+  },
+  "000260": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000280": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000300": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000320": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000340": {
+   "artifacts": [
+    {
+     "kind": "blur or smear",
+     "surface": "floor",
+     "severity": 2,
+     "box": [
+      0.335,
+      0.41,
+      0.885,
+      0.535
+     ],
+     "note": "white smear under cabinet"
+    }
+   ],
+   "raw": null
+  },
+  "000360": {
+   "artifacts": [
+    {
+     "kind": "blur or smear",
+     "surface": "floor",
+     "severity": 2,
+     "box": [
+      0.57,
+      0.24,
+      1.0,
+      0.42
+     ],
+     "note": "white smear onto floor at cabinet base"
+    },
+    {
+     "kind": "blur or smear",
+     "surface": "floor",
+     "severity": 1,
+     "box": [
+      0.02,
+      0.67,
+      0.98,
+      1.0
+     ],
+     "note": "foreground floor washed-out blur"
+    }
+   ],
+   "raw": null
+  },
+  "000380": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000400": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000420": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000440": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000460": {
+   "artifacts": [
+    {
+     "kind": "blur or smear",
+     "surface": "floor",
+     "severity": 2,
+     "box": [
+      0.34,
+      0.43,
+      0.52,
+      0.57
+     ],
+     "note": "plank detail washed out at corner"
+    },
+    {
+     "kind": "blotch",
+     "surface": "wall",
+     "severity": 1,
+     "box": [
+      0.84,
+      0.52,
+      1.0,
+      0.86
+     ],
+     "note": "faint mottled speckling lower right wall"
+    },
+    {
+     "kind": "blur or smear",
+     "surface": "floor",
+     "severity": 1,
+     "box": [
+      0.0,
+      0.82,
+      0.3,
+      1.0
+     ],
+     "note": "foreground floor softer than centre"
+    }
+   ],
+   "raw": null
+  },
+  "000480": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000500": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000520": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000540": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000560": {
+   "artifacts": [
+    {
+     "kind": "seam or step",
+     "surface": "floor",
+     "severity": 2,
+     "box": [
+      0.0,
+      0.705,
+      0.205,
+      0.795
+     ],
+     "note": "stepped mismatched floorboards left of sofa"
+    },
+    {
+     "kind": "blotch",
+     "surface": "wall",
+     "severity": 2,
+     "box": [
+      0.61,
+      0.525,
+      0.67,
+      0.605
+     ],
+     "note": "white-green patch behind side table"
+    }
+   ],
+   "raw": null
+  },
+  "000580": {
+   "artifacts": [
+    {
+     "kind": "seam or step",
+     "surface": "floor",
+     "severity": 2,
+     "box": [
+      0.03,
+      0.65,
+      0.19,
+      0.76
+     ],
+     "note": "jagged stepped floor edge left of sofa"
+    }
+   ],
+   "raw": null
+  }
+ }
+}

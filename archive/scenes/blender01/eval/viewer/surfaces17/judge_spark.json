@@ -1,0 +1,181 @@
+{
+ "scene": "blender01",
+ "run": "surfaces17",
+ "model": "muse-spark-1.3",
+ "summary": {
+  "frames": 30,
+  "unparsed": 0,
+  "frames_with_artifacts": 2,
+  "artifacts": 3,
+  "severity_sum": 6,
+  "by_surface": {
+   "wall": 0,
+   "floor": 3,
+   "ceiling": 0
+  },
+  "by_kind": {
+   "blur": 2,
+   "floater": 1
+  }
+ },
+ "frames": {
+  "000000": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000020": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000040": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000060": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000080": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000100": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000120": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000140": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000160": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000180": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000200": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000220": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000240": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000260": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000280": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000300": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000320": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000340": {
+   "artifacts": [
+    {
+     "kind": "floater",
+     "surface": "floor",
+     "severity": 2,
+     "box": [
+      0.31,
+      0.46,
+      0.9,
+      0.535
+     ],
+     "note": "gray haze along cabinet base on floor"
+    }
+   ],
+   "raw": null
+  },
+  "000360": {
+   "artifacts": [
+    {
+     "kind": "blur",
+     "surface": "floor",
+     "severity": 2,
+     "box": [
+      0.01,
+      0.3,
+      0.58,
+      0.63
+     ],
+     "note": "smeared floor planks low detail patch"
+    },
+    {
+     "kind": "blur",
+     "surface": "floor",
+     "severity": 2,
+     "box": [
+      0.58,
+      0.22,
+      0.99,
+      0.42
+     ],
+     "note": "whitish smear bleed under cabinet base"
+    }
+   ],
+   "raw": null
+  },
+  "000380": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000400": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000420": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000440": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000460": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000480": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000500": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000520": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000540": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000560": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000580": {
+   "artifacts": [],
+   "raw": null
+  }
+ }
+}

@@ -1,0 +1,189 @@
+{
+  "frames": 216,
+  "folded": {
+    "bed#1": [
+      1
+    ],
+    "desk#2": [
+      3,
+      5
+    ],
+    "chair#1": [
+      6
+    ],
+    "trash can#1": [
+      11,
+      13
+    ],
+    "ukulele#0": [
+      15
+    ],
+    "suitcase#2": [
+      16
+    ],
+    "potted plant#2": [
+      20
+    ]
+  },
+  "objects": {
+    "bed#1": {
+      "gaussians_in": 159185,
+      "gaussians_out": 142175,
+      "frames": 133,
+      "steps": 4000,
+      "seconds": 23.9,
+      "from_background": 47685
+    },
+    "desk#2": {
+      "gaussians_in": 56080,
+      "gaussians_out": 40489,
+      "frames": 102,
+      "steps": 4000,
+      "seconds": 16.6,
+      "from_background": 7966
+    },
+    "chair#1": {
+      "gaussians_in": 32252,
+      "gaussians_out": 28703,
+      "frames": 111,
+      "steps": 4000,
+      "seconds": 16.4,
+      "from_background": 5523
+    },
+    "dresser#0": {
+      "gaussians_in": 136129,
+      "gaussians_out": 103686,
+      "frames": 52,
+      "steps": 4000,
+      "seconds": 17.0,
+      "from_background": 4434
+    },
+    "nightstand#0": {
+      "gaussians_in": 7671,
+      "gaussians_out": 7006,
+      "frames": 69,
+      "steps": 4000,
+      "seconds": 13.6,
+      "from_background": 68
+    },
+    "shelf#0": {
+      "gaussians_in": 33725,
+      "gaussians_out": 19990,
+      "frames": 15,
+      "steps": 4000,
+      "seconds": 15.8,
+      "from_background": 23229
+    },
+    "trash can#1": {
+      "gaussians_in": 3927,
+      "gaussians_out": 2986,
+      "frames": 77,
+      "steps": 4000,
+      "seconds": 13.5,
+      "from_background": 1858
+    },
+    "ukulele#0": {
+      "gaussians_in": 14841,
+      "gaussians_out": 10311,
+      "frames": 36,
+      "steps": 4000,
+      "seconds": 14.6,
+      "from_background": 1262
+    },
+    "suitcase#2": {
+      "gaussians_in": 1829,
+      "gaussians_out": 1731,
+      "frames": 51,
+      "steps": 4000,
+      "seconds": 13.7,
+      "from_background": 1072
+    },
+    "basket#0": {
+      "gaussians_in": 3734,
+      "gaussians_out": 2839,
+      "frames": 21,
+      "steps": 4000,
+      "seconds": 13.6,
+      "from_background": 251
+    },
+    "basket#1": {
+      "gaussians_in": 3052,
+      "gaussians_out": 2120,
+      "frames": 21,
+      "steps": 4000,
+      "seconds": 13.7,
+      "from_background": 890
+    },
+    "potted plant#2": {
+      "gaussians_in": 23049,
+      "gaussians_out": 17870,
+      "frames": 76,
+      "steps": 4000,
+      "seconds": 15.2,
+      "from_background": 1026
+    },
+    "framed picture#0": {
+      "gaussians_in": 34896,
+      "gaussians_out": 29449,
+      "frames": 83,
+      "steps": 4000,
+      "seconds": 18.0,
+      "from_background": 1700
+    },
+    "framed picture#3": {
+      "gaussians_in": 121270,
+      "gaussians_out": 96199,
+      "frames": 99,
+      "steps": 4000,
+      "seconds": 18.6,
+      "from_background": 3807
+    }
+  },
+  "items_joined": {
+    "ukulele#0": 96,
+    "basket#0": 96,
+    "nightstand#0": 31,
+    "framed picture#0": 27,
+    "suitcase#2": 1006,
+    "basket#1": 669,
+    "framed picture#3": 31,
+    "shelf#0": 19497,
+    "trash can#1": 148,
+    "potted plant#2": 45,
+    "chair#1": 2844,
+    "dresser#0": 738,
+    "desk#2": 540,
+    "bed#1": 41287
+  },
+  "junk_removed": 18158,
+  "moved_from_background": {
+    "bed#1": 47685,
+    "desk#2": 7966,
+    "chair#1": 5523,
+    "dresser#0": 4434,
+    "nightstand#0": 68,
+    "shelf#0": 23229,
+    "trash can#1": 1858,
+    "ukulele#0": 1262,
+    "suitcase#2": 1072,
+    "basket#0": 251,
+    "basket#1": 890,
+    "potted plant#2": 1026,
+    "framed picture#0": 1700,
+    "framed picture#3": 3807
+  },
+  "hidden_kept": 1407,
+  "in_front_removed": 7215,
+  "high_needles_removed": 544,
+  "background": {
+    "gaussians_in": 554232,
+    "gaussians_out": 465520,
+    "frames": 216,
+    "steps": 8000,
+    "seconds": 86.1,
+    "fill_seconds": 36.3
+  },
+  "merged": {
+    "basket#1": "basket#0"
+  }
+}

@@ -1,0 +1,93 @@
+{
+  "gaussians": 905354,
+  "views": 172,
+  "voxel_size": 0.1,
+  "grid_dims": [
+    51,
+    18,
+    53
+  ],
+  "voxels": {
+    "free": 27245,
+    "occupied": 12286,
+    "unknown": 9123,
+    "exposed": 13258,
+    "gap": 11263
+  },
+  "walkable_positions": 51,
+  "exposure_eyes": 32,
+  "gaps": 59,
+  "gap_share": 0.4924,
+  "used_uncertainty": false,
+  "gaussians_seen_by_0_views": 41268,
+  "gaussians_seen_by_1_view": 11159,
+  "median_view_count": 43.0,
+  "median_spread_deg": 27.997371673583984,
+  "timings_s": {
+    "load_s": 75.37,
+    "geometric_s": 21.43,
+    "voxels_and_exposure_s": 4.08,
+    "gaps_and_nbv_s": 3.48,
+    "geometric_detail": {
+      "project_and_depth_s": 16.789,
+      "visibility_test_s": 4.248,
+      "voxel_carve_s": 0.355
+    }
+  },
+  "params": {
+    "voxel": 0.1,
+    "views_ok": 3.0,
+    "spread_ok": 10.0,
+    "uncertainty_ref": 0.25,
+    "min_opacity": 0.3,
+    "exposure_dirs": 6000,
+    "depth": {
+      "long_side": 256,
+      "near": 0.05,
+      "far": 12.0,
+      "occluder_min_opacity": 0.5,
+      "max_occluders": 600000,
+      "footprint_sigma": 1.5,
+      "max_footprint_px": 3,
+      "rel_tol": 0.02,
+      "px_tol": 1.5,
+      "slope_k": 2.0,
+      "slope_cap": 0.1,
+      "carve_rel_tol": 0.01,
+      "carve_px_tol": 1.0,
+      "carve_abs_tol": 0.02,
+      "chunk": 1000000,
+      "seed": 0
+    },
+    "gaps": {
+      "cov_threshold": 0.35,
+      "poor_share": 0.25,
+      "grow": 2,
+      "min_voxels": 4,
+      "max_radius": 1.25,
+      "near_object_margin": 0.4
+    },
+    "walk": {
+      "spacing": 0.25,
+      "clearance": 0.3,
+      "min_height": 0.1,
+      "max_height": 1.9,
+      "eye_height": 1.5,
+      "exposure_heights": [
+        1.5,
+        0.937
+      ],
+      "exposure_spacing": 0.5
+    },
+    "nbv": {
+      "max_targets": 400,
+      "min_dist": 0.4,
+      "max_dist": 4.0,
+      "cone_half_deg": 22.0,
+      "top_k": 3,
+      "min_separation": 0.75,
+      "seed": 0
+    },
+    "eye_from_cameras": true
+  }
+}

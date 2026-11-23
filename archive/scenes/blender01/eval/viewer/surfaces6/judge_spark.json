@@ -1,0 +1,560 @@
+{
+ "scene": "blender01",
+ "run": "surfaces6",
+ "model": "muse-spark-1.3",
+ "summary": {
+  "frames": 31,
+  "unparsed": 1,
+  "frames_with_artifacts": 21,
+  "artifacts": 32,
+  "severity_sum": 58,
+  "by_surface": {
+   "wall": 10,
+   "floor": 22,
+   "ceiling": 0
+  },
+  "by_kind": {
+   "blotch": 2,
+   "blur": 3,
+   "blur or smear": 6,
+   "floater": 1,
+   "floater or haze": 7,
+   "hole": 7,
+   "seam": 2,
+   "seam or step": 1,
+   "smear": 2,
+   "streak": 1
+  }
+ },
+ "frames": {
+  "000000": {
+   "artifacts": [
+    {
+     "kind": "blur",
+     "surface": "floor",
+     "severity": 2,
+     "box": [
+      0.0,
+      0.62,
+      0.22,
+      0.998
+     ],
+     "note": "left floor much blurrier, wood detail lost"
+    },
+    {
+     "kind": "seam",
+     "surface": "floor",
+     "severity": 1,
+     "box": [
+      0.925,
+      0.64,
+      1.0,
+      0.7
+     ],
+     "note": "dotted dark seam line near wall"
+    }
+   ],
+   "raw": null
+  },
+  "000020": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000040": {
+   "artifacts": [
+    {
+     "kind": "floater",
+     "surface": "floor",
+     "severity": 3,
+     "box": [
+      0.425,
+      0.675,
+      0.92,
+      0.86
+     ],
+     "note": "brown hazy smear over floor gap"
+    }
+   ],
+   "raw": null
+  },
+  "000060": {
+   "artifacts": [
+    {
+     "kind": "floater or haze",
+     "surface": "floor",
+     "severity": 3,
+     "box": [
+      0.5,
+      0.64,
+      0.935,
+      0.965
+     ],
+     "note": "brown smeary fog in front of sofa"
+    },
+    {
+     "kind": "floater or haze",
+     "surface": "wall",
+     "severity": 2,
+     "box": [
+      0.535,
+      0.33,
+      1.0,
+      0.435
+     ],
+     "note": "hazy fringe above sofa back"
+    }
+   ],
+   "raw": null
+  },
+  "000080": {
+   "artifacts": [
+    {
+     "kind": "floater or haze",
+     "surface": "floor",
+     "severity": 3,
+     "box": [
+      0.63,
+      0.66,
+      0.99,
+      0.99
+     ],
+     "note": "translucent brown streaky smear"
+    }
+   ],
+   "raw": null
+  },
+  "000100": {
+   "artifacts": [
+    {
+     "kind": "floater or haze",
+     "surface": "floor",
+     "severity": 3,
+     "box": [
+      0.705,
+      0.675,
+      1.0,
+      1.0
+     ],
+     "note": "brown fuzzy haze over floor"
+    }
+   ],
+   "raw": null
+  },
+  "000120": {
+   "artifacts": [
+    {
+     "kind": "blur",
+     "surface": "floor",
+     "severity": 2,
+     "box": [
+      0.862,
+      0.78,
+      0.995,
+      0.962
+     ],
+     "note": "orange smeary haze on floor by chair leg"
+    }
+   ],
+   "raw": null
+  },
+  "000140": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000160": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000180": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000200": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000220": {
+   "artifacts": [
+    {
+     "kind": "blur or smear",
+     "surface": "wall",
+     "severity": 3,
+     "box": [
+      0.58,
+      0.0,
+      1.0,
+      0.99
+     ],
+     "note": "right wall heavily smeared"
+    },
+    {
+     "kind": "blur or smear",
+     "surface": "wall",
+     "severity": 2,
+     "box": [
+      0.115,
+      0.0,
+      0.62,
+      0.44
+     ],
+     "note": "back wall indistinct blur"
+    }
+   ],
+   "raw": null
+  },
+  "000240": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000260": {
+   "artifacts": [
+    {
+     "kind": "seam",
+     "surface": "wall",
+     "severity": 1,
+     "box": [
+      0.573,
+      0.55,
+      0.651,
+      0.565
+     ],
+     "note": "short dark line at base"
+    }
+   ],
+   "raw": null
+  },
+  "000280": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000300": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000320": {
+   "artifacts": [
+    {
+     "kind": "smear",
+     "surface": "floor",
+     "severity": 2,
+     "box": [
+      0.187,
+      0.586,
+      0.75,
+      0.69
+     ],
+     "note": "cabinet base bleeds into floor"
+    }
+   ],
+   "raw": null
+  },
+  "000340": {
+   "artifacts": [
+    {
+     "kind": "smear",
+     "surface": "floor",
+     "severity": 2,
+     "box": [
+      0.312,
+      0.47,
+      0.898,
+      0.58
+     ],
+     "note": "white base bleed into floor"
+    },
+    {
+     "kind": "blotch",
+     "surface": "floor",
+     "severity": 2,
+     "box": [
+      0.635,
+      0.521,
+      0.773,
+      0.553
+     ],
+     "note": "dark red patch under cabinet"
+    },
+    {
+     "kind": "hole",
+     "surface": "floor",
+     "severity": 1,
+     "box": [
+      0.25,
+      0.332,
+      0.28,
+      0.348
+     ],
+     "note": "tiny black dash at back edge"
+    }
+   ],
+   "raw": null
+  },
+  "000360": {
+   "artifacts": [
+    {
+     "kind": "blur",
+     "surface": "floor",
+     "severity": 2,
+     "box": [
+      0.515,
+      0.115,
+      0.79,
+      0.39
+     ],
+     "note": "white smeared bleed onto floor"
+    },
+    {
+     "kind": "blotch",
+     "surface": "floor",
+     "severity": 2,
+     "box": [
+      0.78,
+      0.315,
+      0.895,
+      0.405
+     ],
+     "note": "dark red wrong-colour patch"
+    }
+   ],
+   "raw": null
+  },
+  "000380": {
+   "artifacts": [
+    {
+     "kind": "streak",
+     "surface": "wall",
+     "severity": 1,
+     "box": [
+      0.68,
+      0.0,
+      0.94,
+      0.07
+     ],
+     "note": "thin dark line at top"
+    }
+   ],
+   "raw": null
+  },
+  "000400": {
+   "artifacts": [
+    {
+     "kind": "blur or smear",
+     "surface": "wall",
+     "severity": 2,
+     "box": [
+      0.07,
+      0.0,
+      1.0,
+      0.68
+     ],
+     "note": "wall-floor edge smeared indistinct"
+    },
+    {
+     "kind": "floater or haze",
+     "surface": "floor",
+     "severity": 2,
+     "box": [
+      0.6,
+      0.35,
+      1.0,
+      0.72
+     ],
+     "note": "foggy haze over floor near wall"
+    },
+    {
+     "kind": "hole",
+     "surface": "wall",
+     "severity": 1,
+     "box": [
+      0.19,
+      0.06,
+      0.35,
+      0.16
+     ],
+     "note": "tiny black dotted specks"
+    }
+   ],
+   "raw": null
+  },
+  "000420": {
+   "artifacts": [
+    {
+     "kind": "hole",
+     "surface": "floor",
+     "severity": 1,
+     "box": [
+      0.175,
+      0.285,
+      0.375,
+      0.45
+     ],
+     "note": "dotted black gaps along wall-floor edge"
+    }
+   ],
+   "raw": null
+  },
+  "000440": {
+   "artifacts": [
+    {
+     "kind": "seam or step",
+     "surface": "wall",
+     "severity": 2,
+     "box": [
+      0.175,
+      0.38,
+      0.55,
+      0.585
+     ],
+     "note": "dotted dark gap along wall-floor junction"
+    }
+   ],
+   "raw": null
+  },
+  "000460": {
+   "artifacts": [
+    {
+     "kind": "hole",
+     "surface": "floor",
+     "severity": 1,
+     "box": [
+      0.32,
+      0.5,
+      0.86,
+      0.8
+     ],
+     "note": "dotted black specks along wall base"
+    }
+   ],
+   "raw": null
+  },
+  "000480": {
+   "artifacts": [],
+   "raw": null
+  },
+  "000500": {
+   "artifacts": [
+    {
+     "kind": "hole",
+     "surface": "floor",
+     "severity": 1,
+     "box": [
+      0.565,
+      0.61,
+      0.63,
+      0.635
+     ],
+     "note": "tiny black dots along baseboard"
+    }
+   ],
+   "raw": null
+  },
+  "000520": {
+   "artifacts": [
+    {
+     "kind": "blur or smear",
+     "surface": "floor",
+     "severity": 2,
+     "box": [
+      0.02,
+      0.74,
+      0.08,
+      0.88
+     ],
+     "note": "brown smear under sofa leg"
+    },
+    {
+     "kind": "floater or haze",
+     "surface": "floor",
+     "severity": 1,
+     "box": [
+      0.62,
+      0.61,
+      0.88,
+      0.68
+     ],
+     "note": "dotted specks along wall base"
+    }
+   ],
+   "raw": null
+  },
+  "000540": {
+   "artifacts": [
+    {
+     "kind": "hole",
+     "surface": "floor",
+     "severity": 1,
+     "box": [
+      0.71,
+      0.64,
+      0.87,
+      0.68
+     ],
+     "note": "row of small black dots"
+    }
+   ],
+   "raw": null
+  },
+  "000560": {
+   "artifacts": [
+    {
+     "kind": "hole",
+     "surface": "floor",
+     "severity": 2,
+     "box": [
+      0.72,
+      0.64,
+      0.975,
+      0.77
+     ],
+     "note": "dotted black missing pixels along base"
+    },
+    {
+     "kind": "blur or smear",
+     "surface": "wall",
+     "severity": 1,
+     "box": [
+      0.595,
+      0.505,
+      0.725,
+      0.64
+     ],
+     "note": "smudged colour bleed behind side table"
+    }
+   ],
+   "raw": null
+  },
+  "000580": {
+   "artifacts": [
+    {
+     "kind": "floater or haze",
+     "surface": "floor",
+     "severity": 2,
+     "box": [
+      0.162,
+      0.674,
+      0.285,
+      0.802
+     ],
+     "note": "translucent haze over floor by sofa leg"
+    },
+    {
+     "kind": "blur or smear",
+     "surface": "wall",
+     "severity": 2,
+     "box": [
+      0.705,
+      0.485,
+      0.825,
+      0.645
+     ],
+     "note": "blurry wash behind side table"
+    }
+   ],
+   "raw": null
+  },
+  "sheet": {
+   "artifacts": null,
+   "raw": ""
+  }
+ }
+}
